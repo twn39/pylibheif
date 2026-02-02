@@ -71,6 +71,7 @@ jobs:
               apt-get install -y libx265-dev libde265-dev libaom-dev libdav1d-dev libopenjp2-7-dev nasm
             fi
           CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
+          CIBW_CMAKE_ARGS_LINUX: -DWITH_DAV1D=OFF
           CIBW_BEFORE_BUILD_MACOS: |
             brew install openjpeg nasm x265 libde265 aom dav1d
           CIBW_ENVIRONMENT_MACOS: MACOSX_DEPLOYMENT_TARGET=14.0

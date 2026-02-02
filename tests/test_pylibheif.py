@@ -124,7 +124,8 @@ class TestDecoding:
     @pytest.fixture
     def heic_path(self):
         """返回测试 HEIC 文件路径"""
-        path = "images/test.heic"
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        path = os.path.join(base_dir, "images", "test.heic")
         if not os.path.exists(path):
             pytest.skip(f"Test file not found: {path}")
         return path
@@ -352,7 +353,8 @@ class TestMetadata:
     @pytest.fixture
     def heic_path(self):
         """返回测试 HEIC 文件路径"""
-        path = "images/test.heic"
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        path = os.path.join(base_dir, "images", "test.heic")
         if not os.path.exists(path):
             pytest.skip(f"Test file not found: {path}")
         return path
@@ -388,7 +390,8 @@ class TestMemoryManagement:
     @pytest.fixture
     def heic_path(self):
         """返回测试 HEIC 文件路径"""
-        path = "images/test.heic"
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        path = os.path.join(base_dir, "images", "test.heic")
         if not os.path.exists(path):
             pytest.skip(f"Test file not found: {path}")
         return path
