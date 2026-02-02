@@ -1,5 +1,10 @@
 # pylibheif
 
+[![PyPI version](https://badge.fury.io/py/pylibheif.svg)](https://badge.fury.io/py/pylibheif)
+[![Build and Publish](https://github.com/twn39/pylibheif/actions/workflows/build.yml/badge.svg)](https://github.com/twn39/pylibheif/actions/workflows/build.yml)
+[![License: LGPL v3](https://img.shields.io/badge/License-LGPL_v3-blue.svg)](https://www.gnu.org/licenses/lgpl-3.0)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+
 Python bindings for [libheif](https://github.com/strukturag/libheif) using pybind11.
 
 ## Features
