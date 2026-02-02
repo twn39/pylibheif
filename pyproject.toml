@@ -31,13 +31,6 @@ dependencies = [
     "numpy>=1.26.0",
 ]
 
-[project.optional-dependencies]
-test = [
-    "pytest>=7.4.0",
-    "pytest-benchmark>=5.0.0",
-    "pillow-heif>=0.20.0",
-]
-
 [project.urls]
 Homepage = "https://github.com/twn39/pylibheif"
 Repository = "https://github.com/twn39/pylibheif"
@@ -59,3 +52,10 @@ WITH_X265 = "ON"
 WITH_LIBDE265 = "ON"
 WITH_OpenJPEG_ENCODER = "ON"
 WITH_OpenJPEG_DECODER = "ON"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+    "pytest-benchmark>=5.0.0",
+    "pillow-heif>=0.20.0",
+]
