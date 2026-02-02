@@ -45,7 +45,7 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           choco install nasm
-          vcpkg install x265 aom dav1d openjpeg libde265 --triplet x64-windows-static
+          vcpkg install x265 aom dav1d openjpeg libde265 --triplet x64-windows-static-md
 
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.21.0
@@ -53,7 +53,7 @@ jobs:
           # Windows-specific configurations
           CIBW_CONFIG_SETTINGS_WINDOWS: >
             cmake.define.CMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake
-            cmake.define.VCPKG_TARGET_TRIPLET=x64-windows-static
+            cmake.define.VCPKG_TARGET_TRIPLET=x64-windows-static-md
           
           # Build for Python 3.11-3.14
           CIBW_BUILD: cp311-* cp312-* cp313-* cp314-*
