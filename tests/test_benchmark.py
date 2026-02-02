@@ -75,3 +75,36 @@ class TestBenchmarks:
             return ctx
             
         benchmark(_encode)
+
+    def test_benchmark_decode_hevc_pillow(self, benchmark, hevc_encoded_data):
+        """Benchmark HEVC decoding with pillow-heif"""
+        import pillow_heif
+        import io
+        
+        def _decode():
+            # pillow-heif can read from bytes/bio
+            heif_file = pillow_heif.open_heif(io.BytesIO(hevc_encoded_data))
+            # Accessing data triggers decode
+            return np.asarray(heif_file)
+            
+        benchmark(_decode)
+
+    def test_benchmark_encode_hevc_pillow(self, benchmark, sample_image_rgb):
+        """Benchmark HEVC encoding with pillow-heif"""
+        import pillow_heif
+        from PIL import Image
+        import io
+        
+        pillow_heif.register_heif_opener()
+        
+        # Convert pylibheif image back to numpy for PIL
+        plane = sample_image_rgb.get_plane(pylibheif.HeifChannel.Interleaved, False)
+        arr = np.asarray(plane)
+        pil_img = Image.fromarray(arr)
+        
+        def _encode():
+            bio = io.BytesIO()
+            pil_img.save(bio, format="HEIF", quality=80)
+            return bio.getvalue()
+            
+        benchmark(_encode)

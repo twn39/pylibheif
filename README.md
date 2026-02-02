@@ -354,14 +354,17 @@ uv pip install -e .
 
 Benchmarks on 1920x1080 RGB image (Apple Silicon):
 
-| Operation | Mean Time | Ops/Sec |
-|:---|:---:|:---:|
-| HEVC Decode | 31 ms | 31.9 |
-| AV1 Encode | 94 ms | 10.7 |
-| HEVC Encode | 286 ms | 3.5 |
+| Operation | pylibheif | pillow-heif | Note |
+|:---|:---:|:---:|:---|
+| HEVC Decode | 25 ms | 25 ms | ~39 FPS |
+| HEVC Encode | 279 ms | 272 ms | Quality 80 |
+| AV1 Encode | 91 ms | - | Speed 50 |
+
+`pylibheif` offers performance comparable to `pillow-heif` (both wrapper libheif), but exposes a lower-level C++ API for fine-grained control.
 
 Run benchmarks yourself:
 ```bash
+uv pip install pillow-heif pytest-benchmark
 uv run pytest tests/test_benchmark.py --benchmark-only
 ```
 
