@@ -46,8 +46,9 @@ jobs:
         run: |
           choco install nasm
           vcpkg install x265 aom dav1d openjpeg libde265 --triplet x64-windows-static-md
-          # Remove debug libraries to prevent linking mismatch
-          if (Test-Path C:/vcpkg/installed/x64-windows-static-md/debug) { Remove-Item -Recurse -Force C:/vcpkg/installed/x64-windows-static-md/debug }
+          # Hack: Overwrite debug libraries with release libraries to force Release linkage (MD)
+          # This fixes LNK2038 (MDd vs MD) while keeping CMake config files happy (they check for debug lib existence)
+          cp -r C:/vcpkg/installed/x64-windows-static-md/lib/* C:/vcpkg/installed/x64-windows-static-md/debug/lib/
 
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.21.0
