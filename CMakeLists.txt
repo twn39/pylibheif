@@ -5,14 +5,14 @@ project(pylibheif LANGUAGES C CXX)
 find_package(pybind11 REQUIRED)
 
 # libheif options
-set(WITH_EXAMPLES OFF CACHE BOOL "Build examples" FORCE)
-set(WITH_RAV1E OFF CACHE BOOL "Build rav1e" FORCE)
-set(WITH_DAV1D ON CACHE BOOL "Build dav1d" FORCE)
-set(WITH_AOM ON CACHE BOOL "Build aom" FORCE)
-set(WITH_X265 ON CACHE BOOL "Build x265" FORCE)
-set(WITH_LIBDE265 ON CACHE BOOL "Build libde265" FORCE)
-set(WITH_OpenJPEG_ENCODER ON CACHE BOOL "Build OpenJPEG encoder" FORCE)
-set(WITH_OpenJPEG_DECODER ON CACHE BOOL "Build OpenJPEG decoder" FORCE)
+set(WITH_EXAMPLES OFF CACHE BOOL "Build examples")
+set(WITH_RAV1E OFF CACHE BOOL "Build rav1e")
+option(WITH_DAV1D "Build dav1d" ON)
+option(WITH_AOM "Build aom" ON)
+option(WITH_X265 "Build x265" ON)
+option(WITH_LIBDE265 "Build libde265" ON)
+option(WITH_OpenJPEG_ENCODER "Build OpenJPEG encoder" ON)
+option(WITH_OpenJPEG_DECODER "Build OpenJPEG decoder" ON)
 
 # Disable plugin mode - build codecs as built-in
 set(WITH_DAV1D_PLUGIN OFF CACHE BOOL "Build dav1d as plugin" FORCE)

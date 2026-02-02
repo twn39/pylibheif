@@ -45,15 +45,15 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           choco install nasm
-          vcpkg install x265 aom dav1d openjpeg libde265 --triplet x64-windows
+          vcpkg install x265 aom dav1d openjpeg libde265 --triplet x64-windows-static
 
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.21.0
         env:
           # Windows-specific configurations
-          CIBW_CMAKE_ARGS_WINDOWS: >
-            -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake
-            -DVCPKG_TARGET_TRIPLET=x64-windows
+          CIBW_CONFIG_SETTINGS_WINDOWS: >
+            cmake.define.CMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake
+            cmake.define.VCPKG_TARGET_TRIPLET=x64-windows-static
           
           # Build for Python 3.11-3.14
           CIBW_BUILD: cp311-* cp312-* cp313-* cp314-*
@@ -71,7 +71,7 @@ jobs:
               apt-get install -y libx265-dev libde265-dev libaom-dev libdav1d-dev libopenjp2-7-dev nasm
             fi
           CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
-          CIBW_CMAKE_ARGS_LINUX: -DWITH_DAV1D=OFF
+          CIBW_CONFIG_SETTINGS_LINUX: cmake.define.WITH_DAV1D=OFF
           CIBW_BEFORE_BUILD_MACOS: |
             brew install openjpeg nasm x265 libde265 aom dav1d
           CIBW_ENVIRONMENT_MACOS: MACOSX_DEPLOYMENT_TARGET=14.0
