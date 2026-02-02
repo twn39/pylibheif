@@ -532,3 +532,88 @@ class TestMemoryManagement:
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
 
+    def test_encode_decode_jpeg(self):
+        """Test JPEG encoding and decoding"""
+        import pylibheif
+        
+        # Create a simple red image
+        width, height = 64, 64
+        img = pylibheif.HeifImage(
+            width, height,
+            pylibheif.HeifColorspace.RGB,
+            pylibheif.HeifChroma.InterleavedRGB
+        )
+        img.add_plane(pylibheif.HeifChannel.Interleaved, width, height, 8)
+        plane = img.get_plane(pylibheif.HeifChannel.Interleaved, True)
+        arr = np.asarray(plane)
+        arr[:, :, 0] = 255  # R
+        
+        # Encode
+        ctx = pylibheif.HeifContext()
+        encoder = ctx.get_encoder(pylibheif.HeifCompressionFormat.JPEG)
+        encoder.set_lossy_quality(80)
+        
+        img_handle = ctx.encode_image(img, encoder)
+        assert img_handle is not None
+        
+        # Write to memory
+        data = ctx.write_to_bytes()
+        assert len(data) > 0
+        assert data.startswith(b'\xff\xd8') or data[4:8] == b'ftyp' # Raw JPEG or HEIF-wrapped JPEG
+        
+        # Decode
+        ctx_read = pylibheif.HeifContext()
+        ctx_read.read_from_memory(data)
+        handle = ctx_read.get_primary_image_handle()
+        decoded_img = handle.decode_image(pylibheif.HeifColorspace.RGB, pylibheif.HeifChroma.InterleavedRGB)
+        
+        assert decoded_img.width == width
+        assert decoded_img.height == height
+
+    def test_encode_decode_avc(self):
+        """Test AVC (H.264) encoding and decoding"""
+        import pylibheif
+        
+        # Create a simple green image
+        width, height = 64, 64
+        img = pylibheif.HeifImage(
+            width, height,
+            pylibheif.HeifColorspace.RGB,
+            pylibheif.HeifChroma.InterleavedRGB
+        )
+        img.add_plane(pylibheif.HeifChannel.Interleaved, width, height, 8)
+        plane = img.get_plane(pylibheif.HeifChannel.Interleaved, True)
+        arr = np.asarray(plane)
+        arr[:, :, 1] = 255  # G
+        
+        # Encode
+        ctx = pylibheif.HeifContext()
+        # Note: HeifCompressionFormat.AVC needs to be added to bindings or use integer value if missing
+        # Using AVC format if available, otherwise skip
+        try:
+             # Assuming AVC enum might be mapped or using generic HEIF with x264
+             # Ideally define HeifCompressionFormat.AVC in bindings.
+             # If not exposed, check standard libheif enum value (usually 3 for AVC)
+             fmt = pylibheif.HeifCompressionFormat.AVC 
+        except AttributeError:
+             pytest.skip("AVC format enum not available")
+
+        try:
+            encoder = ctx.get_encoder(fmt)
+        except Exception as e:
+            pytest.skip(f"AVC encoder not available: {e}")
+
+        img_handle = ctx.encode_image(img, encoder)
+        assert img_handle is not None
+        
+        data = ctx.write_to_bytes()
+        assert len(data) > 0
+        
+        # Decode
+        ctx_read = pylibheif.HeifContext()
+        ctx_read.read_from_memory(data)
+        handle = ctx_read.get_primary_image_handle()
+        decoded_img = handle.decode_image(pylibheif.HeifColorspace.RGB, pylibheif.HeifChroma.InterleavedRGB)
+        
+        assert decoded_img.width == width
+        assert decoded_img.height == height

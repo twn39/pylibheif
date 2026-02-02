@@ -13,6 +13,10 @@ option(WITH_X265 "Build x265" ON)
 option(WITH_LIBDE265 "Build libde265" ON)
 option(WITH_OpenJPEG_ENCODER "Build OpenJPEG encoder" ON)
 option(WITH_OpenJPEG_DECODER "Build OpenJPEG decoder" ON)
+option(WITH_JPEG_ENCODER "Build JPEG encoder" ON)
+option(WITH_JPEG_DECODER "Build JPEG decoder" ON)
+option(WITH_X264 "Build x264 AVC encoder" ON)
+option(WITH_OpenH264_DECODER "Build OpenH264 AVC decoder" ON)
 
 # Disable plugin mode - build codecs as built-in
 set(WITH_DAV1D_PLUGIN OFF CACHE BOOL "Build dav1d as plugin" FORCE)

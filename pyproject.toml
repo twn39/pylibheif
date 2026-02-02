@@ -4,7 +4,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "pylibheif"
-version = "1.21.2.post1"
+version = "1.21.2.post2"
 description = "Python bindings for libheif - HEIC/AVIF/JPEG2000 image codec"
 readme = "README.md"
 license = {text = "LGPL-3.0-or-later"}
@@ -52,6 +52,10 @@ WITH_X265 = "ON"
 WITH_LIBDE265 = "ON"
 WITH_OpenJPEG_ENCODER = "ON"
 WITH_OpenJPEG_DECODER = "ON"
+WITH_JPEG_ENCODER = "ON"
+WITH_JPEG_DECODER = "ON"
+WITH_X264 = "ON"
+WITH_OpenH264_DECODER = "ON"
 
 [dependency-groups]
 dev = [
