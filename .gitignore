@@ -1,0 +1,41 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# CMake build files
+build_*/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Compiled extensions
+*.so
+*.dylib
+*.pyd
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test output files
+images/output_*
+
+# Lock files (optional, comment out if you want to track)
+# uv.lock
+
+.cache

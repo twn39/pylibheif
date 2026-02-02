@@ -1,0 +1,29 @@
+[build-system]
+requires = ["scikit-build-core>=0.10.0", "pybind11>=2.13.0"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "pylibheif"
+version = "1.21.2"
+description = "Python bindings for libheif using pybind11"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "numpy>=1.26.0",
+    "pybind11>=2.13.0",
+]
+
+[tool.scikit-build]
+cmake.version = ">=3.15"
+ninja.version = ">=1.10"
+wheel.expand-macos-universal-tags = true
+
+[tool.scikit-build.cmake.define]
+WITH_EXAMPLES = "OFF"
+WITH_RAV1E = "OFF"
+WITH_DAV1D = "ON"
+WITH_AOM = "ON"
+WITH_X265 = "ON"
+WITH_LIBDE265 = "ON"
+WITH_OpenJPEG_ENCODER = "ON"
+WITH_OpenJPEG_DECODER = "ON"
