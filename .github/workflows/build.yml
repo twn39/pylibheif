@@ -46,6 +46,8 @@ jobs:
         run: |
           choco install nasm
           vcpkg install x265 aom dav1d openjpeg libde265 --triplet x64-windows-static-md
+          # Remove debug libraries to prevent linking mismatch
+          if (Test-Path C:/vcpkg/installed/x64-windows-static-md/debug) { Remove-Item -Recurse -Force C:/vcpkg/installed/x64-windows-static-md/debug }
 
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.21.0
