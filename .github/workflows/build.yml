@@ -41,10 +41,11 @@ jobs:
           brew install openjpeg nasm
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2
+        uses: pypa/cibuildwheel@v2.21.3
         env:
           # Build for Python 3.11-3.14
           CIBW_BUILD: cp311-* cp312-* cp313-* cp314-*
+          CIBW_PRERELEASE_PYTHONS: 1
           # Skip 32-bit builds and musllinux
           CIBW_SKIP: "*-manylinux_i686 *musllinux*"
           # Install build dependencies
