@@ -39,15 +39,23 @@ sudo apt install libopenjp2-7-dev
 ## Installation
 
 ```bash
+pip install pylibheif
+```
+
+Or with uv:
+```bash
+uv pip install pylibheif
+```
+
+### Building from Source
+
+```bash
 # Clone with submodules
-git clone --recursive https://github.com/your-username/pylibheif.git
+git clone --recursive https://github.com/twn39/pylibheif.git
 cd pylibheif
 
-# Install with uv (recommended)
+# Install
 uv pip install -e .
-
-# Or with pip
-pip install -e .
 ```
 
 ## Usage
@@ -172,24 +180,164 @@ for id in exif_ids:
 
 ## API Reference
 
-### Classes
+### class `pylibheif.HeifContext`
 
-- `HeifContext`: Main context for reading/writing HEIF files
-- `HeifImageHandle`: Handle to a decoded image with metadata
-- `HeifImage`: Raw image data with buffer protocol support
-- `HeifEncoder`: Encoder for creating HEIF files
-- `HeifPlane`: Image plane with NumPy buffer protocol
+Manages the valid lifetime of libheif context. It is the main entry point (root object) for high-level API.
+
+#### Methods
+
+**`__init__()`**
+Creates a new empty context.
+
+**`read_from_file(filename: str) -> None`**
+Reads a HEIF file from the given filename.
+- `filename`: Path to the HEIF file.
+
+**`read_from_memory(data: bytes) -> None`**
+Reads a HEIF file from a bytes object.
+- `data`: Bytes containing the file content.
+
+**`write_to_file(filename: str) -> None`**
+Writes the current context to a file.
+- `filename`: Destination path.
+
+**`write_to_bytes() -> bytes`**
+Writes the current context to a bytes object.
+- Returns: `bytes` object containing the encoded file data.
+
+**`get_primary_image_handle() -> HeifImageHandle`**
+Gets the handle for the primary image in the file.
+- Returns: `HeifImageHandle` for the primary image.
+
+**`get_image_handle(id: int) -> HeifImageHandle`**
+Gets the handle for a specific image ID.
+- `id`: The ID of the image (see `get_list_of_top_level_image_IDs`).
+- Returns: `HeifImageHandle`.
+
+**`get_list_of_top_level_image_IDs() -> List[int]`**
+Gets a list of IDs of all top-level images in the file.
+- Returns: List of integer IDs.
+
+---
+
+### class `pylibheif.HeifImageHandle`
+
+Represents a compressed image within the HEIF file.
+
+#### Properties
+
+- **`width`** *(int)*: The width of the image.
+- **`height`** *(int)*: The height of the image.
+- **`has_alpha`** *(bool)*: True if the image has an alpha channel.
+
+#### Methods
+
+**`decode(colorspace: HeifColorspace = HeifColorspace.RGB, chroma: HeifChroma = HeifChroma.InterleavedRGB) -> HeifImage`**
+Decodes the image handle into an uncompressed `HeifImage`.
+- `colorspace`: Target colorspace (default: RGB).
+- `chroma`: Target chroma format (default: InterleavedRGB).
+- Returns: Decoded `HeifImage`.
+
+**`get_metadata_block_ids(type_filter: str = "") -> List[str]`**
+Gets a list of metadata block IDs attached to this image.
+- `type_filter`: Optional filter string (e.g. "Exif", "XMP").
+- Returns: List of metadata ID strings.
+
+**`get_metadata_block_type(id: str) -> str`**
+Gets the type string of a specific metadata block.
+- `id`: Metadata ID.
+- Returns: Type string (e.g. "Exif").
+
+**`get_metadata_block(id: str) -> bytes`**
+Gets the raw data of a metadata block.
+- `id`: Metadata ID.
+- Returns: `bytes` object containing the metadata.
+
+---
+
+### class `pylibheif.HeifImage`
+
+Represents an uncompressed image containing pixel data. Supports the Python Buffer Protocol for zero-copy access with NumPy.
+
+#### Properties
+
+- **`width`** *(int)*: The width of the image.
+- **`height`** *(int)*: The height of the image.
+
+#### Methods
+
+**`__init__(width: int, height: int, colorspace: HeifColorspace, chroma: HeifChroma)`**
+Creates a new empty image.
+- `width`: Image width.
+- `height`: Image height.
+- `colorspace`: Image colorspace.
+- `chroma`: Image chroma format.
+
+**`add_plane(channel: HeifChannel, width: int, height: int, bit_depth: int) -> None`**
+Adds a new plane to the image.
+- `channel`: The channel type (e.g. `HeifChannel.Interleaved`).
+- `width`: Width of the plane.
+- `height`: Height of the plane.
+- `bit_depth`: Bit depth (e.g. 8).
+
+**`get_plane(channel: HeifChannel, writeable: bool = False) -> HeifPlane`**
+Gets a plane object that supports the buffer protocol.
+- `channel`: The channel to retrieve.
+- `writeable`: Whether the buffer should be writable.
+- Returns: `HeifPlane` object (wrappable with `np.asarray()`).
+
+---
+
+### class `pylibheif.HeifEncoder`
+
+Controls the encoding process.
+
+#### Methods
+
+**`__init__(format: HeifCompressionFormat)`**
+Creates a new encoder for the specified format.
+- `format`: Compression format (e.g. `HeifCompressionFormat.HEVC`).
+
+**`set_lossy_quality(quality: int) -> None`**
+Sets the quality for lossy compression.
+- `quality`: Integer between 0 (lowest) and 100 (highest).
+
+**`set_parameter(name: str, value: str) -> None`**
+Sets a low-level encoder parameter.
+- `name`: Parameter name (e.g. "speed" for AV1).
+- `value`: Parameter value.
+
+**`encode_image(context: HeifContext, image: HeifImage) -> None`**
+Encodes the given image and appends it to the context.
+- `context`: The destination `HeifContext`.
+- `image`: The source `HeifImage` to encode.
+
+---
 
 ### Enums
 
-- `HeifColorspace`: RGB, YCbCr, Monochrome
-- `HeifChroma`: C420, C422, C444, InterleavedRGB, InterleavedRGBA
-- `HeifChannel`: Y, Cb, Cr, R, G, B, Alpha, Interleaved
-- `HeifCompressionFormat`: HEVC, AV1, JPEG, JPEG2000
+#### `pylibheif.HeifColorspace`
+- `RGB`, `YCbCr`, `Monochrome`, `Undefined`
 
-### Exceptions
+#### `pylibheif.HeifChroma`
+- `InterleavedRGB`: Interleaved R, G, B bytes.
+- `InterleavedRGBA`: Interleaved R, G, B, A bytes.
+- `C420`: YUV 4:2:0 planar.
+- `C422`: YUV 4:2:2 planar.
+- `C444`: YUV 4:4:4 planar.
+- `Monochrome`.
 
-- `HeifError`: Base exception for all libheif errors
+#### `pylibheif.HeifChannel`
+- `Interleaved`: For interleaved RGB/RGBA.
+- `Y`, `Cb`, `Cr`: For YUV planar.
+- `R`, `G`, `B`: For RGB planar.
+- `Alpha`: For Alpha channel.
+
+#### `pylibheif.HeifCompressionFormat`
+- `HEVC`: H.265 (libx265).
+- `AV1`: AV1 (AOM/RAV1E/SVT).
+- `JPEG`: JPEG.
+- `JPEG2000`: JPEG 2000 (OpenJPEG).
 
 ## Building from Source
 
@@ -200,6 +348,21 @@ cd pylibheif
 
 # Build
 uv pip install -e .
+```
+
+## Performance
+
+Benchmarks on 1920x1080 RGB image (Apple Silicon):
+
+| Operation | Mean Time | Ops/Sec |
+|:---|:---:|:---:|
+| HEVC Decode | 31 ms | 31.9 |
+| AV1 Encode | 94 ms | 10.7 |
+| HEVC Encode | 286 ms | 3.5 |
+
+Run benchmarks yourself:
+```bash
+uv run pytest tests/test_benchmark.py --benchmark-only
 ```
 
 ## License

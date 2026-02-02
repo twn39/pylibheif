@@ -93,6 +93,7 @@ PYBIND11_MODULE(pylibheif, m) {
            &HeifContext::get_list_of_top_level_image_IDs)
       .def("get_image_handle", &HeifContext::get_image_handle)
       .def("write_to_file", &HeifContext::write_to_file)
+      .def("write_to_bytes", &HeifContext::write_to_bytes)
       .def("__enter__", [](HeifContext &self) { return &self; })
       .def("__exit__", [](HeifContext &self, py::args) {});
 

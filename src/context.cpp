@@ -46,4 +46,30 @@ void HeifContext::write_to_file(const std::string &filename) {
   check_error(heif_context_write_to_file(ctx, filename.c_str()));
 }
 
+struct WriterData {
+  std::vector<uint8_t> data;
+};
+
+static struct heif_error writer_write(struct heif_context *ctx,
+                                      const void *data, size_t size,
+                                      void *userdata) {
+  WriterData *wd = (WriterData *)userdata;
+  const uint8_t *bytes = (const uint8_t *)data;
+  wd->data.insert(wd->data.end(), bytes, bytes + size);
+
+  struct heif_error err = {heif_error_Ok, heif_suberror_Unspecified, "Success"};
+  return err;
+}
+
+py::bytes HeifContext::write_to_bytes() {
+  WriterData wd;
+  struct heif_writer writer = {}; // Zero-initialize all fields
+  writer.writer_api_version = 1;
+  writer.write = writer_write;
+
+  check_error(heif_context_write(ctx, &writer, &wd));
+
+  return py::bytes((char *)wd.data.data(), wd.data.size());
+}
+
 } // namespace pylibheif

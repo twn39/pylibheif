@@ -21,6 +21,7 @@ public:
   std::shared_ptr<HeifImageHandle> get_image_handle(heif_item_id id);
 
   void write_to_file(const std::string &filename);
+  py::bytes write_to_bytes();
 
   heif_context *get() { return ctx; }
 
