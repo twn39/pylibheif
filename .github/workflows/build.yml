@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-14]
+        os: [ubuntu-latest, macos-14]
 
     steps:
       - uses: actions/checkout@v4
@@ -40,27 +40,13 @@ jobs:
         run: |
           brew install openjpeg nasm
 
-      # Windows dependencies
-      - name: Install Windows dependencies
-        if: runner.os == 'Windows'
-        run: |
-          choco install nasm
-          vcpkg install x265 aom dav1d openjpeg libde265 --triplet x64-windows-static-md
-          # Hack: Overwrite debug libraries with release libraries to force Release linkage (MD)
-          Copy-Item -Path "C:/vcpkg/installed/x64-windows-static-md/lib/*" -Destination "C:/vcpkg/installed/x64-windows-static-md/debug/lib/" -Recurse -Force
-
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.21.0
         env:
-          # Windows-specific configurations
-          CIBW_CONFIG_SETTINGS_WINDOWS: >
-            cmake.define.CMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake
-            cmake.define.VCPKG_TARGET_TRIPLET=x64-windows-static-md
-          
           # Build for Python 3.11-3.14
           CIBW_BUILD: cp311-* cp312-* cp313-* cp314-*
           # Skip 32-bit builds and musllinux
-          CIBW_SKIP: "*-win32 *-manylinux_i686 *musllinux*"
+          CIBW_SKIP: "*-manylinux_i686 *musllinux*"
           # Install build dependencies
           CIBW_BEFORE_BUILD_LINUX: |
             if [ -x "$(command -v yum)" ]; then
