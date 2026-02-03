@@ -98,7 +98,6 @@ py::buffer_info HeifImage::get_buffer_info(heif_channel channel,
 
   int width = heif_image_get_width(image, channel);
   int height = heif_image_get_height(image, channel);
-  int bpp = heif_image_get_bits_per_pixel(image, channel);
   int bpp_per_channel = heif_image_get_bits_per_pixel_range(image, channel);
 
   // Determine number of channels for interleaved formats
