@@ -72,4 +72,29 @@ py::bytes HeifContext::write_to_bytes() {
   return py::bytes((char *)wd.data.data(), wd.data.size());
 }
 
+void HeifContext::add_exif_metadata(std::shared_ptr<HeifImageHandle> handle,
+                                    const py::bytes &data) {
+  std::string data_str(data);
+  check_error(heif_context_add_exif_metadata(
+      ctx, handle->get(), data_str.data(), static_cast<int>(data_str.size())));
+}
+
+void HeifContext::add_xmp_metadata(std::shared_ptr<HeifImageHandle> handle,
+                                   const py::bytes &data) {
+  std::string data_str(data);
+  check_error(heif_context_add_XMP_metadata(ctx, handle->get(), data_str.data(),
+                                            static_cast<int>(data_str.size())));
+}
+
+void HeifContext::add_generic_metadata(std::shared_ptr<HeifImageHandle> handle,
+                                       const py::bytes &data,
+                                       const std::string &item_type,
+                                       const std::string &content_type) {
+  std::string data_str(data);
+  check_error(heif_context_add_generic_metadata(
+      ctx, handle->get(), data_str.data(), static_cast<int>(data_str.size()),
+      item_type.c_str(),
+      content_type.empty() ? nullptr : content_type.c_str()));
+}
+
 } // namespace pylibheif

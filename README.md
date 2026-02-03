@@ -13,7 +13,7 @@ Python bindings for [libheif](https://github.com/strukturag/libheif) using pybin
 - **AVIF Support**: Read and write AVIF images (AV1 encoded)
 - **JPEG2000 Support**: Read and write JPEG2000 images in HEIF container
 - **NumPy Integration**: Zero-copy access to image data via Python Buffer Protocol
-- **Metadata Support**: Read EXIF and XMP metadata from images
+- **Metadata Support**: Read and write EXIF, XMP, and custom metadata
 - **RAII Resource Management**: Automatic resource cleanup with context managers
 
 ## Supported Formats
@@ -183,6 +183,51 @@ for id in exif_ids:
     print(f'Metadata type: {metadata_type}, size: {len(metadata_bytes)}')
 ```
 
+### Writing Metadata
+
+```python
+import pylibheif
+import numpy as np
+
+# Create and encode an image
+width, height = 64, 64
+img = pylibheif.HeifImage(width, height,
+                          pylibheif.HeifColorspace.RGB,
+                          pylibheif.HeifChroma.InterleavedRGB)
+img.add_plane(pylibheif.HeifChannel.Interleaved, width, height, 8)
+plane = img.get_plane(pylibheif.HeifChannel.Interleaved, True)
+arr = np.asarray(plane)
+arr[:] = 128  # fill with gray
+
+ctx = pylibheif.HeifContext()
+encoder = pylibheif.HeifEncoder(pylibheif.HeifCompressionFormat.HEVC)
+encoder.set_lossy_quality(85)
+handle = encoder.encode_image(ctx, img)
+
+# Add EXIF metadata (with 4-byte offset prefix for TIFF header)
+exif_data = b'\x00\x00\x00\x00' + b'Exif\x00\x00' + b'II*\x00...'  # your EXIF data
+ctx.add_exif_metadata(handle, exif_data)
+
+# Add XMP metadata
+xmp_data = b'''<?xpacket begin="" id="W5M0MpCehiHzreSzNTczkc9d"?>
+<x:xmpmeta xmlns:x="adobe:ns:meta/">
+  <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+    <rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/">
+      <dc:creator>My App</dc:creator>
+    </rdf:Description>
+  </rdf:RDF>
+</x:xmpmeta>
+<?xpacket end="w"?>'''
+ctx.add_xmp_metadata(handle, xmp_data)
+
+# Add custom/generic metadata
+custom_data = b'{"app": "myapp", "version": "1.0"}'
+ctx.add_generic_metadata(handle, custom_data, "json", "application/json")
+
+# Save
+ctx.write_to_file('output_with_metadata.heic')
+```
+
 ## API Reference
 
 ### class `pylibheif.HeifContext`
@@ -222,6 +267,23 @@ Gets the handle for a specific image ID.
 **`get_list_of_top_level_image_IDs() -> List[int]`**
 Gets a list of IDs of all top-level images in the file.
 - Returns: List of integer IDs.
+
+**`add_exif_metadata(handle: HeifImageHandle, data: bytes) -> None`**
+Adds EXIF metadata to the specified image.
+- `handle`: Image handle from encoding.
+- `data`: Raw EXIF bytes (with 4-byte offset prefix for TIFF header).
+
+**`add_xmp_metadata(handle: HeifImageHandle, data: bytes) -> None`**
+Adds XMP metadata to the specified image.
+- `handle`: Image handle from encoding.
+- `data`: XMP XML as bytes.
+
+**`add_generic_metadata(handle: HeifImageHandle, data: bytes, item_type: str, content_type: str = "") -> None`**
+Adds generic/custom metadata to the specified image.
+- `handle`: Image handle from encoding.
+- `data`: Raw metadata bytes.
+- `item_type`: Metadata item type (e.g. "json", "iptc").
+- `content_type`: Optional MIME content type (e.g. "application/json").
 
 ---
 
@@ -312,10 +374,11 @@ Sets a low-level encoder parameter.
 - `name`: Parameter name (e.g. "speed" for AV1).
 - `value`: Parameter value.
 
-**`encode_image(context: HeifContext, image: HeifImage) -> None`**
+**`encode_image(context: HeifContext, image: HeifImage) -> HeifImageHandle`**
 Encodes the given image and appends it to the context.
 - `context`: The destination `HeifContext`.
 - `image`: The source `HeifImage` to encode.
+- Returns: `HeifImageHandle` for the encoded image. Can be used to add metadata.
 
 ---
 

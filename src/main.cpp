@@ -94,6 +94,17 @@ PYBIND11_MODULE(pylibheif, m) {
       .def("get_image_handle", &HeifContext::get_image_handle)
       .def("write_to_file", &HeifContext::write_to_file)
       .def("write_to_bytes", &HeifContext::write_to_bytes)
+      .def("add_exif_metadata", &HeifContext::add_exif_metadata,
+           py::arg("handle"), py::arg("data"),
+           "Add EXIF metadata to an image. The data should be raw EXIF bytes.")
+      .def("add_xmp_metadata", &HeifContext::add_xmp_metadata,
+           py::arg("handle"), py::arg("data"),
+           "Add XMP metadata to an image. The data should be XMP XML as bytes.")
+      .def("add_generic_metadata", &HeifContext::add_generic_metadata,
+           py::arg("handle"), py::arg("data"), py::arg("item_type"),
+           py::arg("content_type") = "",
+           "Add generic metadata to an image with specified item type and "
+           "optional content type.")
       .def("__enter__", [](HeifContext &self) { return &self; })
       .def("__exit__", [](HeifContext &self, py::args) {});
 

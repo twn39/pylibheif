@@ -371,6 +371,179 @@ class TestMetadata:
         assert isinstance(ids, list)
 
 
+class TestMetadataWriting:
+    """测试元数据写入功能"""
+    
+    def create_test_image(self, width=64, height=64):
+        """创建测试图像"""
+        import pylibheif
+        img = pylibheif.HeifImage(
+            width, height,
+            pylibheif.HeifColorspace.RGB,
+            pylibheif.HeifChroma.InterleavedRGB
+        )
+        img.add_plane(pylibheif.HeifChannel.Interleaved, width, height, 8)
+        
+        plane = img.get_plane(pylibheif.HeifChannel.Interleaved, True)
+        arr = np.asarray(plane)
+        arr[:] = 128  # 灰色背景
+        
+        return img
+    
+    def test_add_exif_metadata(self):
+        """测试添加 EXIF 元数据"""
+        import pylibheif
+        
+        img = self.create_test_image()
+        
+        # 编码图像
+        ctx = pylibheif.HeifContext()
+        encoder = pylibheif.HeifEncoder(pylibheif.HeifCompressionFormat.HEVC)
+        encoder.set_lossy_quality(85)
+        handle = encoder.encode_image(ctx, img)
+        
+        # 创建简单的 EXIF 数据 (必须以正确的 EXIF header 开头)
+        # libheif expects the data with 4-byte offset prefix for TIFF header
+        exif_data = b'\x00\x00\x00\x00' + b'Exif\x00\x00' + b'II*\x00\x08\x00\x00\x00\x00\x00\x00\x00'
+        
+        # 添加 EXIF 元数据
+        ctx.add_exif_metadata(handle, exif_data)
+        
+        # 写入到内存
+        data = ctx.write_to_bytes()
+        assert len(data) > 0
+        
+        # 读取并验证元数据存在
+        ctx2 = pylibheif.HeifContext()
+        ctx2.read_from_memory(data)
+        handle2 = ctx2.get_primary_image_handle()
+        
+        # 获取 EXIF 元数据 ID
+        exif_ids = handle2.get_metadata_block_ids("Exif")
+        assert len(exif_ids) >= 1, "EXIF metadata should be present"
+        
+        # 验证元数据类型
+        assert handle2.get_metadata_block_type(exif_ids[0]) == "Exif"
+    
+    def test_add_xmp_metadata(self):
+        """测试添加 XMP 元数据"""
+        import pylibheif
+        
+        img = self.create_test_image()
+        
+        # 编码图像
+        ctx = pylibheif.HeifContext()
+        encoder = pylibheif.HeifEncoder(pylibheif.HeifCompressionFormat.HEVC)
+        encoder.set_lossy_quality(85)
+        handle = encoder.encode_image(ctx, img)
+        
+        # 创建简单的 XMP 数据
+        xmp_data = b'''<?xpacket begin="" id="W5M0MpCehiHzreSzNTczkc9d"?>
+<x:xmpmeta xmlns:x="adobe:ns:meta/">
+  <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+    <rdf:Description rdf:about=""
+      xmlns:dc="http://purl.org/dc/elements/1.1/">
+      <dc:creator>pylibheif test</dc:creator>
+    </rdf:Description>
+  </rdf:RDF>
+</x:xmpmeta>
+<?xpacket end="w"?>'''
+        
+        # 添加 XMP 元数据
+        ctx.add_xmp_metadata(handle, xmp_data)
+        
+        # 写入到内存
+        data = ctx.write_to_bytes()
+        assert len(data) > 0
+        
+        # 读取并验证元数据存在
+        ctx2 = pylibheif.HeifContext()
+        ctx2.read_from_memory(data)
+        handle2 = ctx2.get_primary_image_handle()
+        
+        # 获取所有元数据 ID
+        all_ids = handle2.get_metadata_block_ids("")
+        assert len(all_ids) >= 1, "XMP metadata should be present"
+        
+        # 查找 XMP 类型的元数据(可能是 "mime" 类型)
+        found_xmp = False
+        for mid in all_ids:
+            metadata = handle2.get_metadata_block(mid)
+            if b'pylibheif test' in metadata:
+                found_xmp = True
+                break
+        
+        assert found_xmp, "XMP metadata content should be retrievable"
+    
+    def test_add_generic_metadata(self):
+        """测试添加通用元数据"""
+        import pylibheif
+        
+        img = self.create_test_image()
+        
+        # 编码图像
+        ctx = pylibheif.HeifContext()
+        encoder = pylibheif.HeifEncoder(pylibheif.HeifCompressionFormat.HEVC)
+        encoder.set_lossy_quality(85)
+        handle = encoder.encode_image(ctx, img)
+        
+        # 添加通用元数据
+        custom_data = b'{"test": "pylibheif custom metadata"}'
+        ctx.add_generic_metadata(handle, custom_data, "json", "application/json")
+        
+        # 写入到内存
+        data = ctx.write_to_bytes()
+        assert len(data) > 0
+        
+        # 读取并验证
+        ctx2 = pylibheif.HeifContext()
+        ctx2.read_from_memory(data)
+        handle2 = ctx2.get_primary_image_handle()
+        
+        all_ids = handle2.get_metadata_block_ids("")
+        assert len(all_ids) >= 1, "Custom metadata should be present"
+    
+    def test_roundtrip_with_metadata(self):
+        """测试带元数据的编码-解码往返"""
+        import pylibheif
+        
+        img = self.create_test_image()
+        
+        # 编码并添加多种元数据
+        ctx = pylibheif.HeifContext()
+        encoder = pylibheif.HeifEncoder(pylibheif.HeifCompressionFormat.HEVC)
+        encoder.set_lossy_quality(90)
+        handle = encoder.encode_image(ctx, img)
+        
+        # 添加 XMP
+        xmp_data = b'<?xpacket begin="" id="W5M0MpCehiHzreSzNTczkc9d"?><x:xmpmeta xmlns:x="adobe:ns:meta/"></x:xmpmeta><?xpacket end="w"?>'
+        ctx.add_xmp_metadata(handle, xmp_data)
+        
+        # 写入文件
+        with tempfile.NamedTemporaryFile(suffix='.heic', delete=False) as f:
+            output_path = f.name
+        
+        try:
+            ctx.write_to_file(output_path)
+            assert os.path.exists(output_path)
+            
+            # 读取并解码
+            ctx2 = pylibheif.HeifContext()
+            ctx2.read_from_file(output_path)
+            handle2 = ctx2.get_primary_image_handle()
+            
+            # 验证图像尺寸
+            assert handle2.width == 64
+            assert handle2.height == 64
+            
+            # 验证有元数据
+            all_ids = handle2.get_metadata_block_ids("")
+            assert len(all_ids) >= 1
+            
+        finally:
+            os.unlink(output_path)
+
+
 class TestErrorHandling:
     """测试错误处理"""
     
@@ -531,89 +704,3 @@ class TestMemoryManagement:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
-
-    def test_encode_decode_jpeg(self):
-        """Test JPEG encoding and decoding"""
-        import pylibheif
-        
-        # Create a simple red image
-        width, height = 64, 64
-        img = pylibheif.HeifImage(
-            width, height,
-            pylibheif.HeifColorspace.RGB,
-            pylibheif.HeifChroma.InterleavedRGB
-        )
-        img.add_plane(pylibheif.HeifChannel.Interleaved, width, height, 8)
-        plane = img.get_plane(pylibheif.HeifChannel.Interleaved, True)
-        arr = np.asarray(plane)
-        arr[:, :, 0] = 255  # R
-        
-        # Encode
-        ctx = pylibheif.HeifContext()
-        encoder = ctx.get_encoder(pylibheif.HeifCompressionFormat.JPEG)
-        encoder.set_lossy_quality(80)
-        
-        img_handle = ctx.encode_image(img, encoder)
-        assert img_handle is not None
-        
-        # Write to memory
-        data = ctx.write_to_bytes()
-        assert len(data) > 0
-        assert data.startswith(b'\xff\xd8') or data[4:8] == b'ftyp' # Raw JPEG or HEIF-wrapped JPEG
-        
-        # Decode
-        ctx_read = pylibheif.HeifContext()
-        ctx_read.read_from_memory(data)
-        handle = ctx_read.get_primary_image_handle()
-        decoded_img = handle.decode_image(pylibheif.HeifColorspace.RGB, pylibheif.HeifChroma.InterleavedRGB)
-        
-        assert decoded_img.width == width
-        assert decoded_img.height == height
-
-    def test_encode_decode_avc(self):
-        """Test AVC (H.264) encoding and decoding"""
-        import pylibheif
-        
-        # Create a simple green image
-        width, height = 64, 64
-        img = pylibheif.HeifImage(
-            width, height,
-            pylibheif.HeifColorspace.RGB,
-            pylibheif.HeifChroma.InterleavedRGB
-        )
-        img.add_plane(pylibheif.HeifChannel.Interleaved, width, height, 8)
-        plane = img.get_plane(pylibheif.HeifChannel.Interleaved, True)
-        arr = np.asarray(plane)
-        arr[:, :, 1] = 255  # G
-        
-        # Encode
-        ctx = pylibheif.HeifContext()
-        # Note: HeifCompressionFormat.AVC needs to be added to bindings or use integer value if missing
-        # Using AVC format if available, otherwise skip
-        try:
-             # Assuming AVC enum might be mapped or using generic HEIF with x264
-             # Ideally define HeifCompressionFormat.AVC in bindings.
-             # If not exposed, check standard libheif enum value (usually 3 for AVC)
-             fmt = pylibheif.HeifCompressionFormat.AVC 
-        except AttributeError:
-             pytest.skip("AVC format enum not available")
-
-        try:
-            encoder = ctx.get_encoder(fmt)
-        except Exception as e:
-            pytest.skip(f"AVC encoder not available: {e}")
-
-        img_handle = ctx.encode_image(img, encoder)
-        assert img_handle is not None
-        
-        data = ctx.write_to_bytes()
-        assert len(data) > 0
-        
-        # Decode
-        ctx_read = pylibheif.HeifContext()
-        ctx_read.read_from_memory(data)
-        handle = ctx_read.get_primary_image_handle()
-        decoded_img = handle.decode_image(pylibheif.HeifColorspace.RGB, pylibheif.HeifChroma.InterleavedRGB)
-        
-        assert decoded_img.width == width
-        assert decoded_img.height == height

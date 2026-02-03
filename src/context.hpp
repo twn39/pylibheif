@@ -23,12 +23,21 @@ public:
   void write_to_file(const std::string &filename);
   py::bytes write_to_bytes();
 
+  // Metadata writing
+  void add_exif_metadata(std::shared_ptr<HeifImageHandle> handle,
+                         const py::bytes &data);
+  void add_xmp_metadata(std::shared_ptr<HeifImageHandle> handle,
+                        const py::bytes &data);
+  void add_generic_metadata(std::shared_ptr<HeifImageHandle> handle,
+                            const py::bytes &data, const std::string &item_type,
+                            const std::string &content_type);
+
   heif_context *get() { return ctx; }
 
 private:
   heif_context *ctx;
-  std::string
-      memory_data; // Store memory data to ensure it outlives the context
+  // Store memory data to ensure it outlives the context
+  std::string memory_data;
 };
 
 } // namespace pylibheif

@@ -7,21 +7,23 @@ namespace pylibheif {
 
 class HeifContext;
 class HeifImage;
+class HeifImageHandle;
 
 class HeifEncoder {
 public:
-    HeifEncoder(heif_compression_format format);
-    ~HeifEncoder();
+  HeifEncoder(heif_compression_format format);
+  ~HeifEncoder();
 
-    void set_lossy_quality(int quality);
-    void set_parameter(const std::string& name, const std::string& value);
-    
-    void encode_image(HeifContext& ctx, const HeifImage& image);
+  void set_lossy_quality(int quality);
+  void set_parameter(const std::string &name, const std::string &value);
 
-    heif_encoder* get() { return encoder; }
+  std::shared_ptr<HeifImageHandle> encode_image(HeifContext &ctx,
+                                                const HeifImage &image);
+
+  heif_encoder *get() { return encoder; }
 
 private:
-    heif_encoder* encoder;
+  heif_encoder *encoder;
 };
 
 } // namespace pylibheif
