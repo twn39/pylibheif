@@ -33,6 +33,7 @@ set(KVAZAAR_EXECUTABLE OFF CACHE BOOL "Build kvazaar executable" FORCE)
 set(BUILD_KVAZAAR_BINARY OFF CACHE BOOL "Build kvazaar binary" FORCE)
 set(BUILD_TESTS OFF CACHE BOOL "Build tests" FORCE)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared libraries" FORCE)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 add_subdirectory(third_party/kvazaar EXCLUDE_FROM_ALL)
 
 # Help libheif find Kvazaar from submodule
