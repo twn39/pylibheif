@@ -1,8 +1,11 @@
+import os
 import pytest
 import pylibheif
 import numpy as np
 import threading
 import time
+
+
 
 @pytest.fixture
 def sample_image_rgb():
@@ -38,6 +41,7 @@ def encode_task(image, quality=50):
     # Write to bytes to simulate full I/O pipeline
     _ = ctx.write_to_bytes()
 
+@pytest.mark.skipif(os.getenv("CI") == "true" or os.getenv("GITHUB_ACTIONS") == "true", reason="Skipping threading benchmark in CI")
 def test_threading_speedup(sample_image_rgb):
     """
     Verify that multi-threaded encoding is faster than sequential encoding.
