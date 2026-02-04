@@ -318,6 +318,39 @@ class TestEncoding:
         finally:
             os.unlink(output_path)
     
+    def test_encode_jpeg(self):
+        import pylibheif
+        
+        # Check if JPEG encoder is available
+        descriptors = pylibheif.get_encoder_descriptors(pylibheif.HeifCompressionFormat.JPEG)
+        if not descriptors:
+            pytest.skip("JPEG encoder not available")
+
+        img = self.create_test_image()
+        
+        ctx = pylibheif.HeifContext()
+        encoder = pylibheif.HeifEncoder(pylibheif.HeifCompressionFormat.JPEG)
+        encoder.set_lossy_quality(85)
+        encoder.encode_image(ctx, img)
+        
+        with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as f:
+            output_path = f.name
+        
+        try:
+            ctx.write_to_file(output_path)
+            assert os.path.exists(output_path)
+            assert os.path.getsize(output_path) > 0
+            
+            # Verify we can read it back
+            ctx_read = pylibheif.HeifContext()
+            ctx_read.read_from_file(output_path)
+            handle = ctx_read.get_primary_image_handle()
+            assert handle.width == 100
+            assert handle.height == 100
+            
+        finally:
+            os.unlink(output_path)
+
     def test_encode_jpeg2000(self):
         import pylibheif
         img = self.create_test_image()
@@ -334,6 +367,14 @@ class TestEncoding:
             ctx.write_to_file(output_path)
             assert os.path.exists(output_path)
             assert os.path.getsize(output_path) > 0
+            
+            # Verify we can read it back
+            ctx_read = pylibheif.HeifContext()
+            ctx_read.read_from_file(output_path)
+            handle = ctx_read.get_primary_image_handle()
+            assert handle.width == 100
+            assert handle.height == 100
+            
         finally:
             os.unlink(output_path)
 

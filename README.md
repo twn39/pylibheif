@@ -164,6 +164,59 @@ encoder.encode_image(ctx, img)
 ctx.write_to_file('output.avif')
 ```
 
+### Writing JPEG Images
+
+```python
+import pylibheif
+import numpy as np
+
+# Prepare image (same as above)
+width, height = 1920, 1080
+img = pylibheif.HeifImage(width, height, 
+                          pylibheif.HeifColorspace.RGB,
+                          pylibheif.HeifChroma.InterleavedRGB)
+img.add_plane(pylibheif.HeifChannel.Interleaved, width, height, 8)
+
+# Encode and save as JPEG
+ctx = pylibheif.HeifContext()
+
+# Use JPEG format
+encoder = pylibheif.HeifEncoder(pylibheif.HeifCompressionFormat.JPEG)
+encoder.set_lossy_quality(90) # Quality 0-100
+
+encoder.encode_image(ctx, img)
+
+# Save with .jpg extension
+ctx.write_to_file('output.jpg')
+```
+
+### Writing JPEG2000 Images
+
+```python
+import pylibheif
+import numpy as np
+
+# Prepare image (same as above)
+width, height = 1920, 1080
+img = pylibheif.HeifImage(width, height, 
+                          pylibheif.HeifColorspace.RGB,
+                          pylibheif.HeifChroma.InterleavedRGB)
+img.add_plane(pylibheif.HeifChannel.Interleaved, width, height, 8)
+
+# Encode and save as JPEG2000 in HEIF container
+ctx = pylibheif.HeifContext()
+
+# Use JPEG2000 format
+encoder = pylibheif.HeifEncoder(pylibheif.HeifCompressionFormat.JPEG2000)
+encoder.set_lossy_quality(85) # Quality 0-100
+
+encoder.encode_image(ctx, img)
+
+# Save with .jp2 or .heif extension
+# Note: libheif typically saves JPEG2000 in a HEIF container
+ctx.write_to_file('output.heif')
+```
+
 ### Encoder Selection
 
 By default, `pylibheif` selects the best available encoder for the requested format (e.g. x265 for HEVC). You can also explicitly select a specific encoder (e.g. Kvazaar) if available.
