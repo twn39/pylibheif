@@ -141,8 +141,20 @@ PYBIND11_MODULE(pylibheif, m) {
              bool writeable) { return HeifPlane(self, channel, writeable); },
           py::arg("channel"), py::arg("writeable") = false);
 
+  py::class_<HeifEncoderDescriptor>(m, "HeifEncoderDescriptor")
+      .def_property_readonly("id_name", &HeifEncoderDescriptor::id_name)
+      .def_property_readonly("name", &HeifEncoderDescriptor::name)
+      .def_property_readonly("compression_format",
+                             &HeifEncoderDescriptor::compression_format);
+
+  m.def("get_encoder_descriptors", &get_encoder_descriptors,
+        py::arg("format_filter") = heif_compression_undefined,
+        py::arg("name_filter") = "");
+
   py::class_<HeifEncoder, std::shared_ptr<HeifEncoder>>(m, "HeifEncoder")
       .def(py::init<heif_compression_format>())
+      .def(py::init<HeifEncoderDescriptor>())
+      .def_property_readonly("name", &HeifEncoder::name)
       .def("set_lossy_quality", &HeifEncoder::set_lossy_quality)
       .def("set_parameter", &HeifEncoder::set_parameter)
       .def("encode_image", &HeifEncoder::encode_image,

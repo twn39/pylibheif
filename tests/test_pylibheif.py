@@ -144,6 +144,45 @@ class TestDecoding:
         assert handle.width > 0
         assert handle.height > 0
     
+    def test_kvazaar_encoding(self):
+        import pylibheif
+        # Only test if Kvazaar is actually available in the build
+        descriptors = pylibheif.get_encoder_descriptors()
+        kvazaar_desc = next((d for d in descriptors if "kvazaar" in d.id_name), None)
+        
+        if not kvazaar_desc:
+            pytest.skip("Kvazaar encoder not available")
+
+        # Test explicit selection
+        encoder = pylibheif.HeifEncoder(kvazaar_desc)
+        assert "kvazaar" in encoder.name.lower()
+        
+        # 5.0 is the test quality often used
+        encoder.set_lossy_quality(50)
+
+        # Create a dummy image to encode
+        width = 64
+        height = 64
+        image = pylibheif.HeifImage(width, height, pylibheif.HeifColorspace.RGB, pylibheif.HeifChroma.InterleavedRGB)
+        
+        # Add a plane with dummy data
+        image.add_plane(pylibheif.HeifChannel.Interleaved, width, height, 8)
+        # We don't strictly need to fill the data for a simple encoding check, but it's good practice
+        # passing an empty image might cause issues depending on the encoder implementation, 
+        # but here we just allocated it, so it contains garbage or zeros. 
+        # Let's just encode it.
+
+        ctx = pylibheif.HeifContext()
+        handle = encoder.encode_image(ctx, image)
+        
+        assert handle is not None
+
+    def test_add_two_images_to_one_file(self, tmp_path, heic_path):
+        import pylibheif
+        ctx = pylibheif.HeifContext()
+        ctx.read_from_file(heic_path)
+        handle = ctx.get_primary_image_handle()
+        
     def test_decode_to_rgb(self, heic_path):
         import pylibheif
         ctx = pylibheif.HeifContext()

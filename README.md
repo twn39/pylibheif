@@ -143,6 +143,34 @@ encoder.encode_image(ctx, img)
 ctx.write_to_file('output.heic')
 ```
 
+### Encoder Selection
+
+By default, `pylibheif` selects the best available encoder for the requested format (e.g. x265 for HEVC). You can also explicitly select a specific encoder (e.g. Kvazaar) if available.
+
+```python
+import pylibheif
+
+# 1. Get all available HEVC encoders
+descriptors = pylibheif.get_encoder_descriptors(pylibheif.HeifCompressionFormat.HEVC)
+
+# Print available encoders
+for d in descriptors:
+    print(f"ID: {d.id_name}, Name: {d.name}")
+
+# 2. Find specific encoder (e.g. Kvazaar)
+kvazaar_desc = next((d for d in descriptors if "kvazaar" in d.id_name), None)
+
+if kvazaar_desc:
+    # 3. Create encoder explicitly using the descriptor
+    encoder = pylibheif.HeifEncoder(kvazaar_desc)
+    
+    # Verify which encoder is used
+    print(f"Using encoder: {encoder.name}")
+    
+    encoder.set_lossy_quality(85)
+    # encoder.encode_image(...)
+```
+
 ### Converting HEIC to JPEG
 
 ```python
@@ -424,16 +452,38 @@ Benchmarks on 1920x1080 RGB image (Apple Silicon):
 
 | Operation | pylibheif | pillow-heif | Note |
 |:---|:---:|:---:|:---|
-| HEVC Decode | 25 ms | 25 ms | ~39 FPS |
-| HEVC Encode | 279 ms | 272 ms | Quality 80 |
-| AV1 Encode | 91 ms | - | Speed 50 |
+| HEVC Decode | 31 ms | 26 ms | |
+| HEVC Encode (x265) | 282 ms | 303 ms | Quality 80 |
+| HEVC Encode (Kvazaar) | 136 ms | - | Quality 80 |
+| AV1 Encode | 97 ms | - | Quality 80* |
 
-`pylibheif` offers performance comparable to `pillow-heif` (both wrapper libheif), but exposes a lower-level C++ API for fine-grained control.
+### Key Benchmark Findings (based on 20-round test):
+
+1.  **Kvazaar Speed & Stability**: Kvazaar demonstrates a solid **~2x speed advantage** over x265 (default settings) at the same quality level. Furthermore, it is extremely stable with a standard deviation of only **1.1ms**, compared to **23ms** for x265.
+2.  **AV1 Performance**: In our tests, the AOM AV1 encoder was surprisingly fast. This is due to its default `speed` parameter being set to **6**, which is an aggressive performance preset.
+3.  **Efficiency**: `pylibheif` provides significant performance benefits for heavy encoding workloads where encoder selection and fine-tuning are critical.
+
+<details>
+<summary><b>Raw Benchmark Output (Refined 20-round run)</b></summary>
+
+```text
+-------------------------------------------------------------------------------------------- benchmark: 6 tests -------------------------------------------------------------------------------------------
+Name (time in ms)                          Min                 Max                Mean             StdDev              Median                IQR            Outliers      OPS            Rounds  Iterations
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+test_benchmark_decode_hevc_pillow      24.8845 (1.0)       26.6724 (1.0)       25.5582 (1.0)       0.4550 (1.0)       25.4610 (1.0)       0.5293 (1.20)          9;2  39.1264 (1.0)          34           1
+test_benchmark_decode_hevc             30.4714 (1.22)      32.3889 (1.21)      31.2734 (1.22)      0.4836 (1.06)      31.2213 (1.23)      0.4400 (1.0)          11;3  31.9760 (0.82)         31           1
+test_benchmark_encode_av1              93.8177 (3.77)     105.1013 (3.94)      96.7255 (3.78)      2.5824 (5.68)      96.2374 (3.78)      1.7019 (3.87)          3;2  10.3385 (0.26)         20           1
+test_benchmark_encode_kvazaar         134.6820 (5.41)     138.5686 (5.20)     136.1574 (5.33)      1.1093 (2.44)     135.7057 (5.33)      1.3643 (3.10)          6;0   7.3444 (0.19)         20           1
+test_benchmark_encode_hevc_pillow     246.7012 (9.91)     465.6218 (17.46)    303.3524 (11.87)    55.4541 (121.88)   280.5991 (11.02)    70.5077 (160.26)        4;1   3.2965 (0.08)         20           1
+test_benchmark_encode_hevc            254.3977 (10.22)    367.5713 (13.78)    281.9840 (11.03)    23.4613 (51.57)    278.2842 (10.93)    18.2218 (41.42)         2;1   3.5463 (0.09)         20           1
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+```
+</details>
 
 Run benchmarks yourself:
 ```bash
 uv pip install pillow-heif pytest-benchmark
-uv run pytest tests/test_benchmark.py --benchmark-only
+uv run pytest tests/test_benchmark.py --benchmark-only --benchmark-min-rounds=20
 ```
 
 ## License

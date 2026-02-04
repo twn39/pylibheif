@@ -70,7 +70,7 @@ class TestBenchmarks:
             ctx = pylibheif.HeifContext()
             encoder = pylibheif.HeifEncoder(pylibheif.HeifCompressionFormat.AV1)
             # AV1 is slow, set lower quality/speed for benchmark
-            encoder.set_lossy_quality(50) 
+            encoder.set_lossy_quality(80) 
             encoder.encode_image(ctx, sample_image_rgb)
             return ctx
             
@@ -102,9 +102,33 @@ class TestBenchmarks:
         arr = np.asarray(plane)
         pil_img = Image.fromarray(arr)
         
+        # Pre-create BytesIO to avoid object creation overhead in loop (optional, but good for pure encoding test)
+        # However, save() requires a file-like object. 
+        # Since we want to benchmark encoding, including IO writes is fair as long as it's memory.
+        
         def _encode():
             bio = io.BytesIO()
             pil_img.save(bio, format="HEIF", quality=80)
             return bio.getvalue()
+            
+        benchmark(_encode)
+
+    def test_benchmark_encode_kvazaar(self, benchmark, sample_image_rgb):
+        """Benchmark Kvazaar encoding (1080p)"""
+        import pylibheif
+        
+        # Find Kvazaar encoder
+        descriptors = pylibheif.get_encoder_descriptors()
+        kvazaar_desc = next((d for d in descriptors if "kvazaar" in d.id_name), None)
+        
+        if not kvazaar_desc:
+            pytest.skip("Kvazaar encoder not available")
+            
+        def _encode():
+            ctx = pylibheif.HeifContext()
+            encoder = pylibheif.HeifEncoder(kvazaar_desc)
+            encoder.set_lossy_quality(80) 
+            encoder.encode_image(ctx, sample_image_rgb)
+            return ctx
             
         benchmark(_encode)
