@@ -4,7 +4,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "pylibheif"
-version = "1.21.2.post5"
+version = "1.21.2.post6"
 description = "Python bindings for libheif - HEIC/AVIF/JPEG2000 image codec"
 readme = "README.md"
 license = {text = "LGPL-3.0-or-later"}
