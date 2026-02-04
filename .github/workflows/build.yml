@@ -62,17 +62,14 @@ jobs:
               yum install -y epel-release
               /usr/bin/crb enable
               yum install -y --nogpgcheck https://mirrors.rpmfusion.org/free/el/rpmfusion-free-release-8.noarch.rpm
-              yum install -y x265-devel libde265-devel libaom-devel libdav1d-devel openjpeg2-devel libjpeg-turbo-devel ffmpeg-devel nasm git cmake
+              yum install -y x265-devel libde265-devel libaom-devel libdav1d-devel openjpeg2-devel libjpeg-turbo-devel nasm git cmake
             else
               apt-get update
-              apt-get install -y libx265-dev libde265-dev libaom-dev libdav1d-dev libopenjp2-7-dev libjpeg-dev libavcodec-dev libavutil-dev nasm git cmake
+              apt-get install -y libx265-dev libde265-dev libaom-dev libdav1d-dev libopenjp2-7-dev libjpeg-dev nasm git cmake
             fi
           CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
           CIBW_CONFIG_SETTINGS_LINUX: >
-            cmake.define.WITH_DAV1D=OFF
-            cmake.define.WITH_OpenH264_DECODER=OFF
-            cmake.define.WITH_X264=OFF
-            cmake.define.WITH_FFMPEG_DECODER=ON
+            cmake.define.WITH_DAV1D=ON
           CIBW_BEFORE_BUILD_MACOS: |
             brew install openjpeg nasm x265 libde265 aom dav1d jpeg x264 openh264
           CIBW_ENVIRONMENT_MACOS: MACOSX_DEPLOYMENT_TARGET=14.0
