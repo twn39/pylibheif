@@ -110,7 +110,7 @@ arr = np.asarray(plane)
 # Resources are automatically freed when objects go out of scope
 ```
 
-### Writing HEIC/AVIF Images
+### Writing HEIC Images (H.265)
 
 ```python
 import pylibheif
@@ -128,28 +128,40 @@ plane = img.get_plane(pylibheif.HeifChannel.Interleaved, True)
 arr = np.asarray(plane)
 arr[:] = your_image_data  # your RGB data
 
-# Encode and save
+# Encode and save as HEIC
 ctx = pylibheif.HeifContext()
-
-# For HEIC (HEVC)
 encoder = pylibheif.HeifEncoder(pylibheif.HeifCompressionFormat.HEVC)
-# For AVIF (AV1)
-# encoder = pylibheif.HeifEncoder(pylibheif.HeifCompressionFormat.AV1)
-# For JPEG2000
-# encoder = pylibheif.HeifEncoder(pylibheif.HeifCompressionFormat.JPEG2000)
-
 encoder.set_lossy_quality(85)
-# Optional: Set encoder preset (e.g. "ultrafast", "slow" for x265)
-# Note: For AV1 encoders (AOM, SVT), use set_parameter("speed", "value") instead.
-if "x265" in encoder.name:
-    encoder.encode_image(ctx, img, preset="ultrafast")
-elif "AOM" in encoder.name:
-    encoder.set_parameter("speed", "8") # 0-9
-    encoder.encode_image(ctx, img)
-else:
-    encoder.encode_image(ctx, img)
+encoder.encode_image(ctx, img)
 
 ctx.write_to_file('output.heic')
+```
+
+### Writing AVIF Images (AV1)
+
+```python
+import pylibheif
+import numpy as np
+
+# Prepare image (same as above)
+width, height = 1920, 1080
+img = pylibheif.HeifImage(width, height, 
+                          pylibheif.HeifColorspace.RGB,
+                          pylibheif.HeifChroma.InterleavedRGB)
+img.add_plane(pylibheif.HeifChannel.Interleaved, width, height, 8)
+
+# Encode and save as AVIF
+ctx = pylibheif.HeifContext()
+
+# Use AV1 format for AVIF
+encoder = pylibheif.HeifEncoder(pylibheif.HeifCompressionFormat.AV1)
+encoder.set_lossy_quality(85)
+encoder.set_parameter("speed", "6") # Optional: Tune speed (0-9)
+
+encoder.encode_image(ctx, img)
+
+# Save with .avif extension
+ctx.write_to_file('output.avif')
 ```
 
 ### Encoder Selection
@@ -178,29 +190,6 @@ if kvazaar_desc:
     
     encoder.set_lossy_quality(85)
     # encoder.encode_image(...)
-```
-
-### Converting HEIC to JPEG
-
-```python
-import pylibheif
-import numpy as np
-from PIL import Image
-
-# Decode HEIC
-ctx = pylibheif.HeifContext()
-ctx.read_from_file('input.heic')
-handle = ctx.get_primary_image_handle()
-img = handle.decode(pylibheif.HeifColorspace.RGB, 
-                    pylibheif.HeifChroma.InterleavedRGB)
-
-# Get NumPy array
-plane = img.get_plane(pylibheif.HeifChannel.Interleaved, False)
-arr = np.asarray(plane)
-
-# Save as JPEG using PIL
-pil_img = Image.fromarray(arr)
-pil_img.save('output.jpg', 'JPEG', quality=85)
 ```
 
 ### Reading Metadata
