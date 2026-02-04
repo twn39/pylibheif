@@ -51,7 +51,13 @@ target_include_directories(pylibheif PRIVATE
 
 # C++ standard
 target_compile_features(pylibheif PRIVATE cxx_std_17)
-target_compile_options(pylibheif PRIVATE -O3)
+
+# Compiler optimizations
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+    target_compile_options(pylibheif PRIVATE -O3 -march=native -mtune=native)
+else()
+    target_compile_options(pylibheif PRIVATE -O3)
+endif()
 
 # Install the module
 install(TARGETS pylibheif DESTINATION .)
