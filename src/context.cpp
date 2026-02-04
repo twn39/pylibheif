@@ -3,6 +3,8 @@
 
 namespace pylibheif {
 
+#include <pybind11/pybind11.h> // Ensure pybind11 is included for gil_scoped_release
+
 HeifContext::HeifContext() { ctx = heif_context_alloc(); }
 
 HeifContext::~HeifContext() {
@@ -12,12 +14,18 @@ HeifContext::~HeifContext() {
 }
 
 void HeifContext::read_from_file(const std::string &filename) {
+  py::gil_scoped_release release;
   check_error(heif_context_read_from_file(ctx, filename.c_str(), nullptr));
 }
 
 void HeifContext::read_from_memory(const py::bytes &data) {
+  if (!memory_data.empty()) {
+    throw std::runtime_error("Context already initialized with memory data");
+  }
   memory_data =
       std::string(data); // Store in member to ensure data outlives context
+
+  py::gil_scoped_release release;
   check_error(heif_context_read_from_memory_without_copy(
       ctx, memory_data.data(), memory_data.size(), nullptr));
 }
@@ -43,6 +51,7 @@ HeifContext::get_image_handle(heif_item_id id) {
 }
 
 void HeifContext::write_to_file(const std::string &filename) {
+  py::gil_scoped_release release;
   check_error(heif_context_write_to_file(ctx, filename.c_str()));
 }
 
@@ -53,9 +62,16 @@ struct WriterData {
 static struct heif_error writer_write(struct heif_context *ctx,
                                       const void *data, size_t size,
                                       void *userdata) {
-  WriterData *wd = (WriterData *)userdata;
-  const uint8_t *bytes = (const uint8_t *)data;
-  wd->data.insert(wd->data.end(), bytes, bytes + size);
+  try {
+    WriterData *wd = (WriterData *)userdata;
+    const uint8_t *bytes = (const uint8_t *)data;
+    wd->data.insert(wd->data.end(), bytes, bytes + size);
+  } catch (...) {
+    struct heif_error err = {heif_error_Memory_allocation_error,
+                             heif_suberror_Unspecified,
+                             "Memory allocation failed during write"};
+    return err;
+  }
 
   struct heif_error err = {heif_error_Ok, heif_suberror_Unspecified, "Success"};
   return err;
@@ -67,7 +83,10 @@ py::bytes HeifContext::write_to_bytes() {
   writer.writer_api_version = 1;
   writer.write = writer_write;
 
-  check_error(heif_context_write(ctx, &writer, &wd));
+  {
+    py::gil_scoped_release release;
+    check_error(heif_context_write(ctx, &writer, &wd));
+  }
 
   return py::bytes((char *)wd.data.data(), wd.data.size());
 }

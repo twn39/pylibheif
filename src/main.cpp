@@ -115,7 +115,8 @@ PYBIND11_MODULE(pylibheif, m) {
       .def_property_readonly("has_alpha", &HeifImageHandle::has_alpha_channel)
       .def("decode", &HeifImageHandle::decode,
            py::arg("colorspace") = heif_colorspace_RGB,
-           py::arg("chroma") = heif_chroma_interleaved_RGB)
+           py::arg("chroma") = heif_chroma_interleaved_RGB,
+           py::call_guard<py::gil_scoped_release>())
       .def("get_metadata_block_ids",
            &HeifImageHandle::get_list_of_metadata_block_IDs,
            py::arg("type_filter") = "")
@@ -144,5 +145,6 @@ PYBIND11_MODULE(pylibheif, m) {
       .def(py::init<heif_compression_format>())
       .def("set_lossy_quality", &HeifEncoder::set_lossy_quality)
       .def("set_parameter", &HeifEncoder::set_parameter)
-      .def("encode_image", &HeifEncoder::encode_image);
+      .def("encode_image", &HeifEncoder::encode_image,
+           py::call_guard<py::gil_scoped_release>());
 }

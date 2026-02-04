@@ -51,6 +51,7 @@ target_include_directories(pylibheif PRIVATE
 
 # C++ standard
 target_compile_features(pylibheif PRIVATE cxx_std_17)
+target_compile_options(pylibheif PRIVATE -O3)
 
 # Install the module
 install(TARGETS pylibheif DESTINATION .)
