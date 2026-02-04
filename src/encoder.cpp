@@ -30,7 +30,11 @@ void HeifEncoder::set_parameter(const std::string &name,
 }
 
 std::shared_ptr<HeifImageHandle>
-HeifEncoder::encode_image(HeifContext &ctx, const HeifImage &image) {
+HeifEncoder::encode_image(HeifContext &ctx, const HeifImage &image,
+                          std::string preset) {
+  if (!preset.empty()) {
+    set_parameter("preset", preset);
+  }
   heif_image_handle *handle;
   check_error(heif_context_encode_image(ctx.get(), image.get(), encoder,
                                         nullptr, &handle));

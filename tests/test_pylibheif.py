@@ -276,6 +276,28 @@ class TestEncoding:
             assert os.path.getsize(output_path) > 0
         finally:
             os.unlink(output_path)
+
+    def test_encode_hevc_with_preset(self):
+        import pylibheif
+        img = self.create_test_image()
+        
+        ctx = pylibheif.HeifContext()
+        encoder = pylibheif.HeifEncoder(pylibheif.HeifCompressionFormat.HEVC)
+        encoder.set_lossy_quality(85)
+        
+        # Test valid preset (x265 presets: ultrafast, superfast, veryfast, faster, fast, medium, slow, slower, veryslow, placebo)
+        # We use "ultrafast" as it should be quick
+        encoder.encode_image(ctx, img, preset="ultrafast")
+        
+        with tempfile.NamedTemporaryFile(suffix='.heic', delete=False) as f:
+            output_path = f.name
+        
+        try:
+            ctx.write_to_file(output_path)
+            assert os.path.exists(output_path)
+            assert os.path.getsize(output_path) > 0
+        finally:
+            os.unlink(output_path)
     
     def test_encode_av1(self):
         import pylibheif

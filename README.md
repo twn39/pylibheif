@@ -139,7 +139,16 @@ encoder = pylibheif.HeifEncoder(pylibheif.HeifCompressionFormat.HEVC)
 # encoder = pylibheif.HeifEncoder(pylibheif.HeifCompressionFormat.JPEG2000)
 
 encoder.set_lossy_quality(85)
-encoder.encode_image(ctx, img)
+# Optional: Set encoder preset (e.g. "ultrafast", "slow" for x265)
+# Note: For AV1 encoders (AOM, SVT), use set_parameter("speed", "value") instead.
+if "x265" in encoder.name:
+    encoder.encode_image(ctx, img, preset="ultrafast")
+elif "AOM" in encoder.name:
+    encoder.set_parameter("speed", "8") # 0-9
+    encoder.encode_image(ctx, img)
+else:
+    encoder.encode_image(ctx, img)
+
 ctx.write_to_file('output.heic')
 ```
 
@@ -402,10 +411,11 @@ Sets a low-level encoder parameter.
 - `name`: Parameter name (e.g. "speed" for AV1).
 - `value`: Parameter value.
 
-**`encode_image(context: HeifContext, image: HeifImage) -> HeifImageHandle`**
+**`encode_image(context: HeifContext, image: HeifImage, preset: str = "") -> HeifImageHandle`**
 Encodes the given image and appends it to the context.
 - `context`: The destination `HeifContext`.
 - `image`: The source `HeifImage` to encode.
+- `preset`: Optional encoder preset (e.g. "ultrafast", "slow"). Default is empty (balanced/default). **Note**: This maps to the 'preset' parameter in libheif. It works for x265 and likely SVT-AV1 (check version), but AOM and others may use different parameters (e.g. 'speed') which should be set via `set_parameter` instead.
 - Returns: `HeifImageHandle` for the encoded image. Can be used to add metadata.
 
 ---
@@ -448,35 +458,40 @@ uv pip install -e .
 
 ## Performance
 
-Benchmarks on 1920x1080 RGB image (Apple Silicon):
+## Performance
+
+Benchmarks on 1920x1080 RGB image (Apple Silicon), simulating a "Real-World" balanced scenario:
+- **Quality**: 80
+- **x265 Preset**: `medium`
+- **AV1 Speed**: `6`
 
 | Operation | pylibheif | pillow-heif | Note |
 |:---|:---:|:---:|:---|
-| HEVC Decode | 31 ms | 26 ms | |
-| HEVC Encode (x265) | 282 ms | 303 ms | Quality 80 |
-| HEVC Encode (Kvazaar) | 136 ms | - | Quality 80 |
-| AV1 Encode | 97 ms | - | Quality 80* |
+| HEVC Decode | 31.1 ms | 25.7 ms | |
+| HEVC Encode (x265) | 194 ms | 183 ms | Preset "medium", Q80 |
+| HEVC Encode (Kvazaar) | 122 ms | - | Q80 (Default preset) |
+| AV1 Encode | 95 ms | - | Speed 6, Q80 |
 
 ### Key Benchmark Findings (based on 20-round test):
 
-1.  **Kvazaar Speed & Stability**: Kvazaar demonstrates a solid **~2x speed advantage** over x265 (default settings) at the same quality level. Furthermore, it is extremely stable with a standard deviation of only **1.1ms**, compared to **23ms** for x265.
-2.  **AV1 Performance**: In our tests, the AOM AV1 encoder was surprisingly fast. This is due to its default `speed` parameter being set to **6**, which is an aggressive performance preset.
-3.  **Efficiency**: `pylibheif` provides significant performance benefits for heavy encoding workloads where encoder selection and fine-tuning are critical.
+1.  **Kvazaar Efficiency**: Kvazaar (~122ms) is significantly faster (**~1.6x**) than x265 (~194ms) when both are running in a balanced/medium configuration at Quality 80.
+2.  **AV1 Speed**: The AOM AV1 encoder at `speed=6` is markedly fast (~95ms), outperforming both HEVC encoders. This confirms AV1's viability for responsive encoding tasks.
+3.  **Decoding**: Both libraries offer very fast decoding (~25-30ms).
 
 <details>
 <summary><b>Raw Benchmark Output (Refined 20-round run)</b></summary>
 
 ```text
--------------------------------------------------------------------------------------------- benchmark: 6 tests -------------------------------------------------------------------------------------------
-Name (time in ms)                          Min                 Max                Mean             StdDev              Median                IQR            Outliers      OPS            Rounds  Iterations
------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-test_benchmark_decode_hevc_pillow      24.8845 (1.0)       26.6724 (1.0)       25.5582 (1.0)       0.4550 (1.0)       25.4610 (1.0)       0.5293 (1.20)          9;2  39.1264 (1.0)          34           1
-test_benchmark_decode_hevc             30.4714 (1.22)      32.3889 (1.21)      31.2734 (1.22)      0.4836 (1.06)      31.2213 (1.23)      0.4400 (1.0)          11;3  31.9760 (0.82)         31           1
-test_benchmark_encode_av1              93.8177 (3.77)     105.1013 (3.94)      96.7255 (3.78)      2.5824 (5.68)      96.2374 (3.78)      1.7019 (3.87)          3;2  10.3385 (0.26)         20           1
-test_benchmark_encode_kvazaar         134.6820 (5.41)     138.5686 (5.20)     136.1574 (5.33)      1.1093 (2.44)     135.7057 (5.33)      1.3643 (3.10)          6;0   7.3444 (0.19)         20           1
-test_benchmark_encode_hevc_pillow     246.7012 (9.91)     465.6218 (17.46)    303.3524 (11.87)    55.4541 (121.88)   280.5991 (11.02)    70.5077 (160.26)        4;1   3.2965 (0.08)         20           1
-test_benchmark_encode_hevc            254.3977 (10.22)    367.5713 (13.78)    281.9840 (11.03)    23.4613 (51.57)    278.2842 (10.93)    18.2218 (41.42)         2;1   3.5463 (0.09)         20           1
------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Name (time in ms)                          Min                 Max                Mean            StdDev              Median                IQR            Outliers      OPS            Rounds  Iterations
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+test_benchmark_decode_hevc_pillow      25.1037 (1.0)       29.0527 (1.0)       25.6666 (1.0)      0.7504 (1.0)       25.5727 (1.0)       0.5844 (1.0)           3;3  38.9611 (1.0)          35           1
+test_benchmark_decode_hevc             30.3832 (1.21)      34.1134 (1.17)      31.1261 (1.21)     0.8224 (1.10)      31.1342 (1.22)      0.8100 (1.39)          2;2  32.1274 (0.82)         31           1
+test_benchmark_encode_av1              91.6138 (3.65)     105.3451 (3.63)      95.1657 (3.71)     2.9617 (3.95)      95.1245 (3.72)      3.1292 (5.35)          3;1  10.5080 (0.27)         20           1
+test_benchmark_encode_kvazaar         120.6191 (4.80)     136.9627 (4.71)     122.1626 (4.76)     3.5188 (4.69)     121.3550 (4.75)      0.7922 (1.36)          1;1   8.1858 (0.21)         20           1
+test_benchmark_encode_hevc_pillow     171.8147 (6.84)     197.4089 (6.79)     182.5619 (7.11)     7.8343 (10.44)    182.6163 (7.14)     13.4670 (23.04)         9;0   5.4776 (0.14)         20           1
+test_benchmark_encode_hevc            181.1458 (7.22)     206.9737 (7.12)     194.3554 (7.57)     7.9335 (10.57)    195.1668 (7.63)     13.0224 (22.28)         7;0   5.1452 (0.13)         20           1
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ```
 </details>
 

@@ -157,6 +157,7 @@ PYBIND11_MODULE(pylibheif, m) {
       .def_property_readonly("name", &HeifEncoder::name)
       .def("set_lossy_quality", &HeifEncoder::set_lossy_quality)
       .def("set_parameter", &HeifEncoder::set_parameter)
-      .def("encode_image", &HeifEncoder::encode_image,
+      .def("encode_image", &HeifEncoder::encode_image, py::arg("ctx"),
+           py::arg("image"), py::arg("preset") = "",
            py::call_guard<py::gil_scoped_release>());
 }

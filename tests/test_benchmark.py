@@ -41,12 +41,13 @@ class TestBenchmarks:
         return ctx.write_to_bytes()
 
     def test_benchmark_encode_hevc(self, benchmark, sample_image_rgb):
-        """Benchmark HEVC encoding (1080p)"""
+        """Benchmark HEVC encoding (1080p) - x265"""
         def _encode():
             ctx = pylibheif.HeifContext()
             encoder = pylibheif.HeifEncoder(pylibheif.HeifCompressionFormat.HEVC)
-            encoder.set_lossy_quality(80)
-            encoder.encode_image(ctx, sample_image_rgb)
+            encoder.set_lossy_quality(80) # Realistic quality
+            # Use medium (default) for realistic testing
+            encoder.encode_image(ctx, sample_image_rgb, preset="medium")
             return ctx
             
         benchmark(_encode)
@@ -65,12 +66,13 @@ class TestBenchmarks:
         benchmark(_decode)
 
     def test_benchmark_encode_av1(self, benchmark, sample_image_rgb):
-        """Benchmark AV1 encoding (1080p)"""
+        """Benchmark AV1 encoding (1080p) - AOM"""
         def _encode():
             ctx = pylibheif.HeifContext()
             encoder = pylibheif.HeifEncoder(pylibheif.HeifCompressionFormat.AV1)
-            # AV1 is slow, set lower quality/speed for benchmark
-            encoder.set_lossy_quality(80) 
+            encoder.set_lossy_quality(80) # Realistic quality
+            # Set speed 6 (Default/Balanced tier)
+            encoder.set_parameter("speed", "6")
             encoder.encode_image(ctx, sample_image_rgb)
             return ctx
             
@@ -108,7 +110,11 @@ class TestBenchmarks:
         
         def _encode():
             bio = io.BytesIO()
-            pil_img.save(bio, format="HEIF", quality=80)
+            # pillow-heif uses x265 by default. 
+            # We try to match quality=80.
+            # pillow-heif encoding speed preset handling:
+            # It maps 'enc_params' to x265 params. 'preset': 'medium'
+            pil_img.save(bio, format="HEIF", quality=80, enc_params={"preset": "medium"})
             return bio.getvalue()
             
         benchmark(_encode)
@@ -127,7 +133,8 @@ class TestBenchmarks:
         def _encode():
             ctx = pylibheif.HeifContext()
             encoder = pylibheif.HeifEncoder(kvazaar_desc)
-            encoder.set_lossy_quality(80) 
+            encoder.set_lossy_quality(80) # Realistic quality
+            # Kvazaar settings: Default (as no preset support via libheif yet)
             encoder.encode_image(ctx, sample_image_rgb)
             return ctx
             

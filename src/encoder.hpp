@@ -40,7 +40,8 @@ public:
   void set_parameter(const std::string &name, const std::string &value);
 
   std::shared_ptr<HeifImageHandle> encode_image(HeifContext &ctx,
-                                                const HeifImage &image);
+                                                const HeifImage &image,
+                                                std::string preset = "");
 
   heif_encoder *get() { return encoder; }
 
