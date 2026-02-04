@@ -27,36 +27,49 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Lock Submodule Versions
+        run: |
+          cd third_party/libheif && git checkout v1.21.2
+          cd ../kvazaar && git checkout v2.3.2
+
       # Linux dependencies
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libopenjp2-7-dev nasm libkvazaar-dev
+          sudo apt-get install -y libopenjp2-7-dev nasm
 
       # macOS dependencies
       - name: Install macOS dependencies
         if: runner.os == 'macOS'
         run: |
-          brew install openjpeg nasm kvazaar
+          brew install openjpeg nasm
 
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.3.1
         env:
+          # Build versions
+          LIBHEIF_TAG: v1.21.2
+          KVAZAAR_TAG: v2.3.2
+          
           # Build for Python 3.11-3.14
           CIBW_BUILD: cp311-* cp312-* cp313-* cp314-*
           # Skip 32-bit builds and musllinux
           CIBW_SKIP: "*-manylinux_i686 *musllinux*"
           # Install build dependencies
+          CIBW_BEFORE_BUILD: |
+            # Ensure submodules are at correct versions inside the build environment
+            cd {project}/third_party/libheif && git checkout v1.21.2
+            cd {project}/third_party/kvazaar && git checkout v2.3.2
           CIBW_BEFORE_BUILD_LINUX: |
             if [ -x "$(command -v yum)" ]; then
               yum install -y epel-release
               /usr/bin/crb enable
               yum install -y --nogpgcheck https://mirrors.rpmfusion.org/free/el/rpmfusion-free-release-8.noarch.rpm
-              yum install -y x265-devel libde265-devel libaom-devel libdav1d-devel openjpeg2-devel libjpeg-turbo-devel ffmpeg-devel nasm kvazaar-devel
+              yum install -y x265-devel libde265-devel libaom-devel libdav1d-devel openjpeg2-devel libjpeg-turbo-devel ffmpeg-devel nasm git cmake
             else
               apt-get update
-              apt-get install -y libx265-dev libde265-dev libaom-dev libdav1d-dev libopenjp2-7-dev libjpeg-dev libavcodec-dev libavutil-dev nasm libkvazaar-dev
+              apt-get install -y libx265-dev libde265-dev libaom-dev libdav1d-dev libopenjp2-7-dev libjpeg-dev libavcodec-dev libavutil-dev nasm git cmake
             fi
           CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
           CIBW_CONFIG_SETTINGS_LINUX: >
@@ -65,7 +78,7 @@ jobs:
             cmake.define.WITH_X264=OFF
             cmake.define.WITH_FFMPEG_DECODER=ON
           CIBW_BEFORE_BUILD_MACOS: |
-            brew install openjpeg nasm x265 libde265 aom dav1d jpeg x264 openh264 kvazaar
+            brew install openjpeg nasm x265 libde265 aom dav1d jpeg x264 openh264
           CIBW_ENVIRONMENT_MACOS: MACOSX_DEPLOYMENT_TARGET=14.0
           # Fix: Help delocate find Homebrew libraries on macOS
           CIBW_REPAIR_WHEEL_COMMAND_MACOS: >

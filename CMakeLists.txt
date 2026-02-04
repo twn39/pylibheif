@@ -28,9 +28,22 @@ set(WITH_OpenJPEG_ENCODER_PLUGIN OFF CACHE BOOL "Build OpenJPEG encoder as plugi
 set(WITH_OpenJPEG_DECODER_PLUGIN OFF CACHE BOOL "Build OpenJPEG decoder as plugin" FORCE)
 set(ENABLE_PLUGIN_LOADING OFF CACHE BOOL "Disable plugin loading" FORCE)
 
-# Add libheif submodule
+# Add Kvazaar submodule
+set(KVAZAAR_EXECUTABLE OFF CACHE BOOL "Build kvazaar executable" FORCE)
+set(BUILD_KVAZAAR_BINARY OFF CACHE BOOL "Build kvazaar binary" FORCE)
+set(BUILD_TESTS OFF CACHE BOOL "Build tests" FORCE)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared libraries" FORCE)
-add_subdirectory(third_party/libheif)
+add_subdirectory(third_party/kvazaar EXCLUDE_FROM_ALL)
+
+# Help libheif find Kvazaar from submodule
+set(kvazaar_FOUND TRUE CACHE BOOLEAN "Kvazaar found" FORCE)
+set(KVAZAAR_FOUND TRUE CACHE BOOLEAN "Kvazaar found" FORCE)
+set(KVAZAAR_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party/kvazaar/src" CACHE PATH "Kvazaar include dir" FORCE)
+set(KVAZAAR_LIBRARY kvazaar CACHE STRING "Kvazaar library" FORCE)
+set(KVAZAAR_LIBRARIES $<BUILD_INTERFACE:kvazaar> CACHE STRING "Kvazaar libraries" FORCE)
+
+# Add libheif submodule
+add_subdirectory(third_party/libheif EXCLUDE_FROM_ALL)
 
 # Define the extension module
 pybind11_add_module(pylibheif
