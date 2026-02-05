@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-14]
+        os: [ubuntu-latest, macos-14, windows-2022]
 
     steps:
       - uses: actions/checkout@v4
@@ -83,6 +83,13 @@ jobs:
           CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
           CIBW_BEFORE_BUILD_MACOS: |
             brew install openjpeg nasm x265 libde265 aom jpeg meson ninja
+
+      # Windows dependencies
+      - name: Install Windows dependencies
+        if: runner.os == 'Windows'
+        run: |
+          choco install nasm
+          vcpkg install x265 libde265 libaom dav1d openjpeg libjpeg-turbo --triplet x64-windows-static
             
             # Build dav1d
             cd third_party/dav1d
@@ -95,6 +102,12 @@ jobs:
           CIBW_REPAIR_WHEEL_COMMAND_MACOS: >
             DYLD_LIBRARY_PATH=/opt/homebrew/lib:$DYLD_LIBRARY_PATH
             delocate-wheel --require-archs {delocate_archs} -w {dest_dir} -v {wheel}
+          
+          # Windows Configuration
+          CIBW_CONFIG_SETTINGS_WINDOWS: >
+            cmake.define.CMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake
+            cmake.define.VCPKG_TARGET_TRIPLET=x64-windows-static
+          
           # Test the wheel
           CIBW_TEST_REQUIRES: pytest numpy pytest-benchmark pillow-heif
           CIBW_TEST_COMMAND: pytest {project}/tests/test_pylibheif.py -v
