@@ -62,6 +62,7 @@ jobs:
             if [ -x "$(command -v yum)" ]; then
               yum install -y epel-release
               /usr/bin/crb enable
+              yum install -y --nogpgcheck https://mirrors.rpmfusion.org/free/el/rpmfusion-free-release-8.noarch.rpm
               yum install -y x265-devel libde265-devel libaom-devel openjpeg2-devel libjpeg-turbo-devel nasm git cmake python3-pip
               pip3 install uv
               uv pip install meson ninja --system
@@ -83,7 +84,7 @@ jobs:
             # Build dav1d
             cd third_party/dav1d
             meson setup build --default-library=static --buildtype=release --prefix=/usr/local
-            ninja -C build install
+            ninja -C build install --no-rebuild || sudo ninja -C build install
           CIBW_ENVIRONMENT_MACOS: MACOSX_DEPLOYMENT_TARGET=14.0
           # Fix: Help delocate find Homebrew libraries on macOS
           CIBW_REPAIR_WHEEL_COMMAND_MACOS: >
