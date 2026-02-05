@@ -57,12 +57,7 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           pip install meson ninja
-          vcpkg install x265 libde265 aom dav1d openjpeg libjpeg-turbo --triplet x64-windows-static
-            
-            # Build dav1d
-            cd third_party/dav1d
-            meson setup build --default-library=static --buildtype=release --prefix=/usr/local
-            ninja -C build install
+          vcpkg install x265 libde265 aom dav1d openjpeg libjpeg-turbo --triplet x64-windows-static-md --overlay-triplets=triplets
 
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.3.1
@@ -112,7 +107,8 @@ jobs:
           # Windows Configuration
           CIBW_CONFIG_SETTINGS_WINDOWS: >
             cmake.define.CMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake
-            cmake.define.VCPKG_TARGET_TRIPLET=x64-windows-static
+            cmake.define.VCPKG_TARGET_TRIPLET=x64-windows-static-md
+            cmake.define.VCPKG_OVERLAY_TRIPLETS={project}/triplets
           
           # Test the wheel
           CIBW_TEST_REQUIRES: pytest numpy pytest-benchmark pillow-heif
