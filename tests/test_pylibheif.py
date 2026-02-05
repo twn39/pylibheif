@@ -317,6 +317,8 @@ class TestEncoding:
             assert os.path.getsize(output_path) > 0
         finally:
             os.unlink(output_path)
+
+
     
     def test_encode_jpeg(self):
         import pylibheif

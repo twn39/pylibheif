@@ -70,13 +70,15 @@ class TestBenchmarks:
         def _encode():
             ctx = pylibheif.HeifContext()
             encoder = pylibheif.HeifEncoder(pylibheif.HeifCompressionFormat.AV1)
-            encoder.set_lossy_quality(80) # Realistic quality
+            encoder.set_lossy_quality(86) # Iso-quality match to x265 Q80
             # Set speed 6 (Default/Balanced tier)
             encoder.set_parameter("speed", "6")
             encoder.encode_image(ctx, sample_image_rgb)
             return ctx
             
         benchmark(_encode)
+
+
 
     def test_benchmark_decode_hevc_pillow(self, benchmark, hevc_encoded_data):
         """Benchmark HEVC decoding with pillow-heif"""

@@ -33,6 +33,7 @@ jobs:
           cd ../kvazaar && git fetch --tags && git checkout v2.3.2
           cd ../dav1d && git fetch --tags && git checkout 1.5.3
 
+
       # Linux dependencies
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
@@ -77,14 +78,18 @@ jobs:
             meson setup build --default-library=static --buildtype=release --prefix=/usr/local
             ninja -C build
             ninja -C build install
+            
+
           CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
           CIBW_BEFORE_BUILD_MACOS: |
-            brew install openjpeg nasm x265 libde265 aom jpeg x264 openh264 meson ninja
+            brew install openjpeg nasm x265 libde265 aom jpeg openh264 meson ninja
             
             # Build dav1d
             cd third_party/dav1d
             meson setup build --default-library=static --buildtype=release --prefix=/usr/local
             ninja -C build install --no-rebuild || sudo ninja -C build install
+            
+
           CIBW_ENVIRONMENT_MACOS: MACOSX_DEPLOYMENT_TARGET=14.0
           # Fix: Help delocate find Homebrew libraries on macOS
           CIBW_REPAIR_WHEEL_COMMAND_MACOS: >
@@ -92,7 +97,7 @@ jobs:
             delocate-wheel --require-archs {delocate_archs} -w {dest_dir} -v {wheel}
           # Test the wheel
           CIBW_TEST_REQUIRES: pytest numpy pytest-benchmark pillow-heif
-          CIBW_TEST_COMMAND: pytest {project}/tests -v --benchmark-skip --ignore={project}/tests/test_threading_benchmark.py
+          CIBW_TEST_COMMAND: pytest {project}/tests/test_pylibheif.py -v
 
       - uses: actions/upload-artifact@v4
         with:

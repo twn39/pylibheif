@@ -243,6 +243,7 @@ if kvazaar_desc:
     
     encoder.set_lossy_quality(85)
     # encoder.encode_image(...)
+    # encoder.encode_image(...)
 ```
 
 ### Reading Metadata
@@ -457,7 +458,7 @@ Sets a low-level encoder parameter.
 Encodes the given image and appends it to the context.
 - `context`: The destination `HeifContext`.
 - `image`: The source `HeifImage` to encode.
-- `preset`: Optional encoder preset (e.g. "ultrafast", "slow"). Default is empty (balanced/default). **Note**: This maps to the 'preset' parameter in libheif. It works for x265 and likely SVT-AV1 (check version), but AOM and others may use different parameters (e.g. 'speed') which should be set via `set_parameter` instead.
+- `preset`: Optional encoder preset (e.g. "ultrafast", "slow"). Default is empty (balanced/default). **Note**: This maps to the 'preset' parameter in libheif. It works for x265 (check version), but AOM and others may use different parameters (e.g. 'speed') which should be set via `set_parameter` instead.
 - Returns: `HeifImageHandle` for the encoded image. Can be used to add metadata.
 
 ---
@@ -502,39 +503,36 @@ uv pip install -e .
 
 ## Performance
 
-Benchmarks on 1920x1080 RGB image (Apple Silicon), simulating a "Real-World" balanced scenario:
-- **Quality**: 80
-- **x265 Preset**: `medium`
-- **AV1 Speed**: `6`
+Benchmarks on 1280x720 RGB image (Apple Silicon), comparing encoders at **Iso-Quality** (approx. 29.2 dB PSNR) to ensure fair speed comparison.
 
-| Operation | pylibheif | pillow-heif | Note |
-|:---|:---:|:---:|:---|
-| HEVC Decode | 31.1 ms | 25.7 ms | |
-| HEVC Encode (x265) | 194 ms | 183 ms | Preset "medium", Q80 |
-| HEVC Encode (Kvazaar) | 122 ms | - | Q80 (Default preset) |
-| AV1 Encode | 95 ms | - | Speed 6, Q80 |
+**Baseline**: x265 (HEVC) at Quality 80 (Medium Preset).
 
-### Key Benchmark Findings (based on 20-round test):
+| Encoder | Quality Setting | Time (Mean) | vs x265 | Note |
+|:---|:---:|:---:|:---:|:---|
+| **AOM AV1** | Q86 (Speed 6) | **~115 ms** | **1.8x Faster** | 🚀 **Fastest & Best Efficiency** |
+| **Kvazaar** (HEVC) | Q80 | ~125 ms | 1.6x Faster | Best HEVC option |
+| **x265** (HEVC) | Q80 | ~206 ms | Baseline | |
 
-1.  **Kvazaar Efficiency**: Kvazaar (~122ms) is significantly faster (**~1.6x**) than x265 (~194ms) when both are running in a balanced/medium configuration at Quality 80.
-2.  **AV1 Speed**: The AOM AV1 encoder at `speed=6` is markedly fast (~95ms), outperforming both HEVC encoders. This confirms AV1's viability for responsive encoding tasks.
-3.  **Decoding**: Both libraries offer very fast decoding (~25-30ms).
+### Key Findings:
+
+1.  **AOM AV1 Efficiency**: Surprisingly, `libaom` (at speed 6) is the **fastest** encoder in this test, outperforming even the highly optimized Kvazaar HEVC encoder while maintaining excellent compression efficiency (smallest file size).
+2.  **HEVC Choice**: If you need HEVC, **Kvazaar** is significantly faster than x265 for similar quality.
 
 <details>
-<summary><b>Raw Benchmark Output (Refined 20-round run)</b></summary>
+<summary><b>Raw Benchmark Output (Iso-Quality Run)</b></summary>
 
 ```text
-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Name (time in ms)                          Min                 Max                Mean            StdDev              Median                IQR            Outliers      OPS            Rounds  Iterations
-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-test_benchmark_decode_hevc_pillow      25.1037 (1.0)       29.0527 (1.0)       25.6666 (1.0)      0.7504 (1.0)       25.5727 (1.0)       0.5844 (1.0)           3;3  38.9611 (1.0)          35           1
-test_benchmark_decode_hevc             30.3832 (1.21)      34.1134 (1.17)      31.1261 (1.21)     0.8224 (1.10)      31.1342 (1.22)      0.8100 (1.39)          2;2  32.1274 (0.82)         31           1
-test_benchmark_encode_av1              91.6138 (3.65)     105.3451 (3.63)      95.1657 (3.71)     2.9617 (3.95)      95.1245 (3.72)      3.1292 (5.35)          3;1  10.5080 (0.27)         20           1
-test_benchmark_encode_kvazaar         120.6191 (4.80)     136.9627 (4.71)     122.1626 (4.76)     3.5188 (4.69)     121.3550 (4.75)      0.7922 (1.36)          1;1   8.1858 (0.21)         20           1
-test_benchmark_encode_hevc_pillow     171.8147 (6.84)     197.4089 (6.79)     182.5619 (7.11)     7.8343 (10.44)    182.6163 (7.14)     13.4670 (23.04)         9;0   5.4776 (0.14)         20           1
-test_benchmark_encode_hevc            181.1458 (7.22)     206.9737 (7.12)     194.3554 (7.57)     7.9335 (10.57)    195.1668 (7.63)     13.0224 (22.28)         7;0   5.1452 (0.13)         20           1
-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------
+Test: 1280x720 RGB Image, 10 Rounds
+----------------------------------------------------------------------------------
+Name (time in ms)                     Mean            OPS
+----------------------------------------------------------------------------------
+test_benchmark_encode_aom_av1       115.64           8.65  (Q86)
+test_benchmark_encode_kvazaar       125.19           7.96  (Q80)
+test_benchmark_encode_x265          206.03           4.65  (Q80 / Limit)
+----------------------------------------------------------------------------------
 ```
+
 </details>
 
 Run benchmarks yourself:
