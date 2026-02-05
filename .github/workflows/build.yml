@@ -82,7 +82,7 @@ jobs:
 
           CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
           CIBW_BEFORE_BUILD_MACOS: |
-            brew install openjpeg nasm x265 libde265 aom jpeg openh264 meson ninja
+            brew install openjpeg nasm x265 libde265 aom jpeg meson ninja
             
             # Build dav1d
             cd third_party/dav1d
