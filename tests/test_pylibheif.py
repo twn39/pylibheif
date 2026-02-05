@@ -287,7 +287,13 @@ class TestEncoding:
         
         # Test valid preset (x265 presets: ultrafast, superfast, veryfast, faster, fast, medium, slow, slower, veryslow, placebo)
         # We use "ultrafast" as it should be quick
-        encoder.encode_image(ctx, img, preset="ultrafast")
+        try:
+            encoder.encode_image(ctx, img, preset="medium")
+        except pylibheif.HeifError as e:
+            # Windows/vcpkg build might not support presets
+            if "Unsupported encoder parameter" in str(e):
+                pytest.skip("Encoder does not support 'preset' parameter on this platform")
+            raise e
         
         with tempfile.NamedTemporaryFile(suffix='.heic', delete=False) as f:
             output_path = f.name
@@ -350,6 +356,8 @@ class TestEncoding:
             assert handle.width == 100
             assert handle.height == 100
             
+            del handle, ctx_read
+            
         finally:
             os.unlink(output_path)
 
@@ -376,6 +384,8 @@ class TestEncoding:
             handle = ctx_read.get_primary_image_handle()
             assert handle.width == 100
             assert handle.height == 100
+            
+            del handle, ctx_read
             
         finally:
             os.unlink(output_path)
@@ -442,6 +452,8 @@ class TestRoundTrip:
             decoded_data = np.asarray(plane)
             
             assert decoded_data.shape == (height, width, 3)
+            
+            del handle, decode_ctx, decoded_img, plane
             
             # 允许有损压缩的误差
             mean_diff = np.abs(decoded_data.astype(float) - original_data.astype(float)).mean()
@@ -644,6 +656,8 @@ class TestMetadataWriting:
             all_ids = handle2.get_metadata_block_ids("")
             assert len(all_ids) >= 1
             
+            del handle2, ctx2
+            
         finally:
             os.unlink(output_path)
 
@@ -798,6 +812,8 @@ class TestMemoryManagement:
                 verify_handle = verify_ctx.get_primary_image_handle()
                 assert verify_handle.width == handle.width
                 assert verify_handle.height == handle.height
+                
+                del verify_handle, verify_ctx
             finally:
                 os.unlink(output_path)
             
