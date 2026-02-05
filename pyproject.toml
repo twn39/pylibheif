@@ -55,8 +55,8 @@ WITH_OpenJPEG_ENCODER = "ON"
 WITH_OpenJPEG_DECODER = "ON"
 WITH_JPEG_ENCODER = "ON"
 WITH_JPEG_DECODER = "ON"
-WITH_X264 = "ON"
-WITH_OpenH264_DECODER = "ON"
+WITH_X264 = "OFF"
+WITH_OpenH264_DECODER = "OFF"
 WITH_FFMPEG_DECODER = "OFF"
 
 [dependency-groups]
@@ -64,4 +64,6 @@ dev = [
     "pytest>=9.0.2",
     "pytest-benchmark>=5.0.0",
     "pillow-heif>=0.20.0",
+    "meson>=1.10.1",
+    "ninja>=1.13.0",
 ]

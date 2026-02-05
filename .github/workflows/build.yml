@@ -31,6 +31,7 @@ jobs:
         run: |
           cd third_party/libheif && git fetch --tags && git checkout v1.21.2
           cd ../kvazaar && git fetch --tags && git checkout v2.3.2
+          cd ../dav1d && git fetch --tags && git checkout 1.5.3
 
       # Linux dependencies
       - name: Install Linux dependencies
@@ -61,17 +62,28 @@ jobs:
             if [ -x "$(command -v yum)" ]; then
               yum install -y epel-release
               /usr/bin/crb enable
-              yum install -y --nogpgcheck https://mirrors.rpmfusion.org/free/el/rpmfusion-free-release-8.noarch.rpm
-              yum install -y x265-devel libde265-devel libaom-devel libdav1d-devel openjpeg2-devel libjpeg-turbo-devel nasm git cmake
+              yum install -y x265-devel libde265-devel libaom-devel openjpeg2-devel libjpeg-turbo-devel nasm git cmake python3-pip
+              pip3 install uv
+              uv pip install meson ninja --system
             else
-              apt-get update
-              apt-get install -y libx265-dev libde265-dev libaom-dev libdav1d-dev libopenjp2-7-dev libjpeg-dev nasm git cmake
+              apt-get install -y libx265-dev libde265-dev libaom-dev libopenjp2-7-dev libjpeg-dev nasm git cmake python3-pip
+              pip3 install uv --break-system-packages
+              uv pip install meson ninja --system --break-system-packages
             fi
+            
+            # Build dav1d
+            cd {project}/third_party/dav1d
+            meson setup build --default-library=static --buildtype=release --prefix=/usr/local
+            ninja -C build
+            ninja -C build install
           CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
-          CIBW_CONFIG_SETTINGS_LINUX: >
-            cmake.define.WITH_DAV1D=ON
           CIBW_BEFORE_BUILD_MACOS: |
-            brew install openjpeg nasm x265 libde265 aom dav1d jpeg x264 openh264
+            brew install openjpeg nasm x265 libde265 aom jpeg x264 openh264 meson ninja
+            
+            # Build dav1d
+            cd third_party/dav1d
+            meson setup build --default-library=static --buildtype=release --prefix=/usr/local
+            ninja -C build install
           CIBW_ENVIRONMENT_MACOS: MACOSX_DEPLOYMENT_TARGET=14.0
           # Fix: Help delocate find Homebrew libraries on macOS
           CIBW_REPAIR_WHEEL_COMMAND_MACOS: >

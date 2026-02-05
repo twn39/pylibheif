@@ -4,3 +4,6 @@
 [submodule "third_party/kvazaar"]
 	path = third_party/kvazaar
 	url = https://github.com/ultravideo/kvazaar.git
+[submodule "third_party/dav1d"]
+	path = third_party/dav1d
+	url = https://github.com/videolan/dav1d.git
