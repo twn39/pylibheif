@@ -50,17 +50,19 @@ jobs:
           brew install openjpeg nasm
 
       # Windows dependencies
+      - uses: ilammy/setup-nasm@v1
+        if: runner.os == 'Windows'
+
       - name: Install Windows dependencies
         if: runner.os == 'Windows'
         run: |
-          choco install nasm
           pip install meson ninja
           vcpkg install x265 libde265 aom dav1d openjpeg libjpeg-turbo --triplet x64-windows-static
             
             # Build dav1d
             cd third_party/dav1d
             meson setup build --default-library=static --buildtype=release --prefix=/usr/local
-            ninja -C build install --no-rebuild
+            ninja -C build install
 
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.3.1
