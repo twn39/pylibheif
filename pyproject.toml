@@ -67,4 +67,5 @@ dev = [
     "pillow-heif>=0.20.0",
     "meson>=1.10.1",
     "ninja>=1.13.0",
+    "clang-tidy>=21.1.6",
 ]

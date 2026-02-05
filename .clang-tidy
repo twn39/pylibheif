@@ -1,0 +1,4 @@
+Checks: '-*,readability-*,bugprone-*,performance-*,modernize-redundant-void-arg,modernize-use-bool-literals,modernize-use-nullptr,modernize-use-override'
+WarningsAsErrors: ''
+HeaderFilterRegex: 'src/.*'
+FormatStyle: file

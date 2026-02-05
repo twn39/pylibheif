@@ -1,0 +1,225 @@
+[1/4] Processing file /Users/2342184/programs/pylibheif/src/context.cpp.
+14 warnings and 1 error generated.
+Error while processing /Users/2342184/programs/pylibheif/src/context.cpp.
+[2/4] Processing file /Users/2342184/programs/pylibheif/src/encoder.cpp.
+27 warnings and 2 errors generated.
+Error while processing /Users/2342184/programs/pylibheif/src/encoder.cpp.
+[3/4] Processing file /Users/2342184/programs/pylibheif/src/image.cpp.
+51 warnings and 3 errors generated.
+Error while processing /Users/2342184/programs/pylibheif/src/image.cpp.
+[4/4] Processing file /Users/2342184/programs/pylibheif/src/main.cpp.
+56 warnings and 4 errors generated.
+Error while processing /Users/2342184/programs/pylibheif/src/main.cpp.
+/Users/2342184/programs/pylibheif/src/context.cpp:17:19: warning: method 'read_from_file' can be made static [readability-convert-member-functions-to-static]
+   17 | void HeifContext::read_from_file(const std::string& filename) {
+      |                   ^
+      | static 
+/Users/2342184/programs/pylibheif/src/context.cpp:22:19: warning: method 'read_from_memory' can be made static [readability-convert-member-functions-to-static]
+   22 | void HeifContext::read_from_memory(const py::bytes& data) {
+      |                   ^
+      | static 
+/Users/2342184/programs/pylibheif/src/context.cpp:33:47: warning: method 'get_primary_image_handle' can be made static [readability-convert-member-functions-to-static]
+   33 | std::shared_ptr<HeifImageHandle> HeifContext::get_primary_image_handle() {
+      |                                               ^
+      | static 
+/Users/2342184/programs/pylibheif/src/context.cpp:39:40: warning: method 'get_list_of_top_level_image_IDs' can be made static [readability-convert-member-functions-to-static]
+   39 | std::vector<heif_item_id> HeifContext::get_list_of_top_level_image_IDs() {
+      |                                        ^
+      | static 
+/Users/2342184/programs/pylibheif/src/context.cpp:46:47: warning: method 'get_image_handle' can be made static [readability-convert-member-functions-to-static]
+   46 | std::shared_ptr<HeifImageHandle> HeifContext::get_image_handle(heif_item_id id) {
+      |                                               ^
+      | static 
+/Users/2342184/programs/pylibheif/src/context.cpp:46:77: warning: parameter name 'id' is too short, expected at least 3 characters [readability-identifier-length]
+   46 | std::shared_ptr<HeifImageHandle> HeifContext::get_image_handle(heif_item_id id) {
+      |                                                                             ^
+/Users/2342184/programs/pylibheif/src/context.cpp:52:19: warning: method 'write_to_file' can be made static [readability-convert-member-functions-to-static]
+   52 | void HeifContext::write_to_file(const std::string& filename) {
+      |                   ^
+      | static 
+/Users/2342184/programs/pylibheif/src/context.cpp:64:21: warning: variable name 'wd' is too short, expected at least 3 characters [readability-identifier-length]
+   64 |         WriterData* wd = (WriterData*)userdata;
+      |                     ^
+/Users/2342184/programs/pylibheif/src/context.cpp:77:24: warning: method 'write_to_bytes' can be made static [readability-convert-member-functions-to-static]
+   77 | py::bytes HeifContext::write_to_bytes() {
+      |                        ^
+      | static 
+/Users/2342184/programs/pylibheif/src/context.cpp:78:16: warning: variable name 'wd' is too short, expected at least 3 characters [readability-identifier-length]
+   78 |     WriterData wd;
+      |                ^
+/Users/2342184/programs/pylibheif/src/context.hpp:2:10: error: 'memory' file not found [clang-diagnostic-error]
+    2 | #include <memory>
+      |          ^~~~~~~~
+/Users/2342184/programs/pylibheif/src/context.hpp:22:68: warning: parameter name 'id' is too short, expected at least 3 characters [readability-identifier-length]
+   22 |     std::shared_ptr<HeifImageHandle> get_image_handle(heif_item_id id);
+      |                                                                    ^
+/Users/2342184/programs/pylibheif/src/encoder.cpp:22:26: warning: method 'name' can be made static [readability-convert-member-functions-to-static]
+   22 | std::string HeifEncoder::name() const { return heif_encoder_get_name(encoder); }
+      |                          ^      ~~~~~
+      | static 
+/Users/2342184/programs/pylibheif/src/encoder.cpp:24:19: warning: method 'set_lossy_quality' can be made static [readability-convert-member-functions-to-static]
+   24 | void HeifEncoder::set_lossy_quality(int quality) {
+      |                   ^
+/Users/2342184/programs/pylibheif/src/encoder.cpp:28:19: warning: method 'set_parameter' can be made static [readability-convert-member-functions-to-static]
+   28 | void HeifEncoder::set_parameter(const std::string& name, const std::string& value) {
+      |                   ^
+      | static 
+/Users/2342184/programs/pylibheif/src/encoder.cpp:28:33: warning: 2 adjacent parameters of 'set_parameter' of similar type ('const int &') are easily swapped by mistake [bugprone-easily-swappable-parameters]
+   28 | void HeifEncoder::set_parameter(const std::string& name, const std::string& value) {
+      |                                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/Users/2342184/programs/pylibheif/src/encoder.cpp:28:52: note: the first parameter in the range is 'name'
+   28 | void HeifEncoder::set_parameter(const std::string& name, const std::string& value) {
+      |                                                    ^~~~
+/Users/2342184/programs/pylibheif/src/encoder.cpp:28:77: note: the last parameter in the range is 'value'
+   28 | void HeifEncoder::set_parameter(const std::string& name, const std::string& value) {
+      |                                                                             ^~~~~
+/Users/2342184/programs/pylibheif/src/encoder.cpp:32:47: warning: method 'encode_image' can be made static [readability-convert-member-functions-to-static]
+   32 | std::shared_ptr<HeifImageHandle> HeifEncoder::encode_image(HeifContext& ctx, const HeifImage& image,
+      |                                               ^
+      | static 
+/Users/2342184/programs/pylibheif/src/encoder.cpp:46:36: warning: method 'id_name' can be made static [readability-convert-member-functions-to-static]
+   46 | std::string HeifEncoderDescriptor::id_name() const {
+      |                                    ^         ~~~~~
+      | static 
+/Users/2342184/programs/pylibheif/src/encoder.cpp:50:36: warning: method 'name' can be made static [readability-convert-member-functions-to-static]
+   50 | std::string HeifEncoderDescriptor::name() const {
+      |                                    ^      ~~~~~
+      | static 
+/Users/2342184/programs/pylibheif/src/encoder.cpp:54:48: warning: method 'compression_format' can be made static [readability-convert-member-functions-to-static]
+   54 | heif_compression_format HeifEncoderDescriptor::compression_format() const {
+      |                                                ^                    ~~~~~
+      | static 
+/Users/2342184/programs/pylibheif/src/encoder.cpp:58:60: warning: 2 adjacent parameters of 'get_encoder_descriptors' of similar type are easily swapped by mistake [bugprone-easily-swappable-parameters]
+   58 | std::vector<HeifEncoderDescriptor> get_encoder_descriptors(heif_compression_format format_filter,
+      |                                                            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   59 |                                                            const std::string& name_filter) {
+      |                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/Users/2342184/programs/pylibheif/src/encoder.cpp:58:84: note: the first parameter in the range is 'format_filter'
+   58 | std::vector<HeifEncoderDescriptor> get_encoder_descriptors(heif_compression_format format_filter,
+      |                                                                                    ^~~~~~~~~~~~~
+/Users/2342184/programs/pylibheif/src/encoder.cpp:59:79: note: the last parameter in the range is 'name_filter'
+   59 |                                                            const std::string& name_filter) {
+      |                                                                               ^~~~~~~~~~~
+/Users/2342184/programs/pylibheif/src/encoder.cpp:59:60: note: 'int' and 'const int &' parameters accept and bind the same kind of values
+   59 |                                                            const std::string& name_filter) {
+      |                                                            ^
+/Users/2342184/programs/pylibheif/src/encoder.hpp:2:10: error: 'memory' file not found [clang-diagnostic-error]
+    2 | #include <memory>
+      |          ^~~~~~~~
+/Users/2342184/programs/pylibheif/src/image.cpp:11:22: warning: method 'get_width' can be made static [readability-convert-member-functions-to-static]
+   11 | int HeifImageHandle::get_width() const { return heif_image_handle_get_width(handle); }
+      |                      ^           ~~~~~
+/Users/2342184/programs/pylibheif/src/image.cpp:13:22: warning: method 'get_height' can be made static [readability-convert-member-functions-to-static]
+   13 | int HeifImageHandle::get_height() const { return heif_image_handle_get_height(handle); }
+      |                      ^            ~~~~~
+/Users/2342184/programs/pylibheif/src/image.cpp:15:23: warning: method 'has_alpha_channel' can be made static [readability-convert-member-functions-to-static]
+   15 | bool HeifImageHandle::has_alpha_channel() const {
+      |                       ^                   ~~~~~
+/Users/2342184/programs/pylibheif/src/image.cpp:19:22: warning: method 'get_luma_bits_per_pixel' can be made static [readability-convert-member-functions-to-static]
+   19 | int HeifImageHandle::get_luma_bits_per_pixel() const {
+      |                      ^                         ~~~~~
+/Users/2342184/programs/pylibheif/src/image.cpp:23:22: warning: method 'get_chroma_bits_per_pixel' can be made static [readability-convert-member-functions-to-static]
+   23 | int HeifImageHandle::get_chroma_bits_per_pixel() const {
+      |                      ^                           ~~~~~
+/Users/2342184/programs/pylibheif/src/image.cpp:27:45: warning: method 'decode' can be made static [readability-convert-member-functions-to-static]
+   27 | std::shared_ptr<HeifImage> HeifImageHandle::decode(heif_colorspace colorspace, heif_chroma chroma) {
+      |                                             ^
+      | static 
+/Users/2342184/programs/pylibheif/src/image.cpp:27:52: warning: 2 adjacent parameters of 'decode' of similar type ('int') are easily swapped by mistake [bugprone-easily-swappable-parameters]
+   27 | std::shared_ptr<HeifImage> HeifImageHandle::decode(heif_colorspace colorspace, heif_chroma chroma) {
+      |                                                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/Users/2342184/programs/pylibheif/src/image.cpp:27:68: note: the first parameter in the range is 'colorspace'
+   27 | std::shared_ptr<HeifImage> HeifImageHandle::decode(heif_colorspace colorspace, heif_chroma chroma) {
+      |                                                                    ^~~~~~~~~~
+/Users/2342184/programs/pylibheif/src/image.cpp:27:92: note: the last parameter in the range is 'chroma'
+   27 | std::shared_ptr<HeifImage> HeifImageHandle::decode(heif_colorspace colorspace, heif_chroma chroma) {
+      |                                                                                            ^~~~~~
+/Users/2342184/programs/pylibheif/src/image.cpp:33:44: warning: method 'get_list_of_metadata_block_IDs' can be made static [readability-convert-member-functions-to-static]
+   33 | std::vector<heif_item_id> HeifImageHandle::get_list_of_metadata_block_IDs(
+      |                                            ^
+      | static 
+/Users/2342184/programs/pylibheif/src/image.cpp:43:30: warning: method 'get_metadata_block_type' can be made static [readability-convert-member-functions-to-static]
+   43 | std::string HeifImageHandle::get_metadata_block_type(heif_item_id id) {
+      |                              ^
+      | static 
+/Users/2342184/programs/pylibheif/src/image.cpp:43:67: warning: parameter name 'id' is too short, expected at least 3 characters [readability-identifier-length]
+   43 | std::string HeifImageHandle::get_metadata_block_type(heif_item_id id) {
+      |                                                                   ^
+/Users/2342184/programs/pylibheif/src/image.cpp:47:28: warning: method 'get_metadata_block' can be made static [readability-convert-member-functions-to-static]
+   47 | py::bytes HeifImageHandle::get_metadata_block(heif_item_id id) {
+      |                            ^
+      | static 
+/Users/2342184/programs/pylibheif/src/image.cpp:47:60: warning: parameter name 'id' is too short, expected at least 3 characters [readability-identifier-length]
+   47 | py::bytes HeifImageHandle::get_metadata_block(heif_item_id id) {
+      |                                                            ^
+/Users/2342184/programs/pylibheif/src/image.cpp:54:33: warning: 3 adjacent parameters of 'HeifImage' of similar type ('int') are easily swapped by mistake [bugprone-easily-swappable-parameters]
+   54 | HeifImage::HeifImage(int width, int height, heif_colorspace colorspace, heif_chroma chroma) {
+      |                                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/Users/2342184/programs/pylibheif/src/image.cpp:54:37: note: the first parameter in the range is 'height'
+   54 | HeifImage::HeifImage(int width, int height, heif_colorspace colorspace, heif_chroma chroma) {
+      |                                     ^~~~~~
+/Users/2342184/programs/pylibheif/src/image.cpp:54:85: note: the last parameter in the range is 'chroma'
+   54 | HeifImage::HeifImage(int width, int height, heif_colorspace colorspace, heif_chroma chroma) {
+      |                                                                                     ^~~~~~
+/Users/2342184/programs/pylibheif/src/image.cpp:64:16: warning: method 'get_width' can be made static [readability-convert-member-functions-to-static]
+   64 | int HeifImage::get_width(heif_channel channel) const {
+      |                ^                               ~~~~~
+      | static 
+/Users/2342184/programs/pylibheif/src/image.cpp:68:16: warning: method 'get_height' can be made static [readability-convert-member-functions-to-static]
+   68 | int HeifImage::get_height(heif_channel channel) const {
+      |                ^                                ~~~~~
+      | static 
+/Users/2342184/programs/pylibheif/src/image.cpp:72:17: warning: method 'add_plane' can be made static [readability-convert-member-functions-to-static]
+   72 | void HeifImage::add_plane(heif_channel channel, int width, int height, int bit_depth) {
+      |                 ^
+      | static 
+/Users/2342184/programs/pylibheif/src/image.cpp:72:27: warning: 2 adjacent parameters of 'add_plane' of similar type ('int') are easily swapped by mistake [bugprone-easily-swappable-parameters]
+   72 | void HeifImage::add_plane(heif_channel channel, int width, int height, int bit_depth) {
+      |                           ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/Users/2342184/programs/pylibheif/src/image.cpp:72:40: note: the first parameter in the range is 'channel'
+   72 | void HeifImage::add_plane(heif_channel channel, int width, int height, int bit_depth) {
+      |                                        ^~~~~~~
+/Users/2342184/programs/pylibheif/src/image.cpp:72:53: note: the last parameter in the range is 'width'
+   72 | void HeifImage::add_plane(heif_channel channel, int width, int height, int bit_depth) {
+      |                                                     ^~~~~
+/Users/2342184/programs/pylibheif/src/image.cpp:76:28: warning: method 'get_buffer_info' can be made static [readability-convert-member-functions-to-static]
+   76 | py::buffer_info HeifImage::get_buffer_info(heif_channel channel, bool writeable) {
+      |                            ^
+      | static 
+/Users/2342184/programs/pylibheif/src/image.cpp:106:51: warning: 7 is a magic number; consider replacing it with a named constant [readability-magic-numbers]
+  106 |     size_t bytes_per_channel = (bpp_per_channel + 7) / 8;
+      |                                                   ^
+/Users/2342184/programs/pylibheif/src/image.cpp:106:56: warning: 8 is a magic number; consider replacing it with a named constant [readability-magic-numbers]
+  106 |     size_t bytes_per_channel = (bpp_per_channel + 7) / 8;
+      |                                                        ^
+/Users/2342184/programs/pylibheif/src/image.cpp:110:5: warning: if with identical then and else branches [bugprone-branch-clone]
+  110 |     if (num_channels > 1) {
+      |     ^
+/Users/2342184/programs/pylibheif/src/image.cpp:117:7: note: else branch starts here
+  117 |     } else {
+      |       ^
+/Users/2342184/programs/pylibheif/src/image.hpp:2:10: error: 'map' file not found [clang-diagnostic-error]
+    2 | #include <map>
+      |          ^~~~~
+/Users/2342184/programs/pylibheif/src/image.hpp:14:40: warning: parameter name 'h' is too short, expected at least 3 characters [readability-identifier-length]
+   14 |     HeifImageHandle(heif_image_handle* h) : handle(h) {}
+      |                                        ^
+/Users/2342184/programs/pylibheif/src/image.hpp:27:54: warning: parameter name 'id' is too short, expected at least 3 characters [readability-identifier-length]
+   27 |     std::string get_metadata_block_type(heif_item_id id);
+      |                                                      ^
+/Users/2342184/programs/pylibheif/src/image.hpp:28:47: warning: parameter name 'id' is too short, expected at least 3 characters [readability-identifier-length]
+   28 |     py::bytes get_metadata_block(heif_item_id id);
+      |                                               ^
+/Users/2342184/programs/pylibheif/src/main.cpp:1:10: error: 'pybind11/numpy.h' file not found [clang-diagnostic-error]
+    1 | #include <pybind11/numpy.h>
+      |          ^~~~~~~~~~~~~~~~~~
+/Users/2342184/programs/pylibheif/src/main.cpp:14:15: warning: 2 adjacent parameters of 'HeifPlane' of similar type ('int') are easily swapped by mistake [bugprone-easily-swappable-parameters]
+   14 |     HeifPlane(std::shared_ptr<HeifImage> img, heif_channel channel, bool writeable)
+      |               ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/Users/2342184/programs/pylibheif/src/main.cpp:14:42: note: the first parameter in the range is 'img'
+   14 |     HeifPlane(std::shared_ptr<HeifImage> img, heif_channel channel, bool writeable)
+      |                                          ^~~
+/Users/2342184/programs/pylibheif/src/main.cpp:14:60: note: the last parameter in the range is 'channel'
+   14 |     HeifPlane(std::shared_ptr<HeifImage> img, heif_channel channel, bool writeable)
+      |                                                            ^~~~~~~
+Found compiler error(s).
