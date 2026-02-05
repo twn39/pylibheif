@@ -60,7 +60,7 @@ jobs:
             # Build dav1d
             cd third_party/dav1d
             meson setup build --default-library=static --buildtype=release --prefix=/usr/local
-            ninja -C build install --no-rebuild || sudo ninja -C build install
+            ninja -C build install --no-rebuild
 
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.3.1
