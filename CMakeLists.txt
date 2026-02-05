@@ -1,6 +1,17 @@
 cmake_minimum_required(VERSION 3.15)
 project(pylibheif LANGUAGES C CXX)
 
+# Enable LTO if supported (reduces binary size, improves performance)
+include(CheckIPOSupported)
+check_ipo_supported(RESULT result OUTPUT output)
+if(result)
+    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
+endif()
+
+# Set default visibility to hidden (reduces binary size)
+set(CMAKE_CXX_VISIBILITY_PRESET hidden)
+set(CMAKE_VISIBILITY_INLINES_HIDDEN ON)
+
 # Find pybind11
 find_package(pybind11 REQUIRED)
 
@@ -75,8 +86,6 @@ target_compile_features(pylibheif PRIVATE cxx_std_17)
 # Compiler optimizations
 if(MSVC)
     target_compile_options(pylibheif PRIVATE /O2)
-elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
-    target_compile_options(pylibheif PRIVATE -O3 -march=native -mtune=native)
 else()
     target_compile_options(pylibheif PRIVATE -O3)
 endif()
