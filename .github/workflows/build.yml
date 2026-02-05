@@ -57,7 +57,7 @@ jobs:
           # Build for Python 3.11-3.14
           CIBW_BUILD: cp311-* cp312-* cp313-* cp314-*
           # Skip 32-bit builds and musllinux
-          CIBW_SKIP: "*-manylinux_i686 *musllinux*"
+          CIBW_SKIP: "*-manylinux_i686 *musllinux* *-win32"
           # Install build dependencies
           CIBW_BEFORE_BUILD_LINUX: |
             if [ -x "$(command -v yum)" ]; then
@@ -98,6 +98,7 @@ jobs:
             
 
           CIBW_ENVIRONMENT_MACOS: MACOSX_DEPLOYMENT_TARGET=14.0
+          CIBW_CONFIG_SETTINGS_MACOS: cmake.define.CMAKE_OSX_DEPLOYMENT_TARGET=14.0
           # Fix: Help delocate find Homebrew libraries on macOS
           CIBW_REPAIR_WHEEL_COMMAND_MACOS: >
             DYLD_LIBRARY_PATH=/opt/homebrew/lib:$DYLD_LIBRARY_PATH

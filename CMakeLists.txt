@@ -36,6 +36,7 @@ set(BUILD_TESTS OFF CACHE BOOL "Build tests" FORCE)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared libraries" FORCE)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 add_subdirectory(third_party/kvazaar EXCLUDE_FROM_ALL)
+target_compile_definitions(kvazaar PUBLIC KVZ_STATIC_LIB)
 
 # Help libheif find Kvazaar from submodule
 set(kvazaar_FOUND TRUE CACHE BOOLEAN "Kvazaar found" FORCE)
@@ -58,6 +59,9 @@ pybind11_add_module(pylibheif
 # Link with libheif
 target_link_libraries(pylibheif PRIVATE heif)
 
+# Define macro for static kvazaar linking
+target_compile_definitions(pylibheif PRIVATE KVZ_STATIC_LIB)
+
 # Include directories
 target_include_directories(pylibheif PRIVATE
     src
@@ -69,7 +73,9 @@ target_include_directories(pylibheif PRIVATE
 target_compile_features(pylibheif PRIVATE cxx_std_17)
 
 # Compiler optimizations
-if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+if(MSVC)
+    target_compile_options(pylibheif PRIVATE /O2)
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
     target_compile_options(pylibheif PRIVATE -O3 -march=native -mtune=native)
 else()
     target_compile_options(pylibheif PRIVATE -O3)
