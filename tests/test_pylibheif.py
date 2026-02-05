@@ -281,19 +281,20 @@ class TestEncoding:
         import pylibheif
         img = self.create_test_image()
         
+        # Specifically find x265 encoder which supports presets (Kvazaar does not)
+        descriptors = pylibheif.get_encoder_descriptors(pylibheif.HeifCompressionFormat.HEVC)
+        x265_desc = next((d for d in descriptors if "x265" in d.id_name), None)
+        
+        if not x265_desc:
+            pytest.skip("x265 encoder not available to test presets")
+
         ctx = pylibheif.HeifContext()
-        encoder = pylibheif.HeifEncoder(pylibheif.HeifCompressionFormat.HEVC)
+        encoder = pylibheif.HeifEncoder(x265_desc)
         encoder.set_lossy_quality(85)
         
         # Test valid preset (x265 presets: ultrafast, superfast, veryfast, faster, fast, medium, slow, slower, veryslow, placebo)
         # We use "ultrafast" as it should be quick
-        try:
-            encoder.encode_image(ctx, img, preset="medium")
-        except pylibheif.HeifError as e:
-            # Windows/vcpkg build might not support presets
-            if "Unsupported encoder parameter" in str(e):
-                pytest.skip("Encoder does not support 'preset' parameter on this platform")
-            raise e
+        encoder.encode_image(ctx, img, preset="ultrafast")
         
         with tempfile.NamedTemporaryFile(suffix='.heic', delete=False) as f:
             output_path = f.name
