@@ -21,26 +21,17 @@ Python bindings for [libheif](https://github.com/strukturag/libheif) using pybin
 
 | Format | Decoding | Encoding | Codec |
 |--------|----------|----------|-------|
-| HEIC (HEVC/H.265) | ✅ | ✅ | libde265 / x265 |
-| AVIF (AV1) | ✅ | ✅ | DAV1D + AOM |
+| HEIC (HEVC/H.265) | ✅ | ✅ | libde265 (Dec) / x265 (Enc) / Kvazaar (Enc) |
+| AVIF (AV1) | ✅ | ✅ | DAV1D (Dec) / AOM (Enc) |
 | JPEG2000 | ✅ | ✅ | OpenJPEG |
+| JPEG | ✅ | ✅ | libjpeg |
 
 ## Requirements
 
-- Python >= 3.12
+- Python >= 3.11
 - NumPy >= 1.26.0
 - CMake >= 3.15
 - C++17 compatible compiler
-
-### System Dependencies
-
-```bash
-# macOS
-brew install openjpeg
-
-# Ubuntu/Debian
-sudo apt install libopenjp2-7-dev
-```
 
 ## Installation
 
