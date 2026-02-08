@@ -14,6 +14,7 @@ Python bindings for [libheif](https://github.com/strukturag/libheif) using pybin
 - **JPEG2000 Support**: Read and write JPEG2000 images in HEIF container
 - **NumPy Integration**: Zero-copy access to image data via Python Buffer Protocol
 - **Metadata Support**: Read and write EXIF, XMP, and custom metadata
+- **Asynchronous Support**: Built-in `asyncio` wrappers for non-blocking I/O and encoding
 - **RAII Resource Management**: Automatic resource cleanup with context managers
 
 ## Supported Formats
@@ -308,6 +309,64 @@ ctx.add_generic_metadata(handle, custom_data, "json", "application/json")
 ctx.write_to_file('output_with_metadata.heic')
 ```
 
+### Asynchronous Support (asyncio)
+
+`pylibheif` provides asynchronous wrappers for non-blocking I/O and CPU-intensive operations (like encoding and decoding) using `asyncio.to_thread`.
+
+#### Async Reading and Decoding
+
+```python
+import pylibheif
+import asyncio
+import numpy as np
+
+async def read_async():
+    # Recommended: Use 'async with' context manager
+    async with pylibheif.AsyncHeifContext() as ctx:
+        await ctx.read_from_file('image.heic')
+        
+        handle = ctx.get_primary_image_handle()
+        
+        # Asynchronously decode (offloaded to thread)
+        img = await handle.decode(pylibheif.HeifColorspace.RGB, 
+                                  pylibheif.HeifChroma.InterleavedRGB)
+        
+        plane = img.get_plane(pylibheif.HeifChannel.Interleaved, False)
+        arr = np.asarray(plane)
+        return arr
+
+asyncio.run(read_async())
+```
+
+#### Async Encoding and Writing
+
+```python
+import pylibheif
+import asyncio
+import numpy as np
+
+async def write_async(image_data):
+    width, height = 1920, 1080
+    img = pylibheif.HeifImage(width, height, 
+                              pylibheif.HeifColorspace.RGB,
+                              pylibheif.HeifChroma.InterleavedRGB)
+    img.add_plane(pylibheif.HeifChannel.Interleaved, width, height, 8)
+    plane = img.get_plane(pylibheif.HeifChannel.Interleaved, True)
+    np.asarray(plane)[:] = image_data
+
+    async with pylibheif.AsyncHeifContext() as ctx:
+        encoder = pylibheif.AsyncHeifEncoder(pylibheif.HeifCompressionFormat.HEVC)
+        encoder.set_lossy_quality(85)
+        
+        # Asynchronously encode (offloaded to thread)
+        await encoder.encode_image(ctx, img)
+        
+        # Asynchronously write to file
+        await ctx.write_to_file('output.heic')
+
+asyncio.run(write_async(your_image_data))
+```
+
 ## API Reference
 
 ### class `pylibheif.HeifContext`
@@ -460,6 +519,43 @@ Encodes the given image and appends it to the context.
 - `image`: The source `HeifImage` to encode.
 - `preset`: Optional encoder preset (e.g. "ultrafast", "slow"). Default is empty (balanced/default). **Note**: This maps to the 'preset' parameter in libheif. It works for x265 (check version), but AOM and others may use different parameters (e.g. 'speed') which should be set via `set_parameter` instead.
 - Returns: `HeifImageHandle` for the encoded image. Can be used to add metadata.
+
+---
+
+### class `pylibheif.AsyncHeifContext`
+
+Asynchronous wrapper for `HeifContext`. Methods are awaited and offloaded to a background thread.
+
+#### Methods
+
+**`async read_from_file(filename: str) -> None`**
+**`async read_from_memory(data: bytes) -> None`**
+**`async write_to_file(filename: str) -> None`**
+**`async write_to_bytes() -> bytes`**
+**`get_primary_image_handle() -> AsyncHeifImageHandle`**
+**`get_image_handle(id: int) -> AsyncHeifImageHandle`**
+
+---
+
+### class `pylibheif.AsyncHeifImageHandle`
+
+Asynchronous wrapper for `HeifImageHandle`.
+
+#### Methods
+
+**`async decode(colorspace, chroma) -> HeifImage`**
+Asynchronously decodes the image.
+
+---
+
+### class `pylibheif.AsyncHeifEncoder`
+
+Asynchronous wrapper for `HeifEncoder`.
+
+#### Methods
+
+**`async encode_image(ctx, image, preset="") -> HeifImageHandle`**
+Asynchronously encodes the image.
 
 ---
 

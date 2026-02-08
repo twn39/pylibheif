@@ -22,7 +22,7 @@ class HeifPlane {
     bool writeable;
 };
 
-PYBIND11_MODULE(pylibheif, m) {
+PYBIND11_MODULE(_pylibheif, m) {
     m.doc() = "Python bindings for libheif using pybind11";
 
     // Enums

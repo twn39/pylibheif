@@ -63,6 +63,7 @@ WITH_FFMPEG_DECODER = "OFF"
 [dependency-groups]
 dev = [
     "pytest>=9.0.2",
+    "pytest-asyncio>=0.23.0",
     "pytest-benchmark>=5.0.0",
     "pillow-heif>=0.20.0",
     "meson>=1.10.1",

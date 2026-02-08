@@ -60,7 +60,7 @@ set(KVAZAAR_LIBRARIES $<BUILD_INTERFACE:kvazaar> CACHE STRING "Kvazaar libraries
 add_subdirectory(third_party/libheif EXCLUDE_FROM_ALL)
 
 # Define the extension module
-pybind11_add_module(pylibheif
+pybind11_add_module(_pylibheif
     src/main.cpp
     src/context.cpp
     src/image.cpp
@@ -68,27 +68,27 @@ pybind11_add_module(pylibheif
 )
 
 # Link with libheif
-target_link_libraries(pylibheif PRIVATE heif)
+target_link_libraries(_pylibheif PRIVATE heif)
 
 # Define macro for static kvazaar linking
-target_compile_definitions(pylibheif PRIVATE KVZ_STATIC_LIB)
+target_compile_definitions(_pylibheif PRIVATE KVZ_STATIC_LIB)
 
 # Include directories
-target_include_directories(pylibheif PRIVATE
+target_include_directories(_pylibheif PRIVATE
     src
     third_party/libheif/libheif/api
     ${CMAKE_CURRENT_BINARY_DIR}/third_party/libheif
 )
 
 # C++ standard
-target_compile_features(pylibheif PRIVATE cxx_std_17)
+target_compile_features(_pylibheif PRIVATE cxx_std_17)
 
 # Compiler optimizations
 if(MSVC)
-    target_compile_options(pylibheif PRIVATE /O2)
+    target_compile_options(_pylibheif PRIVATE /O2)
 else()
-    target_compile_options(pylibheif PRIVATE -O3)
+    target_compile_options(_pylibheif PRIVATE -O3)
 endif()
 
 # Install the module
-install(TARGETS pylibheif DESTINATION .)
+install(TARGETS _pylibheif DESTINATION pylibheif)
