@@ -4,7 +4,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "pylibheif"
-version = "1.21.2.post12"
+version = "1.21.2.post13"
 description = "Python bindings for libheif - HEIC/AVIF/JPEG2000 image codec"
 readme = "README.md"
 license = {text = "LGPL-3.0-or-later"}
@@ -42,6 +42,30 @@ Issues = "https://github.com/twn39/pylibheif/issues"
 cmake.version = ">=3.15"
 ninja.version = ">=1.10"
 wheel.expand-macos-universal-tags = true
+
+[tool.scikit-build.sdist]
+exclude = [
+    ".clang-format",
+    ".clang-tidy",
+    ".github",
+    ".gitmodules",
+    ".python-version",
+    "GEMINI.md",
+    "uv.lock",
+    "third_party/libheif/examples",
+    "third_party/libheif/tests",
+    "third_party/libheif/fuzzing",
+    "third_party/libheif/go",
+    "third_party/libheif/gdk-pixbuf",
+    "third_party/libheif/logos",
+    "third_party/libheif/scripts",
+    "third_party/kvazaar/doc",
+    "third_party/kvazaar/tests",
+    "third_party/kvazaar/examples",
+    "third_party/dav1d/doc",
+    "third_party/dav1d/examples",
+    "third_party/dav1d/tests",
+]
 
 [tool.scikit-build.cmake.define]
 WITH_EXAMPLES = "OFF"
