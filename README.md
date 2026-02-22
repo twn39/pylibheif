@@ -583,36 +583,37 @@ uv pip install -e .
 
 ## Performance
 
-## Performance
+Benchmarks on 1920x1080 (HD) RGB real-world images (Apple Silicon), comparing python libraries.
 
-Benchmarks on 1280x720 RGB image (Apple Silicon), comparing encoders at **Iso-Quality** (approx. 29.2 dB PSNR) to ensure fair speed comparison.
-
-**Baseline**: x265 (HEVC) at Quality 80 (Medium Preset).
-
-| Encoder | Quality Setting | Time (Mean) | vs x265 | Note |
-|:---|:---:|:---:|:---:|:---|
-| **AOM AV1** | Q86 (Speed 6) | **~115 ms** | **1.8x Faster** | 🚀 **Fastest & Best Efficiency** |
-| **Kvazaar** (HEVC) | Q80 | ~125 ms | 1.6x Faster | Best HEVC option |
-| **x265** (HEVC) | Q80 | ~206 ms | Baseline | |
+| Operation | Library / Encoder | Mean Time |
+|:---|:---|:---:|
+| **Decoding** | `pillow-heif` | ~60.5 ms |
+| **Decoding** | `pylibheif` (HEVC) | ~71.3 ms |
+| **Encoding** | `pylibheif` / Kvazaar | ~174.4 ms |
+| **Encoding** | `pillow-heif` / x265 | ~247.3 ms |
+| **Encoding** | `pylibheif` / x265 (Q80) | ~255.7 ms |
+| **Encoding** | `pylibheif` / AV1 (AOM) | ~292.4 ms |
 
 ### Key Findings:
 
-1.  **AOM AV1 Efficiency**: Surprisingly, `libaom` (at speed 6) is the **fastest** encoder in this test, outperforming even the highly optimized Kvazaar HEVC encoder while maintaining excellent compression efficiency (smallest file size).
-2.  **HEVC Choice**: If you need HEVC, **Kvazaar** is significantly faster than x265 for similar quality.
+1.  **Decoding Parity**: `pylibheif` natively fetching Python 0-copy numpy arrays from underlying native libheif decoders delivers heavily competitive and fast decode speeds within 10ms of specially tuned PIL alternatives.
+2.  **HEVC Performance**: The `kvazaar` encoder significantly outperforms the default fallback `x265` options available in other packages while retaining identical interfaces.
+3.  **Versatility**: `pylibheif` brings near-realtime AV1 encoding capabilities reliably into Python ecosystem bounds without falling apart gracefully scaling AV1 complexity.
 
 <details>
-<summary><b>Raw Benchmark Output (Iso-Quality Run)</b></summary>
+<summary><b>Raw Benchmark Output (Apple M Series)</b></summary>
 
 ```text
-----------------------------------------------------------------------------------
-Test: 1280x720 RGB Image, 10 Rounds
-----------------------------------------------------------------------------------
-Name (time in ms)                     Mean            OPS
-----------------------------------------------------------------------------------
-test_benchmark_encode_aom_av1       115.64           8.65  (Q86)
-test_benchmark_encode_kvazaar       125.19           7.96  (Q80)
-test_benchmark_encode_x265          206.03           4.65  (Q80 / Limit)
-----------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------------
+Name (time in ms)                          Mean            OPS
+-----------------------------------------------------------------------------------------------------------------------------------
+test_benchmark_decode_hevc_pillow         60.56          16.49  (pillow-heif)
+test_benchmark_decode_hevc                71.34          14.01  (pylibheif direct)
+test_benchmark_encode_kvazaar            174.47           5.73  (pylibheif, kvazaar, Q80)
+test_benchmark_encode_hevc_pillow        247.33           4.04  (pillow-heif, x265, Q80)
+test_benchmark_encode_hevc               255.72           3.91  (pylibheif, x265, Q80)
+test_benchmark_encode_av1                292.44           3.41  (pylibheif, aom, speed=6)
+-----------------------------------------------------------------------------------------------------------------------------------
 ```
 
 </details>
