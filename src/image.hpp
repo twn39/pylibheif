@@ -25,7 +25,7 @@ class HeifImageHandle {
     // Metadata
     std::vector<heif_item_id> get_list_of_metadata_block_IDs(const std::string& type_filter = "");
     std::string get_metadata_block_type(heif_item_id id);
-    py::bytes get_metadata_block(heif_item_id id);
+    nb::bytes get_metadata_block(heif_item_id id);
 
     heif_image_handle* get() const { return handle; }
 
@@ -43,8 +43,9 @@ class HeifImage {
     int get_height(heif_channel channel) const;
     void add_plane(heif_channel channel, int width, int height, int bit_depth);
 
-    // Buffer protocol support
-    py::buffer_info get_buffer_info(heif_channel channel, bool writeable = false);
+    // Array sequence support
+    nb::object get_array(heif_channel channel, bool writeable = false,
+                         nb::handle owner = nb::handle());
 
     heif_image* get() const { return image; }
 

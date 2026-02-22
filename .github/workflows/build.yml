@@ -29,6 +29,9 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
       - name: Lock Submodule Versions
         run: |
           cd third_party/libheif && git fetch --tags && git checkout v1.21.2
@@ -56,7 +59,8 @@ jobs:
       - name: Install Windows dependencies
         if: runner.os == 'Windows'
         run: |
-          pip install meson ninja
+          uv venv
+          uv pip install meson ninja
           vcpkg install x265 libde265 aom dav1d openjpeg libjpeg-turbo --triplet x64-windows-static-md --overlay-triplets=triplets
 
       - name: Build wheels
@@ -77,14 +81,19 @@ jobs:
               yum install -y epel-release
               /usr/bin/crb enable
               yum install -y --nogpgcheck https://mirrors.rpmfusion.org/free/el/rpmfusion-free-release-8.noarch.rpm
-              yum install -y x265-devel libde265-devel libaom-devel openjpeg2-devel libjpeg-turbo-devel nasm git cmake python3-pip
-              pip3 install uv
-              uv pip install meson ninja --system
+              yum install -y x265-devel libde265-devel libaom-devel openjpeg2-devel libjpeg-turbo-devel nasm git cmake
+              curl -LsSf https://astral.sh/uv/install.sh | sh
+              /root/.local/bin/uv venv /tmp/venv
+              /root/.local/bin/uv pip install --python /tmp/venv meson ninja
             else
-              apt-get install -y libx265-dev libde265-dev libaom-dev libopenjp2-7-dev libjpeg-dev nasm git cmake python3-pip
-              pip3 install uv --break-system-packages
-              uv pip install meson ninja --system --break-system-packages
+              apt-get install -y libx265-dev libde265-dev libaom-dev libopenjp2-7-dev libjpeg-dev nasm git cmake curl
+              curl -LsSf https://astral.sh/uv/install.sh | sh
+              /root/.cargo/bin/uv venv /tmp/venv || /root/.local/bin/uv venv /tmp/venv
+              /root/.cargo/bin/uv pip install --python /tmp/venv meson ninja || /root/.local/bin/uv pip install --python /tmp/venv meson ninja
             fi
+            
+            # Export the venv bin path to PATH so meson/ninja can be found by subsequent build steps
+            export PATH="/tmp/venv/bin:$PATH"
             
             # Build dav1d
             cd {project}/third_party/dav1d
@@ -111,8 +120,10 @@ jobs:
             cmake.define.VCPKG_OVERLAY_TRIPLETS={project}/triplets
           
           # Test the wheel
-          CIBW_TEST_REQUIRES: pytest numpy pytest-benchmark pillow-heif
-          CIBW_TEST_COMMAND: pytest {project}/tests/test_pylibheif.py -v
+          # cibuildwheel automatically creates a test venv. We should use python -m pytest to guarantee
+          # we run inside the cibuildwheel test venv rather than uv implicitly trying to run in the project root venv
+          CIBW_TEST_REQUIRES: pytest numpy pytest-benchmark pillow-heif psutil pytest-asyncio
+          CIBW_TEST_COMMAND: python -m pytest {project}/tests/test_pylibheif.py -v
 
 
 
@@ -129,8 +140,11 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
       - name: Build sdist
-        run: pipx run build --sdist
+        run: uv build --sdist
 
       - uses: actions/upload-artifact@v4
         with:

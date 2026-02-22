@@ -1,10 +1,10 @@
 #include "context.hpp"
 
+#include <nanobind/nanobind.h>  // Ensure nanobind is included for gil_scoped_release
+
 #include "image.hpp"
 
 namespace pylibheif {
-
-#include <pybind11/pybind11.h>  // Ensure pybind11 is included for gil_scoped_release
 
 HeifContext::HeifContext() { ctx = heif_context_alloc(); }
 
@@ -15,19 +15,20 @@ HeifContext::~HeifContext() {
 }
 
 void HeifContext::read_from_file(const std::string& filename) {
-    py::gil_scoped_release release;
+    nb::gil_scoped_release release;
     check_error(heif_context_read_from_file(ctx, filename.c_str(), nullptr));
 }
 
-void HeifContext::read_from_memory(const py::bytes& data) {
-    if (!memory_data.empty()) {
+void HeifContext::read_from_memory(const nb::bytes& data) {
+    if (memory_reference.is_valid()) {
         throw std::runtime_error("Context already initialized with memory data");
     }
-    memory_data = std::string(data);  // Store in member to ensure data outlives context
+    // Store in member to ensure data outlives context
+    memory_reference = data;
 
-    py::gil_scoped_release release;
-    check_error(heif_context_read_from_memory_without_copy(ctx, memory_data.data(),
-                                                           memory_data.size(), nullptr));
+    nb::gil_scoped_release release;
+    check_error(
+        heif_context_read_from_memory_without_copy(ctx, data.c_str(), data.size(), nullptr));
 }
 
 std::shared_ptr<HeifImageHandle> HeifContext::get_primary_image_handle() {
@@ -50,7 +51,7 @@ std::shared_ptr<HeifImageHandle> HeifContext::get_image_handle(heif_item_id id) 
 }
 
 void HeifContext::write_to_file(const std::string& filename) {
-    py::gil_scoped_release release;
+    nb::gil_scoped_release release;
     check_error(heif_context_write_to_file(ctx, filename.c_str()));
 }
 
@@ -74,37 +75,39 @@ static struct heif_error writer_write(struct heif_context* ctx, const void* data
     return err;
 }
 
-py::bytes HeifContext::write_to_bytes() {
+nb::bytes HeifContext::write_to_bytes() {
     WriterData wd;
+    wd.data.reserve(1024 * 1024);  // Pre-allocate 1MB to minimize reallocations
+
     struct heif_writer writer = {};  // Zero-initialize all fields
     writer.writer_api_version = 1;
     writer.write = writer_write;
 
     {
-        py::gil_scoped_release release;
+        nb::gil_scoped_release release;
         check_error(heif_context_write(ctx, &writer, &wd));
     }
 
-    return py::bytes((char*)wd.data.data(), wd.data.size());
+    return nb::bytes((char*)wd.data.data(), wd.data.size());
 }
 
 void HeifContext::add_exif_metadata(std::shared_ptr<HeifImageHandle> handle,
-                                    const py::bytes& data) {
-    std::string data_str(data);
+                                    const nb::bytes& data) {
+    std::string data_str(data.c_str(), data.size());
     check_error(heif_context_add_exif_metadata(ctx, handle->get(), data_str.data(),
                                                static_cast<int>(data_str.size())));
 }
 
-void HeifContext::add_xmp_metadata(std::shared_ptr<HeifImageHandle> handle, const py::bytes& data) {
-    std::string data_str(data);
+void HeifContext::add_xmp_metadata(std::shared_ptr<HeifImageHandle> handle, const nb::bytes& data) {
+    std::string data_str(data.c_str(), data.size());
     check_error(heif_context_add_XMP_metadata(ctx, handle->get(), data_str.data(),
                                               static_cast<int>(data_str.size())));
 }
 
 void HeifContext::add_generic_metadata(std::shared_ptr<HeifImageHandle> handle,
-                                       const py::bytes& data, const std::string& item_type,
+                                       const nb::bytes& data, const std::string& item_type,
                                        const std::string& content_type) {
-    std::string data_str(data);
+    std::string data_str(data.c_str(), data.size());
     check_error(heif_context_add_generic_metadata(
         ctx, handle->get(), data_str.data(), static_cast<int>(data_str.size()), item_type.c_str(),
         content_type.empty() ? nullptr : content_type.c_str()));

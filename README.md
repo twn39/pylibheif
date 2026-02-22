@@ -5,7 +5,7 @@
 [![License: LGPL v3](https://img.shields.io/badge/License-LGPL_v3-blue.svg)](https://www.gnu.org/licenses/lgpl-3.0)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 
-Python bindings for [libheif](https://github.com/strukturag/libheif) using pybind11.
+Python bindings for [libheif](https://github.com/strukturag/libheif) using nanobind.
 
 ## Features
 
@@ -79,8 +79,7 @@ with pylibheif.HeifContext() as ctx:
                         pylibheif.HeifChroma.InterleavedRGB)
     
     # Get as NumPy array (zero-copy)
-    plane = img.get_plane(pylibheif.HeifChannel.Interleaved, False)
-    arr = np.asarray(plane)  # shape: (height, width, 3)
+    arr = img.get_plane(pylibheif.HeifChannel.Interleaved, False)  # shape: (height, width, 3)
 ```
 
 **Explicit creation (for more control):**
@@ -96,8 +95,7 @@ ctx.read_from_file('image.heic')
 handle = ctx.get_primary_image_handle()
 img = handle.decode(pylibheif.HeifColorspace.RGB, 
                     pylibheif.HeifChroma.InterleavedRGB)
-plane = img.get_plane(pylibheif.HeifChannel.Interleaved, False)
-arr = np.asarray(plane)
+arr = img.get_plane(pylibheif.HeifChannel.Interleaved, False)
 
 # Resources are automatically freed when objects go out of scope
 ```
@@ -116,8 +114,7 @@ img = pylibheif.HeifImage(width, height,
 img.add_plane(pylibheif.HeifChannel.Interleaved, width, height, 8)
 
 # Fill with data
-plane = img.get_plane(pylibheif.HeifChannel.Interleaved, True)
-arr = np.asarray(plane)
+arr = img.get_plane(pylibheif.HeifChannel.Interleaved, True)
 arr[:] = your_image_data  # your RGB data
 
 # Encode and save as HEIC
@@ -267,8 +264,7 @@ img = pylibheif.HeifImage(width, height,
                           pylibheif.HeifColorspace.RGB,
                           pylibheif.HeifChroma.InterleavedRGB)
 img.add_plane(pylibheif.HeifChannel.Interleaved, width, height, 8)
-plane = img.get_plane(pylibheif.HeifChannel.Interleaved, True)
-arr = np.asarray(plane)
+arr = img.get_plane(pylibheif.HeifChannel.Interleaved, True)
 arr[:] = 128  # fill with gray
 
 ctx = pylibheif.HeifContext()
@@ -322,8 +318,7 @@ async def read_async():
         img = await handle.decode(pylibheif.HeifColorspace.RGB, 
                                   pylibheif.HeifChroma.InterleavedRGB)
         
-        plane = img.get_plane(pylibheif.HeifChannel.Interleaved, False)
-        arr = np.asarray(plane)
+        arr = img.get_plane(pylibheif.HeifChannel.Interleaved, False)
         return arr
 
 asyncio.run(read_async())
@@ -342,8 +337,8 @@ async def write_async(image_data):
                               pylibheif.HeifColorspace.RGB,
                               pylibheif.HeifChroma.InterleavedRGB)
     img.add_plane(pylibheif.HeifChannel.Interleaved, width, height, 8)
-    plane = img.get_plane(pylibheif.HeifChannel.Interleaved, True)
-    np.asarray(plane)[:] = image_data
+    arr = img.get_plane(pylibheif.HeifChannel.Interleaved, True)
+    arr[:] = image_data
 
     async with pylibheif.AsyncHeifContext() as ctx:
         encoder = pylibheif.AsyncHeifEncoder(pylibheif.HeifCompressionFormat.HEVC)
@@ -454,7 +449,7 @@ Gets the raw data of a metadata block.
 
 ### class `pylibheif.HeifImage`
 
-Represents an uncompressed image containing pixel data. Supports the Python Buffer Protocol for zero-copy access with NumPy.
+Represents an uncompressed image containing pixel data. Supports zero-copy memory access via nanobind's ndarray integration.
 
 #### Properties
 
@@ -477,11 +472,11 @@ Adds a new plane to the image.
 - `height`: Height of the plane.
 - `bit_depth`: Bit depth (e.g. 8).
 
-**`get_plane(channel: HeifChannel, writeable: bool = False) -> HeifPlane`**
-Gets a plane object that supports the buffer protocol.
+**`get_plane(channel: HeifChannel, writeable: bool = False) -> np.ndarray`**
+Gets a zero-copy NumPy array mapping to the image plane memory.
 - `channel`: The channel to retrieve.
 - `writeable`: Whether the buffer should be writable.
-- Returns: `HeifPlane` object (wrappable with `np.asarray()`).
+- Returns: `numpy.ndarray` mapped to the underlying `libheif` memory.
 
 ---
 
@@ -635,4 +630,4 @@ This project is licensed under the LGPL-3.0 License - see the [LICENSE](LICENSE)
 ## Acknowledgments
 
 - [libheif](https://github.com/strukturag/libheif) - HEIF/AVIF codec library
-- [pybind11](https://github.com/pybind/pybind11) - C++/Python bindings
+- [nanobind](https://nanobind.readthedocs.io) - Modern C++/Python bindings

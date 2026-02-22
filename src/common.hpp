@@ -1,11 +1,11 @@
 #pragma once
 #include <libheif/heif.h>
-#include <pybind11/pybind11.h>
+#include <nanobind/nanobind.h>
 
 #include <stdexcept>
 #include <string>
 
-namespace py = pybind11;
+namespace nb = nanobind;
 
 namespace pylibheif {
 

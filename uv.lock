@@ -322,7 +322,7 @@ wheels = [
 
 [[package]]
 name = "pylibheif"
-version = "1.21.2.post12"
+version = "1.21.2.post13"
 source = { editable = "." }
 dependencies = [
     { name = "numpy" },

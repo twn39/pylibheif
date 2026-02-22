@@ -1,16 +1,16 @@
 # pylibheif
 
-Python bindings for [libheif](https://github.com/strukturag/libheif) using `pybind11` and `scikit-build-core`.
+Python bindings for [libheif](https://github.com/strukturag/libheif) using `nanobind` and `scikit-build-core`.
 
 ## Overview
 
-`pylibheif` provides high-performance Python bindings for the `libheif` library, enabling reading and writing of HEIF (HEVC), AVIF (AV1), and JPEG2000 images. It leverages `pybind11` for efficient C++/Python interoperability and uses `numpy` for zero-copy data access via the Python Buffer Protocol.
+`pylibheif` provides high-performance Python bindings for the `libheif` library, enabling reading and writing of HEIF (HEVC), AVIF (AV1), and JPEG2000 images. It leverages `nanobind` for efficient C++/Python interoperability and uses `numpy` for zero-copy data access via the Python Buffer Protocol.
 
 ## Key Technologies
 
 - **Python**: 3.11+
 - **C++**: C++17
-- **Bindings**: `pybind11`
+- **Bindings**: `nanobind`
 - **Build System**: `scikit-build-core`, `CMake`, `Ninja`
 - **Dependencies**: `numpy`, `libheif` (bundled), `kvazaar` (bundled), `dav1d` (bundled)
 - **Testing**: `pytest`, `pytest-benchmark`
@@ -21,7 +21,7 @@ Python bindings for [libheif](https://github.com/strukturag/libheif) using `pybi
   - `__init__.py`: Package initialization and async wrappers (`AsyncHeifContext`, `AsyncHeifImageHandle`, `AsyncHeifEncoder`).
   - `_pylibheif`: (Build artifact) The compiled C++ extension module.
 - `src/`: C++ implementation of the Python extension (`_pylibheif`).
-  - `main.cpp`: Module definition and `pybind11` exports.
+  - `main.cpp`: Module definition and `nanobind` exports.
   - `context.cpp/hpp`: Wrapper for `heif_context`.
   - `image.cpp/hpp`: Wrapper for `heif_image` and `heif_image_handle`.
   - `encoder.cpp/hpp`: Wrapper for `heif_encoder`.

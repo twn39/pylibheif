@@ -12,8 +12,9 @@ endif()
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 set(CMAKE_VISIBILITY_INLINES_HIDDEN ON)
 
-# Find pybind11
-find_package(pybind11 REQUIRED)
+# Add nanobind submodule
+find_package(Python COMPONENTS Interpreter Development.Module REQUIRED)
+add_subdirectory(third_party/nanobind)
 
 # libheif options
 set(WITH_EXAMPLES OFF CACHE BOOL "Build examples")
@@ -63,7 +64,7 @@ set(KVAZAAR_LIBRARIES $<BUILD_INTERFACE:kvazaar> CACHE STRING "Kvazaar libraries
 add_subdirectory(third_party/libheif EXCLUDE_FROM_ALL)
 
 # Define the extension module
-pybind11_add_module(_pylibheif
+nanobind_add_module(_pylibheif
     src/main.cpp
     src/context.cpp
     src/image.cpp

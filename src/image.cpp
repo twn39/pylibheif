@@ -1,5 +1,8 @@
 #include "image.hpp"
 
+#include <nanobind/nanobind.h>
+#include <nanobind/ndarray.h>
+
 namespace pylibheif {
 
 HeifImageHandle::~HeifImageHandle() {
@@ -44,11 +47,11 @@ std::string HeifImageHandle::get_metadata_block_type(heif_item_id id) {
     return heif_image_handle_get_metadata_type(handle, id);
 }
 
-py::bytes HeifImageHandle::get_metadata_block(heif_item_id id) {
+nb::bytes HeifImageHandle::get_metadata_block(heif_item_id id) {
     size_t size = heif_image_handle_get_metadata_size(handle, id);
     std::vector<uint8_t> data(size);
     check_error(heif_image_handle_get_metadata(handle, id, data.data()));
-    return py::bytes((char*)data.data(), size);
+    return nb::bytes((char*)data.data(), size);
 }
 
 HeifImage::HeifImage(int width, int height, heif_colorspace colorspace, heif_chroma chroma) {
@@ -73,7 +76,7 @@ void HeifImage::add_plane(heif_channel channel, int width, int height, int bit_d
     check_error(heif_image_add_plane(image, channel, width, height, bit_depth));
 }
 
-py::buffer_info HeifImage::get_buffer_info(heif_channel channel, bool writeable) {
+nb::object HeifImage::get_array(heif_channel channel, bool writeable, nb::handle owner) {
     int stride;
     uint8_t* data;
     if (writeable) {
@@ -104,20 +107,25 @@ py::buffer_info HeifImage::get_buffer_info(heif_channel channel, bool writeable)
     }
 
     size_t bytes_per_channel = (bpp_per_channel + 7) / 8;
-    std::string format = (bytes_per_channel == 1) ? py::format_descriptor<uint8_t>::format()
-                                                  : py::format_descriptor<uint16_t>::format();
+    int64_t elem_stride = stride / bytes_per_channel;
+
+    size_t shape[3] = {(size_t)height, (size_t)width, (size_t)num_channels};
+    int64_t strides[3] = {elem_stride, num_channels, 1};
 
     if (num_channels > 1) {
         // Interleaved format: return 3D array (height, width, channels)
-        return py::buffer_info(
-            data, bytes_per_channel, format, 3,
-            {(size_t)height, (size_t)width, (size_t)num_channels},
-            {(size_t)stride, (size_t)(num_channels * bytes_per_channel), bytes_per_channel},
-            !writeable);
+        if (bytes_per_channel == 1) {
+            return nb::cast(nb::ndarray<uint8_t, nb::numpy>(data, 3, shape, owner, strides));
+        } else {
+            return nb::cast(nb::ndarray<uint16_t, nb::numpy>(data, 3, shape, owner, strides));
+        }
     } else {
         // Single channel: return 2D array (height, width)
-        return py::buffer_info(data, bytes_per_channel, format, 2, {(size_t)height, (size_t)width},
-                               {(size_t)stride, bytes_per_channel}, !writeable);
+        if (bytes_per_channel == 1) {
+            return nb::cast(nb::ndarray<uint8_t, nb::numpy>(data, 2, shape, owner, strides));
+        } else {
+            return nb::cast(nb::ndarray<uint16_t, nb::numpy>(data, 2, shape, owner, strides));
+        }
     }
 }
 
