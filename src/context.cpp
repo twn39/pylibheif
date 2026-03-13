@@ -93,23 +93,20 @@ nb::bytes HeifContext::write_to_bytes() {
 
 void HeifContext::add_exif_metadata(std::shared_ptr<HeifImageHandle> handle,
                                     const nb::bytes& data) {
-    std::string data_str(data.c_str(), data.size());
-    check_error(heif_context_add_exif_metadata(ctx, handle->get(), data_str.data(),
-                                               static_cast<int>(data_str.size())));
+    check_error(heif_context_add_exif_metadata(ctx, handle->get(), data.c_str(),
+                                               static_cast<int>(data.size())));
 }
 
 void HeifContext::add_xmp_metadata(std::shared_ptr<HeifImageHandle> handle, const nb::bytes& data) {
-    std::string data_str(data.c_str(), data.size());
-    check_error(heif_context_add_XMP_metadata(ctx, handle->get(), data_str.data(),
-                                              static_cast<int>(data_str.size())));
+    check_error(heif_context_add_XMP_metadata(ctx, handle->get(), data.c_str(),
+                                              static_cast<int>(data.size())));
 }
 
 void HeifContext::add_generic_metadata(std::shared_ptr<HeifImageHandle> handle,
                                        const nb::bytes& data, const std::string& item_type,
                                        const std::string& content_type) {
-    std::string data_str(data.c_str(), data.size());
     check_error(heif_context_add_generic_metadata(
-        ctx, handle->get(), data_str.data(), static_cast<int>(data_str.size()), item_type.c_str(),
+        ctx, handle->get(), data.c_str(), static_cast<int>(data.size()), item_type.c_str(),
         content_type.empty() ? nullptr : content_type.c_str()));
 }
 

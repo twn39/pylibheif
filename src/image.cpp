@@ -49,9 +49,14 @@ std::string HeifImageHandle::get_metadata_block_type(heif_item_id id) {
 
 nb::bytes HeifImageHandle::get_metadata_block(heif_item_id id) {
     size_t size = heif_image_handle_get_metadata_size(handle, id);
-    std::vector<uint8_t> data(size);
-    check_error(heif_image_handle_get_metadata(handle, id, data.data()));
-    return nb::bytes((char*)data.data(), size);
+    PyObject* py_bytes = PyBytes_FromStringAndSize(nullptr, static_cast<Py_ssize_t>(size));
+    if (!py_bytes) {
+        throw std::bad_alloc();
+    }
+    nb::object bytes_obj = nb::steal(py_bytes);
+    char* buffer = PyBytes_AS_STRING(bytes_obj.ptr());
+    check_error(heif_image_handle_get_metadata(handle, id, buffer));
+    return nb::cast<nb::bytes>(bytes_obj);
 }
 
 HeifImage::HeifImage(int width, int height, heif_colorspace colorspace, heif_chroma chroma) {
