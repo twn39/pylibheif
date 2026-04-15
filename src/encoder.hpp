@@ -27,26 +27,25 @@ class HeifEncoderDescriptor {
 
 std::vector<HeifEncoderDescriptor> get_encoder_descriptors(
     heif_compression_format format_filter = heif_compression_undefined,
-    const std::string& name_filter = "");
+    const char* name_filter = "");
 
 class HeifEncoder {
    public:
     HeifEncoder(heif_compression_format format);
     HeifEncoder(const HeifEncoderDescriptor& descriptor);
-    ~HeifEncoder();
 
     std::string name() const;
 
     void set_lossy_quality(int quality);
-    void set_parameter(const std::string& name, const std::string& value);
+    void set_parameter(const char* name, const char* value);
 
     std::shared_ptr<HeifImageHandle> encode_image(HeifContext& ctx, const HeifImage& image,
-                                                  const std::string& preset = "");
+                                                  const char* preset = "");
 
-    heif_encoder* get() { return encoder; }
+    heif_encoder* get() const { return encoder.get(); }
 
    private:
-    heif_encoder* encoder;
+    EncoderPtr encoder;
 };
 
 }  // namespace pylibheif

@@ -64,13 +64,13 @@ class AsyncHeifImageHandle:
         """Asynchronously decode the image."""
         return await asyncio.to_thread(self._handle.decode, colorspace, chroma)
 
-    def get_metadata_block_ids(self, type_filter: str = "") -> List[str]:
+    def get_metadata_block_ids(self, type_filter: str = "") -> List[int]:
         return self._handle.get_metadata_block_ids(type_filter)
 
-    def get_metadata_block_type(self, id: str) -> str:
+    def get_metadata_block_type(self, id: int) -> str:
         return self._handle.get_metadata_block_type(id)
 
-    def get_metadata_block(self, id: str) -> bytes:
+    def get_metadata_block(self, id: int) -> bytes:
         return self._handle.get_metadata_block(id)
 
 

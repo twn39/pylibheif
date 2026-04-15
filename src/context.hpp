@@ -12,28 +12,27 @@ class HeifImageHandle;
 class HeifContext {
    public:
     HeifContext();
-    ~HeifContext();
 
-    void read_from_file(const std::string& filename);
+    void read_from_file(const char* filename);
     void read_from_memory(const nb::bytes& data);
 
     std::shared_ptr<HeifImageHandle> get_primary_image_handle();
     std::vector<heif_item_id> get_list_of_top_level_image_IDs();
     std::shared_ptr<HeifImageHandle> get_image_handle(heif_item_id id);
 
-    void write_to_file(const std::string& filename);
+    void write_to_file(const char* filename);
     nb::bytes write_to_bytes();
 
     // Metadata writing
     void add_exif_metadata(std::shared_ptr<HeifImageHandle> handle, const nb::bytes& data);
     void add_xmp_metadata(std::shared_ptr<HeifImageHandle> handle, const nb::bytes& data);
     void add_generic_metadata(std::shared_ptr<HeifImageHandle> handle, const nb::bytes& data,
-                              const std::string& item_type, const std::string& content_type);
+                              const char* item_type, const char* content_type = "");
 
-    heif_context* get() { return ctx; }
+    heif_context* get() const { return ctx.get(); }
 
    private:
-    heif_context* ctx;
+    ContextPtr ctx;
     // Store memory data to ensure it outlives the context
     nb::object memory_reference;
 };

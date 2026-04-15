@@ -67,18 +67,29 @@ NB_MODULE(_pylibheif, m) {
         .export_values();
 
     // Exception
-    nb::exception<HeifError>(m, "HeifError");
+    static nb::exception<HeifError> exc(m, "HeifError");
+    nb::register_exception_translator([](const std::exception_ptr& p, void* /* payload */) {
+        try {
+            std::rethrow_exception(p);
+        } catch (const HeifError& e) {
+            nb::object err = exc(e.what());
+            nb::setattr(err, "code", nb::cast(static_cast<int>(e.code)));
+            nb::setattr(err, "subcode", nb::cast(static_cast<int>(e.subcode)));
+            PyErr_SetObject(exc.ptr(), err.ptr());
+        }
+    });
 
     // Classes
     nb::class_<HeifContext>(m, "HeifContext")
         .def(nb::init<>())
-        .def("read_from_file", &HeifContext::read_from_file)
+        .def("read_from_file", &HeifContext::read_from_file,
+             nb::call_guard<nb::gil_scoped_release>())
         .def("read_from_memory", &HeifContext::read_from_memory)
         .def("get_primary_image_handle", &HeifContext::get_primary_image_handle,
              nb::keep_alive<0, 1>())
         .def("get_list_of_top_level_image_IDs", &HeifContext::get_list_of_top_level_image_IDs)
         .def("get_image_handle", &HeifContext::get_image_handle, nb::keep_alive<0, 1>())
-        .def("write_to_file", &HeifContext::write_to_file)
+        .def("write_to_file", &HeifContext::write_to_file, nb::call_guard<nb::gil_scoped_release>())
         .def("write_to_bytes", &HeifContext::write_to_bytes)
         .def("add_exif_metadata", &HeifContext::add_exif_metadata, nb::arg("handle"),
              nb::arg("data"), "Add EXIF metadata to an image. The data should be raw EXIF bytes.")
@@ -113,7 +124,9 @@ NB_MODULE(_pylibheif, m) {
             [](std::shared_ptr<HeifImage> self, heif_channel channel, bool writeable) {
                 return self->get_array(channel, writeable, nb::cast(self));
             },
-            nb::arg("channel"), nb::arg("writeable") = false);
+            nb::arg("channel"), nb::arg("writeable") = false,
+            nb::sig("def get_plane(self, channel: HeifChannel, writeable: bool = False) -> "
+                    "numpy.ndarray"));
 
     nb::class_<HeifEncoderDescriptor>(m, "HeifEncoderDescriptor")
         .def_prop_ro("id_name", &HeifEncoderDescriptor::id_name)
