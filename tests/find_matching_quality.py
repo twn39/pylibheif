@@ -12,8 +12,9 @@ def create_test_image(width=1280, height=720):
     img[:, :, 0] = (xv * 255).astype(np.uint8)
     img[:, :, 1] = (yv * 255).astype(np.uint8)
     # Add some complex texture/noise to make compression visible
-    noise = np.random.normal(0, 20, (height, width)).astype(np.uint8)
-    img[:, :, 2] = 100 + noise
+    np.random.seed(42)  # Make reproducible
+    noise = np.random.normal(0, 20, (height, width))
+    img[:, :, 2] = np.clip(100 + noise, 0, 255).astype(np.uint8)
 
     heif_img = pylibheif.HeifImage(
         width, height, pylibheif.HeifColorspace.RGB, pylibheif.HeifChroma.InterleavedRGB

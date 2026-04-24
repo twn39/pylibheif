@@ -57,6 +57,9 @@ HeifImage::HeifImage(int width, int height, heif_colorspace colorspace, heif_chr
     image.reset(img);
 }
 
+int HeifImage::get_width() const { return heif_image_get_primary_width(image.get()); }
+int HeifImage::get_height() const { return heif_image_get_primary_height(image.get()); }
+
 int HeifImage::get_width(heif_channel channel) const {
     return heif_image_get_width(image.get(), channel);
 }

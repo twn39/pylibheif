@@ -13,6 +13,8 @@ class HeifContext {
    public:
     HeifContext();
 
+    void close();
+
     void read_from_file(const char* filename);
     void read_from_memory(const nb::bytes& data);
 
@@ -32,6 +34,8 @@ class HeifContext {
     heif_context* get() const { return ctx.get(); }
 
    private:
+    void check_closed() const;
+
     ContextPtr ctx;
     // Store memory data to ensure it outlives the context
     nb::object memory_reference;

@@ -15,14 +15,14 @@ class HeifEncoderDescriptor {
    public:
     HeifEncoderDescriptor(const heif_encoder_descriptor* descriptor);
 
-    std::string id_name() const;
-    std::string name() const;
-    heif_compression_format compression_format() const;
-
-    const heif_encoder_descriptor* get() const { return descriptor; }
+    std::string id_name() const { return m_id_name; }
+    std::string name() const { return m_name; }
+    heif_compression_format compression_format() const { return m_compression_format; }
 
    private:
-    const heif_encoder_descriptor* descriptor;
+    std::string m_id_name;
+    std::string m_name;
+    heif_compression_format m_compression_format;
 };
 
 std::vector<HeifEncoderDescriptor> get_encoder_descriptors(

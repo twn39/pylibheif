@@ -37,6 +37,8 @@ class HeifImage {
     HeifImage(heif_image* img) : image(img) {}
     HeifImage(int width, int height, heif_colorspace colorspace, heif_chroma chroma);
 
+    int get_width() const;
+    int get_height() const;
     int get_width(heif_channel channel) const;
     int get_height(heif_channel channel) const;
     void add_plane(heif_channel channel, int width, int height, int bit_depth);

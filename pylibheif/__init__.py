@@ -17,6 +17,40 @@ from ._pylibheif import (
 import asyncio
 from typing import Optional, Union, List
 
+
+# Monkey-patch HeifImage with from_numpy factory method
+def _heifimage_from_numpy(arr) -> HeifImage:
+    """
+    Create a HeifImage directly from an RGB or RGBA numpy array.
+    """
+    import numpy as np
+
+    if not isinstance(arr, np.ndarray):
+        raise TypeError("Input must be a numpy array")
+
+    if arr.ndim != 3 or arr.shape[2] not in (3, 4):
+        raise ValueError(
+            "Array must be 3-dimensional with 3 (RGB) or 4 (RGBA) channels"
+        )
+
+    if arr.dtype != np.uint8:
+        raise ValueError("Array must have dtype uint8")
+
+    height, width, channels = arr.shape
+    colorspace = HeifColorspace.RGB
+    chroma = HeifChroma.InterleavedRGBA if channels == 4 else HeifChroma.InterleavedRGB
+
+    img = HeifImage(width, height, colorspace, chroma)
+    img.add_plane(HeifChannel.Interleaved, width, height, 8)
+
+    plane = img.get_plane(HeifChannel.Interleaved, True)
+    plane_arr = np.asarray(plane)
+    plane_arr[:] = arr
+
+    return img
+
+HeifImage.from_numpy = staticmethod(_heifimage_from_numpy)  # type: ignore
+
 # Re-export all names from the C++ extension and async wrappers
 __all__ = [
     "HeifErrorCode",
@@ -44,6 +78,9 @@ class AsyncHeifImageHandle:
     def __init__(self, handle: HeifImageHandle):
         self._handle = handle
 
+    def __repr__(self) -> str:
+        return repr(self._handle).replace("HeifImageHandle", "AsyncHeifImageHandle")
+
     @property
     def width(self) -> int:
         return self._handle.width
@@ -55,6 +92,14 @@ class AsyncHeifImageHandle:
     @property
     def has_alpha(self) -> bool:
         return self._handle.has_alpha
+
+    @property
+    def luma_bits_per_pixel(self) -> int:
+        return self._handle.luma_bits_per_pixel
+
+    @property
+    def chroma_bits_per_pixel(self) -> int:
+        return self._handle.chroma_bits_per_pixel
 
     async def decode(
         self,
@@ -80,17 +125,24 @@ class AsyncHeifContext:
     def __init__(self, ctx: Optional[HeifContext] = None):
         self._ctx = ctx or HeifContext()
 
+    def __repr__(self) -> str:
+        return repr(self._ctx).replace("HeifContext", "AsyncHeifContext")
+
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        pass
+        self.close()
+
+    def close(self):
+        """Close the context and release resources."""
+        self._ctx.close()
 
     async def __aenter__(self):
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        pass
+        self.close()
 
     async def read_from_file(self, filename: str) -> None:
         """Asynchronously read from file."""
@@ -143,16 +195,15 @@ class AsyncHeifContext:
         h = handle._handle if isinstance(handle, AsyncHeifImageHandle) else handle
         self._ctx.add_generic_metadata(h, data, item_type, content_type)
 
-    def __getattr__(self, name):
-        """Delegate attribute access to underlying context."""
-        return getattr(self._ctx, name)
-
 
 class AsyncHeifEncoder:
     """Async wrapper for HeifEncoder."""
 
     def __init__(self, format_or_descriptor):
         self._encoder = HeifEncoder(format_or_descriptor)
+
+    def __repr__(self) -> str:
+        return repr(self._encoder).replace("HeifEncoder", "AsyncHeifEncoder")
 
     async def encode_image(
         self,

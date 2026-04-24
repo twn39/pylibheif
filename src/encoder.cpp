@@ -12,8 +12,26 @@ HeifEncoder::HeifEncoder(heif_compression_format format) {
 }
 
 HeifEncoder::HeifEncoder(const HeifEncoderDescriptor& descriptor) {
+    int count = heif_get_encoder_descriptors(heif_compression_undefined, nullptr, nullptr, 0);
+    std::vector<const heif_encoder_descriptor*> internal_descriptors(count);
+    heif_get_encoder_descriptors(heif_compression_undefined, nullptr, internal_descriptors.data(),
+                                 count);
+
+    const heif_encoder_descriptor* matched_descriptor = nullptr;
+    for (const auto* desc : internal_descriptors) {
+        if (std::string(heif_encoder_descriptor_get_id_name(desc)) == descriptor.id_name()) {
+            matched_descriptor = desc;
+            break;
+        }
+    }
+
+    if (!matched_descriptor) {
+        throw std::runtime_error("Encoder descriptor '" + descriptor.id_name() +
+                                 "' is no longer available in libheif.");
+    }
+
     heif_encoder* enc = nullptr;
-    check_error(heif_context_get_encoder(nullptr, descriptor.get(), &enc));
+    check_error(heif_context_get_encoder(nullptr, matched_descriptor, &enc));
     encoder.reset(enc);
 }
 
@@ -39,19 +57,9 @@ std::shared_ptr<HeifImageHandle> HeifEncoder::encode_image(HeifContext& ctx, con
 
 // HeifEncoderDescriptor
 HeifEncoderDescriptor::HeifEncoderDescriptor(const heif_encoder_descriptor* descriptor)
-    : descriptor(descriptor) {}
-
-std::string HeifEncoderDescriptor::id_name() const {
-    return heif_encoder_descriptor_get_id_name(descriptor);
-}
-
-std::string HeifEncoderDescriptor::name() const {
-    return heif_encoder_descriptor_get_name(descriptor);
-}
-
-heif_compression_format HeifEncoderDescriptor::compression_format() const {
-    return heif_encoder_descriptor_get_compression_format(descriptor);
-}
+    : m_id_name(heif_encoder_descriptor_get_id_name(descriptor)),
+      m_name(heif_encoder_descriptor_get_name(descriptor)),
+      m_compression_format(heif_encoder_descriptor_get_compression_format(descriptor)) {}
 
 std::vector<HeifEncoderDescriptor> get_encoder_descriptors(heif_compression_format format_filter,
                                                            const char* name_filter) {

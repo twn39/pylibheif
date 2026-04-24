@@ -35,11 +35,13 @@ class TestAsyncHeif:
         assert isinstance(handle, pylibheif.AsyncHeifImageHandle)
         assert handle.width == 64
         assert handle.height == 64
+        assert handle.luma_bits_per_pixel > 0
+        assert handle.chroma_bits_per_pixel > 0
 
         # Test async decode
         decoded_img = await handle.decode()
-        assert decoded_img.get_width(pylibheif.HeifChannel.Interleaved) == 64
-        assert decoded_img.get_height(pylibheif.HeifChannel.Interleaved) == 64
+        assert decoded_img.width == 64
+        assert decoded_img.height == 64
 
         # Test async encode
         new_ctx = pylibheif.AsyncHeifContext()

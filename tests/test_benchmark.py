@@ -8,6 +8,7 @@ class TestBenchmarks:
     def sample_image_rgb(self):
         """Load test.heic for testing"""
         import os
+
         path = os.path.join(os.path.dirname(__file__), "..", "images", "test.heic")
         ctx = pylibheif.HeifContext()
         ctx.read_from_file(path)
@@ -22,6 +23,7 @@ class TestBenchmarks:
     def hevc_encoded_data(self):
         """Use test.heic to test decoding speed"""
         import os
+
         path = os.path.join(os.path.dirname(__file__), "..", "images", "test.heic")
         with open(path, "rb") as f:
             return f.read()

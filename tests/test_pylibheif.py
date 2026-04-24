@@ -160,6 +160,8 @@ class TestDecoding:
 
         assert handle.width > 0
         assert handle.height > 0
+        assert handle.luma_bits_per_pixel > 0
+        assert handle.chroma_bits_per_pixel > 0
 
     def test_kvazaar_encoding(self):
         import pylibheif
@@ -244,6 +246,43 @@ class TestDecoding:
 
 class TestEncoding:
     """测试编码功能"""
+
+    def test_from_numpy(self):
+        import pylibheif
+        import numpy as np
+
+        # Create dummy RGB array
+        arr_rgb = np.zeros((100, 100, 3), dtype=np.uint8)
+        arr_rgb[:50, :50] = [255, 0, 0]  # Red square
+
+        img_rgb = pylibheif.HeifImage.from_numpy(arr_rgb)
+        assert img_rgb.width == 100
+        assert img_rgb.height == 100
+
+        plane_rgb = img_rgb.get_plane(pylibheif.HeifChannel.Interleaved, False)
+        out_rgb = np.asarray(plane_rgb)
+        np.testing.assert_array_equal(out_rgb, arr_rgb)
+
+        # Create dummy RGBA array
+        arr_rgba = np.zeros((50, 50, 4), dtype=np.uint8)
+        arr_rgba[:] = [0, 255, 0, 128]  # Semi-transparent green
+
+        img_rgba = pylibheif.HeifImage.from_numpy(arr_rgba)
+        assert img_rgba.width == 50
+        assert img_rgba.height == 50
+
+        plane_rgba = img_rgba.get_plane(pylibheif.HeifChannel.Interleaved, False)
+        out_rgba = np.asarray(plane_rgba)
+        np.testing.assert_array_equal(out_rgba, arr_rgba)
+
+        # Test errors
+        with pytest.raises(TypeError):
+            pylibheif.HeifImage.from_numpy([1, 2, 3])  # type: ignore
+        with pytest.raises(ValueError):
+            pylibheif.HeifImage.from_numpy(np.zeros((100, 100), dtype=np.uint8))
+
+        with pytest.raises(ValueError):
+            pylibheif.HeifImage.from_numpy(np.zeros((100, 100, 3), dtype=np.float32))
 
     def create_test_image(self, width=100, height=100):
         """创建测试图像"""

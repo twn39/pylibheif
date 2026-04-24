@@ -39,3 +39,4 @@ images/output_*
 # uv.lock
 
 .cache
+pylibheif_audit.md
