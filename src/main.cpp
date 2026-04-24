@@ -126,6 +126,9 @@ NB_MODULE(_pylibheif, m) {
         });
 
     nb::class_<HeifImage>(m, "HeifImage")
+        .def_static("from_numpy", &HeifImage::from_numpy_rgb,
+                    nb::arg("arr"),
+                    nb::sig("def from_numpy(arr: numpy.ndarray) -> HeifImage"))
         .def(nb::init<int, int, heif_colorspace, heif_chroma>())
         .def_prop_ro("width", nb::overload_cast<>(&HeifImage::get_width, nb::const_))
         .def_prop_ro("height", nb::overload_cast<>(&HeifImage::get_height, nb::const_))
@@ -150,7 +153,16 @@ NB_MODULE(_pylibheif, m) {
         .def_prop_ro("name", &HeifEncoderDescriptor::name)
         .def_prop_ro("compression_format", &HeifEncoderDescriptor::compression_format)
         .def("__repr__", [](const HeifEncoderDescriptor& self) {
-            return "<pylibheif.HeifEncoderDescriptor id_name='" + self.id_name() + "'>";
+            std::string format;
+            switch (self.compression_format()) {
+                case heif_compression_HEVC: format = "HEVC"; break;
+                case heif_compression_AVC: format = "AVC"; break;
+                case heif_compression_JPEG: format = "JPEG"; break;
+                case heif_compression_AV1: format = "AV1"; break;
+                case heif_compression_JPEG2000: format = "JPEG2000"; break;
+                default: format = "Undefined"; break;
+            }
+            return "<pylibheif.HeifEncoderDescriptor id_name='" + self.id_name() + "' format=" + format + ">";
         });
 
     m.def("get_encoder_descriptors", &get_encoder_descriptors,
@@ -161,6 +173,7 @@ NB_MODULE(_pylibheif, m) {
         .def(nb::init<HeifEncoderDescriptor>(), nb::call_guard<nb::gil_scoped_release>())
         .def_prop_ro("name", &HeifEncoder::name)
         .def("set_lossy_quality", &HeifEncoder::set_lossy_quality)
+        .def("set_lossless", &HeifEncoder::set_lossless)
         .def("set_parameter", &HeifEncoder::set_parameter)
         .def("encode_image", &HeifEncoder::encode_image, nb::arg("ctx"), nb::arg("image"),
              nb::arg("preset") = "", nb::call_guard<nb::gil_scoped_release>(),

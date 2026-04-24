@@ -18,39 +18,6 @@ import asyncio
 from typing import Optional, Union, List
 
 
-# Monkey-patch HeifImage with from_numpy factory method
-def _heifimage_from_numpy(arr) -> HeifImage:
-    """
-    Create a HeifImage directly from an RGB or RGBA numpy array.
-    """
-    import numpy as np
-
-    if not isinstance(arr, np.ndarray):
-        raise TypeError("Input must be a numpy array")
-
-    if arr.ndim != 3 or arr.shape[2] not in (3, 4):
-        raise ValueError(
-            "Array must be 3-dimensional with 3 (RGB) or 4 (RGBA) channels"
-        )
-
-    if arr.dtype != np.uint8:
-        raise ValueError("Array must have dtype uint8")
-
-    height, width, channels = arr.shape
-    colorspace = HeifColorspace.RGB
-    chroma = HeifChroma.InterleavedRGBA if channels == 4 else HeifChroma.InterleavedRGB
-
-    img = HeifImage(width, height, colorspace, chroma)
-    img.add_plane(HeifChannel.Interleaved, width, height, 8)
-
-    plane = img.get_plane(HeifChannel.Interleaved, True)
-    plane_arr = np.asarray(plane)
-    plane_arr[:] = arr
-
-    return img
-
-HeifImage.from_numpy = staticmethod(_heifimage_from_numpy)  # type: ignore
-
 # Re-export all names from the C++ extension and async wrappers
 __all__ = [
     "HeifErrorCode",
@@ -217,6 +184,9 @@ class AsyncHeifEncoder:
 
     def set_lossy_quality(self, quality: int) -> None:
         self._encoder.set_lossy_quality(quality)
+
+    def set_lossless(self, lossless: bool) -> None:
+        self._encoder.set_lossless(lossless)
 
     def set_parameter(self, name: str, value: str) -> None:
         self._encoder.set_parameter(name, value)

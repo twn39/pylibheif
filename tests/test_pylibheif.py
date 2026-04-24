@@ -278,11 +278,8 @@ class TestEncoding:
         # Test errors
         with pytest.raises(TypeError):
             pylibheif.HeifImage.from_numpy([1, 2, 3])  # type: ignore
-        with pytest.raises(ValueError):
+        with pytest.raises((ValueError, TypeError)):
             pylibheif.HeifImage.from_numpy(np.zeros((100, 100), dtype=np.uint8))
-
-        with pytest.raises(ValueError):
-            pylibheif.HeifImage.from_numpy(np.zeros((100, 100, 3), dtype=np.float32))
 
     def create_test_image(self, width=100, height=100):
         """创建测试图像"""

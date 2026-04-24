@@ -18,11 +18,13 @@ class HeifEncoderDescriptor {
     std::string id_name() const { return m_id_name; }
     std::string name() const { return m_name; }
     heif_compression_format compression_format() const { return m_compression_format; }
+    const heif_encoder_descriptor* raw() const { return m_raw_descriptor; }
 
    private:
     std::string m_id_name;
     std::string m_name;
     heif_compression_format m_compression_format;
+    const heif_encoder_descriptor* m_raw_descriptor;
 };
 
 std::vector<HeifEncoderDescriptor> get_encoder_descriptors(
@@ -37,6 +39,7 @@ class HeifEncoder {
     std::string name() const;
 
     void set_lossy_quality(int quality);
+    void set_lossless(bool lossless);
     void set_parameter(const char* name, const char* value);
 
     std::shared_ptr<HeifImageHandle> encode_image(HeifContext& ctx, const HeifImage& image,

@@ -2,8 +2,56 @@
 
 #include <nanobind/nanobind.h>
 #include <nanobind/ndarray.h>
+#include <cstring>
 
 namespace pylibheif {
+
+std::shared_ptr<HeifImage> HeifImage::from_numpy_rgb(
+    nb::ndarray<uint8_t, nb::numpy, nb::ndim<3>, nb::c_contig> arr) {
+    if (arr.ndim() != 3) {
+        throw std::invalid_argument("Array must be 3-dimensional (H, W, C)");
+    }
+    int height = static_cast<int>(arr.shape(0));
+    int width = static_cast<int>(arr.shape(1));
+    int channels = static_cast<int>(arr.shape(2));
+
+    if (channels != 3 && channels != 4) {
+        throw std::invalid_argument("Array must have 3 (RGB) or 4 (RGBA) channels");
+    }
+
+    heif_chroma chroma =
+        (channels == 4) ? heif_chroma_interleaved_RGBA : heif_chroma_interleaved_RGB;
+
+    heif_image* img_ptr = nullptr;
+    check_error(heif_image_create(width, height, heif_colorspace_RGB, chroma, &img_ptr));
+    auto img = std::make_shared<HeifImage>(img_ptr);
+
+    check_error(heif_image_add_plane(img_ptr, heif_channel_interleaved, width, height, 8));
+
+    int stride = 0;
+    uint8_t* dst = heif_image_get_plane(img_ptr, heif_channel_interleaved, &stride);
+    if (!dst) {
+        throw std::runtime_error("Failed to get writable image plane");
+    }
+
+    const uint8_t* src = arr.data();
+    const size_t row_bytes = static_cast<size_t>(width) * channels;
+
+    {
+        nb::gil_scoped_release release;
+        if (stride == static_cast<int>(row_bytes)) {
+            // Contiguous copy
+            std::memcpy(dst, src, static_cast<size_t>(height) * row_bytes);
+        } else {
+            // Copy row by row
+            for (int y = 0; y < height; ++y) {
+                std::memcpy(dst + y * stride, src + y * row_bytes, row_bytes);
+            }
+        }
+    }
+
+    return img;
+}
 
 int HeifImageHandle::get_width() const { return heif_image_handle_get_width(handle.get()); }
 

@@ -92,34 +92,36 @@ nb::bytes HeifContext::write_to_bytes() {
     check_closed();
     WriterData wd;
 
-    // Estimate required size based on primary image dimensions to minimize reallocations
-    heif_image_handle* handle = nullptr;
-    heif_error err = heif_context_get_primary_image_handle(ctx.get(), &handle);
-    if (err.code == heif_error_Ok && handle) {
-        int width = heif_image_handle_get_width(handle);
-        int height = heif_image_handle_get_height(handle);
-
-        // Heuristic: ~0.5 bytes per pixel (4 bits per pixel) is typical for HEVC/AV1.
-        size_t estimated_size = static_cast<size_t>(width) * height / 2;
-
-        // Clamp between 4KB and 100MB
-        if (estimated_size < 4096)
-            estimated_size = 4096;
-        else if (estimated_size > 100 * 1024 * 1024)
-            estimated_size = 100 * 1024 * 1024;
-
-        wd.data.reserve(estimated_size);
-        heif_image_handle_release(handle);
-    } else {
-        wd.data.reserve(1024 * 1024);  // Fallback to 1MB
-    }
-
     struct heif_writer writer = {};  // Zero-initialize all fields
     writer.writer_api_version = 1;
     writer.write = writer_write;
 
     {
         nb::gil_scoped_release release;
+
+        // Estimate required size based on primary image dimensions to minimize reallocations
+        ImageHandlePtr handle_guard;
+        heif_image_handle* raw_handle = nullptr;
+        heif_error err = heif_context_get_primary_image_handle(ctx.get(), &raw_handle);
+        if (err.code == heif_error_Ok && raw_handle) {
+            handle_guard.reset(raw_handle);
+            int width = heif_image_handle_get_width(handle_guard.get());
+            int height = heif_image_handle_get_height(handle_guard.get());
+
+            // Heuristic: ~0.5 bytes per pixel (4 bits per pixel) is typical for HEVC/AV1.
+            size_t estimated_size = static_cast<size_t>(width) * height / 2;
+
+            // Clamp between 4KB and 100MB
+            if (estimated_size < 4096)
+                estimated_size = 4096;
+            else if (estimated_size > 100 * 1024 * 1024)
+                estimated_size = 100 * 1024 * 1024;
+
+            wd.data.reserve(estimated_size);
+        } else {
+            wd.data.reserve(1024 * 1024);  // Fallback to 1MB
+        }
+
         check_error(heif_context_write(ctx.get(), &writer, &wd));
     }
 

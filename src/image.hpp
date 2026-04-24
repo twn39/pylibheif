@@ -3,6 +3,7 @@
 #include <memory>
 #include <vector>
 
+#include <nanobind/ndarray.h>
 #include "common.hpp"
 
 namespace pylibheif {
@@ -34,6 +35,9 @@ class HeifImageHandle {
 
 class HeifImage {
    public:
+    static std::shared_ptr<HeifImage> from_numpy_rgb(
+        nb::ndarray<uint8_t, nb::numpy, nb::ndim<3>, nb::c_contig> arr);
+
     HeifImage(heif_image* img) : image(img) {}
     HeifImage(int width, int height, heif_colorspace colorspace, heif_chroma chroma);
 
