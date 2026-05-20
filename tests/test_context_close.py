@@ -55,3 +55,31 @@ async def test_async_context_with_statement(heic_path):
 
     with pytest.raises(RuntimeError, match="HeifContext has been closed"):
         ctx.get_primary_image_handle()
+
+
+def test_handle_access_after_context_closed(heic_path):
+    ctx = pylibheif.HeifContext()
+    ctx.read_from_file(heic_path)
+    handle = ctx.get_primary_image_handle()
+    assert handle.width > 0
+
+    ctx.close()
+
+    # Accessing handle properties after context is closed must raise RuntimeError safely
+    with pytest.raises(RuntimeError, match="HeifContext has been closed"):
+        _ = handle.width
+    with pytest.raises(RuntimeError, match="HeifContext has been closed"):
+        _ = handle.height
+    with pytest.raises(RuntimeError, match="HeifContext has been closed"):
+        handle.decode()
+
+
+def test_handle_access_after_context_manager_exit(heic_path):
+    with pylibheif.HeifContext() as ctx:
+        ctx.read_from_file(heic_path)
+        handle = ctx.get_primary_image_handle()
+        assert handle.width > 0
+
+    # Outside with-block, context has been closed
+    with pytest.raises(RuntimeError, match="HeifContext has been closed"):
+        _ = handle.width

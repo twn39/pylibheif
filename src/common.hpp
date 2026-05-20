@@ -1,4 +1,5 @@
 #pragma once
+#include <Python.h>
 #include <libheif/heif.h>
 #include <nanobind/nanobind.h>
 
@@ -8,6 +9,27 @@
 namespace nb = nanobind;
 
 namespace pylibheif {
+
+struct PyBufferHolder {
+    Py_buffer view;
+    bool active = false;
+
+    PyBufferHolder(PyObject* obj, int flags) {
+        if (PyObject_GetBuffer(obj, &view, flags) != 0) {
+            throw nb::python_error();
+        }
+        active = true;
+    }
+
+    ~PyBufferHolder() {
+        if (active) {
+            PyBuffer_Release(&view);
+        }
+    }
+
+    const void* buf() const { return view.buf; }
+    size_t len() const { return view.len; }
+};
 
 class HeifError : public std::runtime_error {
    public:

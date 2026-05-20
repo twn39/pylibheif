@@ -137,8 +137,9 @@ NB_MODULE(_pylibheif, m) {
         .def("add_plane", &HeifImage::add_plane)
         .def(
             "get_plane",
-            [](std::shared_ptr<HeifImage> self, heif_channel channel, bool writeable) {
-                return self->get_array(channel, writeable, nb::cast(self));
+            [](nb::handle self, heif_channel channel, bool writeable) {
+                auto& native_self = nb::cast<HeifImage&>(self);
+                return native_self.get_array(channel, writeable, self);
             },
             nb::arg("channel"), nb::arg("writeable") = false,
             nb::sig("def get_plane(self, channel: HeifChannel, writeable: bool = False) -> "

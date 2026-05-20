@@ -149,3 +149,48 @@ def test_non_standard_stride():
     img = pylibheif.HeifImage.from_numpy(contig_arr)
     assert img.width == 10
     assert img.height == 10
+
+
+def test_read_from_memory_bytearray_and_memoryview():
+    """Verify that read_from_memory accepts bytearray and memoryview inputs."""
+    # Create small dummy HEIF file bytes
+    arr = np.zeros((10, 10, 3), dtype=np.uint8)
+    img = pylibheif.HeifImage.from_numpy(arr)
+    ctx_write = pylibheif.HeifContext()
+    enc = pylibheif.HeifEncoder(pylibheif.HeifCompressionFormat.HEVC)
+    enc.encode_image(ctx_write, img)
+    data_bytes = ctx_write.write_to_bytes()
+
+    # 1. Test with bytearray
+    data_bytearray = bytearray(data_bytes)
+    ctx_read1 = pylibheif.HeifContext()
+    ctx_read1.read_from_memory(data_bytearray)
+    handle1 = ctx_read1.get_primary_image_handle()
+    assert handle1.width == 10
+
+    # 2. Test with memoryview
+    data_mv = memoryview(data_bytes)
+    ctx_read2 = pylibheif.HeifContext()
+    ctx_read2.read_from_memory(data_mv)
+    handle2 = ctx_read2.get_primary_image_handle()
+    assert handle2.width == 10
+
+
+def test_from_numpy_pytorch_tensor():
+    """Verify from_numpy works with PyTorch CPU tensors (framework-agnostic ndarray)."""
+    torch = pytest.importorskip("torch")
+
+    # Create a 3D PyTorch CPU tensor of shape (20, 20, 3) type uint8
+    tensor = torch.zeros((20, 20, 3), dtype=torch.uint8)
+    # Write some pattern
+    tensor[5:15, 5:15, 0] = 255
+
+    # Convert using from_numpy
+    img = pylibheif.HeifImage.from_numpy(tensor)
+    assert img.width == 20
+    assert img.height == 20
+
+    plane = img.get_plane(pylibheif.HeifChannel.Interleaved, False)
+    arr = np.asarray(plane)
+    assert arr.shape == (20, 20, 3)
+    assert np.all(arr[5:15, 5:15, 0] == 255)

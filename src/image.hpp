@@ -9,10 +9,12 @@
 namespace pylibheif {
 
 class HeifImage;
+struct ContextState;
 
 class HeifImageHandle {
    public:
-    HeifImageHandle(heif_image_handle* h) : handle(h) {}
+    HeifImageHandle(heif_image_handle* h, std::shared_ptr<ContextState> state)
+        : handle(h), m_state(state) {}
 
     int get_width() const;
     int get_height() const;
@@ -30,13 +32,15 @@ class HeifImageHandle {
     heif_image_handle* get() const { return handle.get(); }
 
    private:
+    void check_valid() const;
     ImageHandlePtr handle;
+    std::shared_ptr<ContextState> m_state;
 };
 
 class HeifImage {
    public:
     static std::shared_ptr<HeifImage> from_numpy_rgb(
-        nb::ndarray<uint8_t, nb::numpy, nb::ndim<3>, nb::c_contig> arr);
+        nb::ndarray<uint8_t, nb::ndim<3>, nb::c_contig> arr);
 
     HeifImage(heif_image* img) : image(img) {}
     HeifImage(int width, int height, heif_colorspace colorspace, heif_chroma chroma);

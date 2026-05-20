@@ -72,11 +72,11 @@ target_include_directories(_pylibheif PRIVATE
 # C++ standard
 target_compile_features(_pylibheif PRIVATE cxx_std_17)
 
-# Compiler optimizations
+# Compiler optimizations and warnings
 if(MSVC)
-    target_compile_options(_pylibheif PRIVATE /O2)
+    target_compile_options(_pylibheif PRIVATE /O2 /W4)
 else()
-    target_compile_options(_pylibheif PRIVATE -O3)
+    target_compile_options(_pylibheif PRIVATE -O3 -Wall -Wextra -Wpedantic)
 endif()
 
 # Install the module

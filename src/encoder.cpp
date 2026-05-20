@@ -42,7 +42,7 @@ std::shared_ptr<HeifImageHandle> HeifEncoder::encode_image(HeifContext& ctx, con
     }
     heif_image_handle* handle = nullptr;
     check_error(heif_context_encode_image(ctx.get(), image.get(), encoder.get(), nullptr, &handle));
-    return std::make_shared<HeifImageHandle>(handle);
+    return std::make_shared<HeifImageHandle>(handle, ctx.get_state());
 }
 
 // HeifEncoderDescriptor

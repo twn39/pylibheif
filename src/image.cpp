@@ -3,11 +3,12 @@
 #include <nanobind/nanobind.h>
 #include <nanobind/ndarray.h>
 #include <cstring>
+#include "context.hpp"
 
 namespace pylibheif {
 
 std::shared_ptr<HeifImage> HeifImage::from_numpy_rgb(
-    nb::ndarray<uint8_t, nb::numpy, nb::ndim<3>, nb::c_contig> arr) {
+    nb::ndarray<uint8_t, nb::ndim<3>, nb::c_contig> arr) {
     if (arr.ndim() != 3) {
         throw std::invalid_argument("Array must be 3-dimensional (H, W, C)");
     }
@@ -53,29 +54,46 @@ std::shared_ptr<HeifImage> HeifImage::from_numpy_rgb(
     return img;
 }
 
-int HeifImageHandle::get_width() const { return heif_image_handle_get_width(handle.get()); }
+void HeifImageHandle::check_valid() const {
+    if (!m_state || m_state->is_closed) {
+        throw std::runtime_error("HeifContext has been closed");
+    }
+}
 
-int HeifImageHandle::get_height() const { return heif_image_handle_get_height(handle.get()); }
+int HeifImageHandle::get_width() const {
+    check_valid();
+    return heif_image_handle_get_width(handle.get());
+}
+
+int HeifImageHandle::get_height() const {
+    check_valid();
+    return heif_image_handle_get_height(handle.get());
+}
 
 bool HeifImageHandle::has_alpha_channel() const {
+    check_valid();
     return heif_image_handle_has_alpha_channel(handle.get());
 }
 
 int HeifImageHandle::get_luma_bits_per_pixel() const {
+    check_valid();
     return heif_image_handle_get_luma_bits_per_pixel(handle.get());
 }
 
 int HeifImageHandle::get_chroma_bits_per_pixel() const {
+    check_valid();
     return heif_image_handle_get_chroma_bits_per_pixel(handle.get());
 }
 
 std::shared_ptr<HeifImage> HeifImageHandle::decode(heif_colorspace colorspace, heif_chroma chroma) {
+    check_valid();
     heif_image* img;
     check_error(heif_decode_image(handle.get(), &img, colorspace, chroma, nullptr));
     return std::make_shared<HeifImage>(img);
 }
 
 std::vector<heif_item_id> HeifImageHandle::get_list_of_metadata_block_IDs(const char* type_filter) {
+    check_valid();
     const char* tf = (type_filter && type_filter[0] != '\0') ? type_filter : nullptr;
     int count = heif_image_handle_get_number_of_metadata_blocks(handle.get(), tf);
     std::vector<heif_item_id> ids(count);
@@ -84,10 +102,12 @@ std::vector<heif_item_id> HeifImageHandle::get_list_of_metadata_block_IDs(const 
 }
 
 std::string HeifImageHandle::get_metadata_block_type(heif_item_id id) {
+    check_valid();
     return heif_image_handle_get_metadata_type(handle.get(), id);
 }
 
 nb::bytes HeifImageHandle::get_metadata_block(heif_item_id id) {
+    check_valid();
     size_t size = heif_image_handle_get_metadata_size(handle.get(), id);
     PyObject* py_bytes = PyBytes_FromStringAndSize(nullptr, static_cast<Py_ssize_t>(size));
     if (!py_bytes) {
