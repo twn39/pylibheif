@@ -14,6 +14,7 @@ Python bindings for [libheif](https://github.com/strukturag/libheif) using nanob
 - **JPEG2000 Support**: Read and write JPEG2000 images in HEIF container
 - **NumPy Integration**: Zero-copy access to image data via Python Buffer Protocol
 - **Metadata Support**: Read and write EXIF, XMP, and custom metadata
+- **HDR Metadata Support**: Read and write HDR metadata (CLLI, MDCV, AMVE) using physical units (Nits, Lux, CIE coordinates) with type safety
 - **Asynchronous Support**: Built-in `asyncio` wrappers for non-blocking I/O and encoding
 - **RAII Resource Management**: Automatic resource cleanup with context managers
 
@@ -296,6 +297,91 @@ ctx.add_generic_metadata(handle, custom_data, "json", "application/json")
 ctx.write_to_file('output_with_metadata.heic')
 ```
 
+### HDR Metadata
+
+`pylibheif` supports reading and writing standard HDR metadata introduced in `libheif 1.23.0`:
+- **Content Light Level (CLLI)**: MaxCLL (Max Content Light Level) and MaxFALL (Max Frame Average Light Level) in nits.
+- **Mastering Display Colour Volume (MDCV)**: Mastering display primaries (Red, Green, Blue, White point) in CIE xy coordinates, and luminance range in nits.
+- **Ambient Viewing Environment (AMVE)**: Ambient illumination in lux, and ambient light CIE xy coordinates.
+
+The API exposes these values using standard float coordinates and physical units. It automatically handles the underlying fixed-point scaling and Annex E array index mapping (e.g. green-blue-red ordering in MDCV).
+
+#### Reading HDR Metadata
+
+You can query and retrieve HDR metadata from `HeifImageHandle` (or `AsyncHeifImageHandle`):
+
+```python
+import pylibheif
+
+with pylibheif.HeifContext() as ctx:
+    ctx.read_from_file('hdr_image.heic')
+    handle = ctx.get_primary_image_handle()
+    
+    # 1. Content Light Level (CLLI)
+    if handle.has_content_light_level:
+        cll = handle.content_light_level
+        print(f"MaxCLL: {cll.max_content_light_level} nits")
+        print(f"MaxFALL: {cll.max_pic_average_light_level} nits")
+        
+    # 2. Mastering Display Colour Volume (MDCV)
+    if handle.has_mastering_display_colour_volume:
+        mdcv = handle.mastering_display_colour_volume
+        print(f"Red Primary: {mdcv.red_primary}")        # e.g., (0.680, 0.320)
+        print(f"Green Primary: {mdcv.green_primary}")    # e.g., (0.265, 0.690)
+        print(f"Blue Primary: {mdcv.blue_primary}")      # e.g., (0.150, 0.060)
+        print(f"White Point: {mdcv.white_point}")        # e.g., (0.3127, 0.3290)
+        print(f"Luminance Range: {mdcv.min_luminance} to {mdcv.max_luminance} nits")
+        
+    # 3. Ambient Viewing Environment (AMVE)
+    if handle.has_ambient_viewing_environment:
+        amve = handle.ambient_viewing_environment
+        print(f"Ambient Illumination: {amve.ambient_illumination} lux")
+        print(f"Ambient Light: {amve.ambient_light}")
+```
+
+#### Writing HDR Metadata
+
+You can attach HDR metadata to `HeifImage` prior to encoding:
+
+```python
+import pylibheif
+import numpy as np
+
+# Prepare image
+img = pylibheif.HeifImage(64, 64, pylibheif.HeifColorspace.RGB, pylibheif.HeifChroma.InterleavedRGB)
+img.add_plane(pylibheif.HeifChannel.Interleaved, 64, 64, 8)
+arr = img.get_plane(pylibheif.HeifChannel.Interleaved, True)
+arr[:] = 128  # Fill with gray
+
+# 1. Set CLLI
+img.content_light_level = pylibheif.HeifContentLightLevel(
+    max_content_light_level=1000,
+    max_pic_average_light_level=400
+)
+
+# 2. Set MDCV (mastering display characteristics)
+img.mastering_display_colour_volume = pylibheif.HeifMasteringDisplayColourVolume(
+    red_primary=(0.680, 0.320),
+    green_primary=(0.265, 0.690),
+    blue_primary=(0.150, 0.060),
+    white_point=(0.3127, 0.3290),
+    max_luminance=1000.0,
+    min_luminance=0.005
+)
+
+# 3. Set AMVE
+img.ambient_viewing_environment = pylibheif.HeifAmbientViewingEnvironment(
+    ambient_illumination=315.5,
+    ambient_light=(0.3127, 0.3290)
+)
+
+# Encode
+ctx = pylibheif.HeifContext()
+encoder = pylibheif.HeifEncoder(pylibheif.HeifCompressionFormat.HEVC)
+encoder.encode_image(ctx, img)
+ctx.write_to_file('hdr_output.heic')
+```
+
 ### Asynchronous Support (asyncio)
 
 `pylibheif` provides asynchronous wrappers for non-blocking I/O and CPU-intensive operations (like encoding and decoding) using `asyncio.to_thread`.
@@ -421,6 +507,12 @@ Represents a compressed image within the HEIF file.
 - **`width`** *(int)*: The width of the image.
 - **`height`** *(int)*: The height of the image.
 - **`has_alpha`** *(bool)*: True if the image has an alpha channel.
+- **`has_content_light_level`** *(bool)*: True if CLLI metadata is present.
+- **`has_mastering_display_colour_volume`** *(bool)*: True if MDCV metadata is present.
+- **`has_ambient_viewing_environment`** *(bool)*: True if AMVE metadata is present.
+- **`content_light_level`** *(Optional[HeifContentLightLevel])*: CLLI metadata if present, otherwise `None`.
+- **`mastering_display_colour_volume`** *(Optional[HeifMasteringDisplayColourVolume])*: MDCV metadata if present, otherwise `None`.
+- **`ambient_viewing_environment`** *(Optional[HeifAmbientViewingEnvironment])*: AMVE metadata if present, otherwise `None`.
 
 #### Methods
 
@@ -455,6 +547,12 @@ Represents an uncompressed image containing pixel data. Supports zero-copy memor
 
 - **`width`** *(int)*: The width of the image.
 - **`height`** *(int)*: The height of the image.
+- **`has_content_light_level`** *(bool)*: True if CLLI metadata is present.
+- **`has_mastering_display_colour_volume`** *(bool)*: True if MDCV metadata is present.
+- **`has_ambient_viewing_environment`** *(bool)*: True if AMVE metadata is present.
+- **`content_light_level`** *(Optional[HeifContentLightLevel])*: Get or set CLLI metadata.
+- **`mastering_display_colour_volume`** *(Optional[HeifMasteringDisplayColourVolume])*: Get or set MDCV metadata.
+- **`ambient_viewing_environment`** *(Optional[HeifAmbientViewingEnvironment])*: Get or set AMVE metadata.
 
 #### Methods
 
@@ -505,6 +603,35 @@ Encodes the given image and appends it to the context.
 - `image`: The source `HeifImage` to encode.
 - `preset`: Optional encoder preset (e.g. "ultrafast", "slow"). Default is empty (balanced/default). **Note**: This maps to the 'preset' parameter in libheif. It works for x265 (check version), but AOM and others may use different parameters (e.g. 'speed') which should be set via `set_parameter` instead.
 - Returns: `HeifImageHandle` for the encoded image. Can be used to add metadata.
+
+---
+
+### HDR Metadata Classes
+
+#### class `pylibheif.HeifContentLightLevel`
+
+Holds Content Light Level Information (CLLI) as integers.
+
+- **`max_content_light_level`** *(int)*: Maximum content light level (MaxCLL) in nits.
+- **`max_pic_average_light_level`** *(int)*: Maximum picture average light level (MaxFALL) in nits.
+
+#### class `pylibheif.HeifMasteringDisplayColourVolume`
+
+Holds Mastering Display Colour Volume (MDCV) metadata. All coordinates are normalized CIE 1931 xy floating-point coordinates.
+
+- **`red_primary`** *(Tuple[float, float])*: Chromaticity coordinates (x, y) of the red primary.
+- **`green_primary`** *(Tuple[float, float])*: Chromaticity coordinates (x, y) of the green primary.
+- **`blue_primary`** *(Tuple[float, float])*: Chromaticity coordinates (x, y) of the blue primary.
+- **`white_point`** *(Tuple[float, float])*: Chromaticity coordinates (x, y) of the white point.
+- **`max_luminance`** *(float)*: Maximum display mastering luminance in nits.
+- **`min_luminance`** *(float)*: Minimum display mastering luminance in nits.
+
+#### class `pylibheif.HeifAmbientViewingEnvironment`
+
+Holds Ambient Viewing Environment (AMVE) metadata.
+
+- **`ambient_illumination`** *(float)*: Ambient illumination in lux.
+- **`ambient_light`** *(Tuple[float, float])*: Chromaticity coordinates (x, y) of the ambient light.
 
 ---
 
