@@ -3,6 +3,7 @@
 #include <nanobind/nanobind.h>
 #include <nanobind/ndarray.h>
 #include <cstring>
+#include <cmath>
 #include "context.hpp"
 
 namespace pylibheif {
@@ -191,6 +192,139 @@ nb::object HeifImage::get_array(heif_channel channel, bool writeable, nb::handle
             return nb::cast(nb::ndarray<uint16_t, nb::numpy>(data, 2, shape, owner, strides));
         }
     }
+}
+
+bool HeifImageHandle::has_content_light_level() const {
+    check_valid();
+    return heif_image_handle_has_content_light_level(handle.get()) != 0;
+}
+
+bool HeifImageHandle::has_mastering_display_colour_volume() const {
+    check_valid();
+    return heif_image_handle_has_mastering_display_colour_volume(handle.get()) != 0;
+}
+
+bool HeifImageHandle::has_ambient_viewing_environment() const {
+    check_valid();
+    return heif_image_handle_has_ambient_viewing_environment(handle.get()) != 0;
+}
+
+std::optional<HeifContentLightLevel> HeifImageHandle::get_content_light_level() const {
+    check_valid();
+    heif_content_light_level cll;
+    if (heif_image_handle_get_content_light_level(handle.get(), &cll)) {
+        return HeifContentLightLevel{cll.max_content_light_level, cll.max_pic_average_light_level};
+    }
+    return std::nullopt;
+}
+
+std::optional<HeifMasteringDisplayColourVolume> HeifImageHandle::get_mastering_display_colour_volume() const {
+    check_valid();
+    heif_mastering_display_colour_volume mdcv;
+    if (heif_image_handle_get_mastering_display_colour_volume(handle.get(), &mdcv)) {
+        heif_decoded_mastering_display_colour_volume decoded;
+        check_error(heif_mastering_display_colour_volume_decode(&mdcv, &decoded));
+        return HeifMasteringDisplayColourVolume{
+            {decoded.display_primaries_x[2], decoded.display_primaries_y[2]}, // Red
+            {decoded.display_primaries_x[0], decoded.display_primaries_y[0]}, // Green
+            {decoded.display_primaries_x[1], decoded.display_primaries_y[1]}, // Blue
+            {decoded.white_point_x, decoded.white_point_y},
+            decoded.max_display_mastering_luminance,
+            decoded.min_display_mastering_luminance
+        };
+    }
+    return std::nullopt;
+}
+
+std::optional<HeifAmbientViewingEnvironment> HeifImageHandle::get_ambient_viewing_environment() const {
+    check_valid();
+    heif_ambient_viewing_environment amve;
+    if (heif_image_handle_get_ambient_viewing_environment(handle.get(), &amve)) {
+        return HeifAmbientViewingEnvironment{
+            amve.ambient_illumination / 10000.0,
+            {amve.ambient_light_x / 50000.0f, amve.ambient_light_y / 50000.0f}
+        };
+    }
+    return std::nullopt;
+}
+
+bool HeifImage::has_content_light_level() const {
+    return heif_image_has_content_light_level(image.get()) != 0;
+}
+
+bool HeifImage::has_mastering_display_colour_volume() const {
+    return heif_image_has_mastering_display_colour_volume(image.get()) != 0;
+}
+
+bool HeifImage::has_ambient_viewing_environment() const {
+    return heif_image_has_ambient_viewing_environment(image.get()) != 0;
+}
+
+std::optional<HeifContentLightLevel> HeifImage::get_content_light_level() const {
+    if (!has_content_light_level()) return std::nullopt;
+    heif_content_light_level cll;
+    heif_image_get_content_light_level(image.get(), &cll);
+    return HeifContentLightLevel{cll.max_content_light_level, cll.max_pic_average_light_level};
+}
+
+std::optional<HeifMasteringDisplayColourVolume> HeifImage::get_mastering_display_colour_volume() const {
+    if (!has_mastering_display_colour_volume()) return std::nullopt;
+    heif_mastering_display_colour_volume mdcv;
+    heif_image_get_mastering_display_colour_volume(image.get(), &mdcv);
+    heif_decoded_mastering_display_colour_volume decoded;
+    check_error(heif_mastering_display_colour_volume_decode(&mdcv, &decoded));
+    return HeifMasteringDisplayColourVolume{
+        {decoded.display_primaries_x[2], decoded.display_primaries_y[2]}, // Red
+        {decoded.display_primaries_x[0], decoded.display_primaries_y[0]}, // Green
+        {decoded.display_primaries_x[1], decoded.display_primaries_y[1]}, // Blue
+        {decoded.white_point_x, decoded.white_point_y},
+        decoded.max_display_mastering_luminance,
+        decoded.min_display_mastering_luminance
+    };
+}
+
+std::optional<HeifAmbientViewingEnvironment> HeifImage::get_ambient_viewing_environment() const {
+    heif_ambient_viewing_environment amve;
+    if (heif_image_get_ambient_viewing_environment(image.get(), &amve)) {
+        return HeifAmbientViewingEnvironment{
+            amve.ambient_illumination / 10000.0,
+            {amve.ambient_light_x / 50000.0f, amve.ambient_light_y / 50000.0f}
+        };
+    }
+    return std::nullopt;
+}
+
+void HeifImage::set_content_light_level(const HeifContentLightLevel& cll) {
+    heif_content_light_level raw_cll;
+    raw_cll.max_content_light_level = cll.max_content_light_level;
+    raw_cll.max_pic_average_light_level = cll.max_pic_average_light_level;
+    heif_image_set_content_light_level(image.get(), &raw_cll);
+}
+
+void HeifImage::set_mastering_display_colour_volume(const HeifMasteringDisplayColourVolume& mdcv) {
+    heif_mastering_display_colour_volume raw_mdcv;
+    raw_mdcv.display_primaries_x[0] = static_cast<uint16_t>(std::round(mdcv.green_primary.first * 50000.0f));
+    raw_mdcv.display_primaries_y[0] = static_cast<uint16_t>(std::round(mdcv.green_primary.second * 50000.0f));
+    raw_mdcv.display_primaries_x[1] = static_cast<uint16_t>(std::round(mdcv.blue_primary.first * 50000.0f));
+    raw_mdcv.display_primaries_y[1] = static_cast<uint16_t>(std::round(mdcv.blue_primary.second * 50000.0f));
+    raw_mdcv.display_primaries_x[2] = static_cast<uint16_t>(std::round(mdcv.red_primary.first * 50000.0f));
+    raw_mdcv.display_primaries_y[2] = static_cast<uint16_t>(std::round(mdcv.red_primary.second * 50000.0f));
+    
+    raw_mdcv.white_point_x = static_cast<uint16_t>(std::round(mdcv.white_point.first * 50000.0f));
+    raw_mdcv.white_point_y = static_cast<uint16_t>(std::round(mdcv.white_point.second * 50000.0f));
+    
+    raw_mdcv.max_display_mastering_luminance = static_cast<uint32_t>(std::round(mdcv.max_luminance * 10000.0));
+    raw_mdcv.min_display_mastering_luminance = static_cast<uint32_t>(std::round(mdcv.min_luminance * 10000.0));
+    
+    heif_image_set_mastering_display_colour_volume(image.get(), &raw_mdcv);
+}
+
+void HeifImage::set_ambient_viewing_environment(const HeifAmbientViewingEnvironment& amve) {
+    heif_ambient_viewing_environment raw_amve;
+    raw_amve.ambient_illumination = static_cast<uint32_t>(std::round(amve.ambient_illumination * 10000.0));
+    raw_amve.ambient_light_x = static_cast<uint16_t>(std::round(amve.ambient_light.first * 50000.0f));
+    raw_amve.ambient_light_y = static_cast<uint16_t>(std::round(amve.ambient_light.second * 50000.0f));
+    heif_image_set_ambient_viewing_environment(image.get(), &raw_amve);
 }
 
 }  // namespace pylibheif

@@ -4,7 +4,9 @@
 #include <vector>
 
 #include <nanobind/ndarray.h>
+#include <optional>
 #include "common.hpp"
+#include "hdr_metadata.hpp"
 
 namespace pylibheif {
 
@@ -34,6 +36,14 @@ class HeifImageHandle {
     std::vector<heif_item_id> get_list_of_metadata_block_IDs(const std::string& type_filter = "");
     std::string get_metadata_block_type(heif_item_id id);
     nb::bytes get_metadata_block(heif_item_id id);
+
+    // HDR Metadata
+    bool has_content_light_level() const;
+    bool has_mastering_display_colour_volume() const;
+    bool has_ambient_viewing_environment() const;
+    std::optional<HeifContentLightLevel> get_content_light_level() const;
+    std::optional<HeifMasteringDisplayColourVolume> get_mastering_display_colour_volume() const;
+    std::optional<HeifAmbientViewingEnvironment> get_ambient_viewing_environment() const;
 
     heif_image_handle* get() const { return handle.get(); }
 
@@ -66,6 +76,18 @@ class HeifImage {
     // Array sequence support
     nb::object get_array(heif_channel channel, bool writeable = false,
                          nb::handle owner = nb::handle());
+
+    // HDR Metadata
+    bool has_content_light_level() const;
+    bool has_mastering_display_colour_volume() const;
+    bool has_ambient_viewing_environment() const;
+    std::optional<HeifContentLightLevel> get_content_light_level() const;
+    std::optional<HeifMasteringDisplayColourVolume> get_mastering_display_colour_volume() const;
+    std::optional<HeifAmbientViewingEnvironment> get_ambient_viewing_environment() const;
+
+    void set_content_light_level(const HeifContentLightLevel& cll);
+    void set_mastering_display_colour_volume(const HeifMasteringDisplayColourVolume& mdcv);
+    void set_ambient_viewing_environment(const HeifAmbientViewingEnvironment& amve);
 
     heif_image* get() const { return image.get(); }
 

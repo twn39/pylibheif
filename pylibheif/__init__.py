@@ -11,6 +11,9 @@ from ._pylibheif import (
     HeifEncoderDescriptor,
     get_encoder_descriptors,
     HeifEncoder,
+    HeifContentLightLevel,
+    HeifMasteringDisplayColourVolume,
+    HeifAmbientViewingEnvironment,
     __doc__,
 )
 
@@ -32,6 +35,9 @@ __all__ = [
     "HeifEncoderDescriptor",
     "get_encoder_descriptors",
     "HeifEncoder",
+    "HeifContentLightLevel",
+    "HeifMasteringDisplayColourVolume",
+    "HeifAmbientViewingEnvironment",
     "AsyncHeifContext",
     "AsyncHeifImageHandle",
     "AsyncHeifEncoder",
@@ -67,6 +73,30 @@ class AsyncHeifImageHandle:
     @property
     def chroma_bits_per_pixel(self) -> int:
         return self._handle.chroma_bits_per_pixel
+
+    @property
+    def has_content_light_level(self) -> bool:
+        return self._handle.has_content_light_level
+
+    @property
+    def has_mastering_display_colour_volume(self) -> bool:
+        return self._handle.has_mastering_display_colour_volume
+
+    @property
+    def has_ambient_viewing_environment(self) -> bool:
+        return self._handle.has_ambient_viewing_environment
+
+    @property
+    def content_light_level(self) -> Optional[HeifContentLightLevel]:
+        return self._handle.content_light_level
+
+    @property
+    def mastering_display_colour_volume(self) -> Optional[HeifMasteringDisplayColourVolume]:
+        return self._handle.mastering_display_colour_volume
+
+    @property
+    def ambient_viewing_environment(self) -> Optional[HeifAmbientViewingEnvironment]:
+        return self._handle.ambient_viewing_environment
 
     async def decode(
         self,

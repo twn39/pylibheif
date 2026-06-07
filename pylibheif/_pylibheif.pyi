@@ -150,6 +150,37 @@ Monochrome: HeifChroma = HeifChroma.Monochrome
 class HeifError(Exception):
     pass
 
+class HeifContentLightLevel:
+    max_content_light_level: int
+    max_pic_average_light_level: int
+    def __init__(
+        self, max_content_light_level: int = 0, max_pic_average_light_level: int = 0
+    ) -> None: ...
+
+class HeifMasteringDisplayColourVolume:
+    red_primary: tuple[float, float]
+    green_primary: tuple[float, float]
+    blue_primary: tuple[float, float]
+    white_point: tuple[float, float]
+    max_luminance: float
+    min_luminance: float
+    def __init__(
+        self,
+        red_primary: tuple[float, float] = (0.0, 0.0),
+        green_primary: tuple[float, float] = (0.0, 0.0),
+        blue_primary: tuple[float, float] = (0.0, 0.0),
+        white_point: tuple[float, float] = (0.0, 0.0),
+        max_luminance: float = 0.0,
+        min_luminance: float = 0.0,
+    ) -> None: ...
+
+class HeifAmbientViewingEnvironment:
+    ambient_illumination: float
+    ambient_light: tuple[float, float]
+    def __init__(
+        self, ambient_illumination: float = 0.0, ambient_light: tuple[float, float] = (0.0, 0.0)
+    ) -> None: ...
+
 class HeifContext:
     def __init__(self) -> None: ...
     def close(self) -> None: ...
@@ -199,6 +230,18 @@ class HeifImageHandle:
     def get_metadata_block_ids(self, type_filter: str = "") -> list[int]: ...
     def get_metadata_block_type(self, arg: int, /) -> str: ...
     def get_metadata_block(self, arg: int, /) -> bytes: ...
+    @property
+    def has_content_light_level(self) -> bool: ...
+    @property
+    def has_mastering_display_colour_volume(self) -> bool: ...
+    @property
+    def has_ambient_viewing_environment(self) -> bool: ...
+    @property
+    def content_light_level(self) -> HeifContentLightLevel | None: ...
+    @property
+    def mastering_display_colour_volume(self) -> HeifMasteringDisplayColourVolume | None: ...
+    @property
+    def ambient_viewing_environment(self) -> HeifAmbientViewingEnvironment | None: ...
 
 class HeifImage:
     def __init__(
@@ -218,6 +261,24 @@ class HeifImage:
     def get_plane(
         self, channel: HeifChannel, writeable: bool = False
     ) -> numpy.ndarray: ...
+    @property
+    def has_content_light_level(self) -> bool: ...
+    @property
+    def has_mastering_display_colour_volume(self) -> bool: ...
+    @property
+    def has_ambient_viewing_environment(self) -> bool: ...
+    @property
+    def content_light_level(self) -> HeifContentLightLevel | None: ...
+    @content_light_level.setter
+    def content_light_level(self, value: HeifContentLightLevel) -> None: ...
+    @property
+    def mastering_display_colour_volume(self) -> HeifMasteringDisplayColourVolume | None: ...
+    @mastering_display_colour_volume.setter
+    def mastering_display_colour_volume(self, value: HeifMasteringDisplayColourVolume) -> None: ...
+    @property
+    def ambient_viewing_environment(self) -> HeifAmbientViewingEnvironment | None: ...
+    @ambient_viewing_environment.setter
+    def ambient_viewing_environment(self, value: HeifAmbientViewingEnvironment) -> None: ...
 
 class HeifEncoderDescriptor:
     @property

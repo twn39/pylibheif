@@ -2,6 +2,9 @@
 #include <nanobind/ndarray.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/vector.h>
+#include <nanobind/stl/pair.h>
+#include <nanobind/stl/optional.h>
+#include "hdr_metadata.hpp"
 
 #include "context.hpp"
 #include "encoder.hpp"
@@ -79,6 +82,64 @@ NB_MODULE(_pylibheif, m) {
     });
 
     // Classes
+    nb::class_<HeifContentLightLevel>(m, "HeifContentLightLevel")
+        .def("__init__", [](HeifContentLightLevel* self, uint16_t max_cll, uint16_t max_fall) {
+            new (self) HeifContentLightLevel{max_cll, max_fall};
+        }, nb::arg("max_content_light_level") = 0, nb::arg("max_pic_average_light_level") = 0)
+        .def_rw("max_content_light_level", &HeifContentLightLevel::max_content_light_level)
+        .def_rw("max_pic_average_light_level", &HeifContentLightLevel::max_pic_average_light_level)
+        .def("__repr__", [](const HeifContentLightLevel& self) {
+            return "<pylibheif.HeifContentLightLevel max_content_light_level=" +
+                   std::to_string(self.max_content_light_level) +
+                   " max_pic_average_light_level=" +
+                   std::to_string(self.max_pic_average_light_level) + ">";
+        });
+
+    nb::class_<HeifMasteringDisplayColourVolume>(m, "HeifMasteringDisplayColourVolume")
+        .def("__init__", [](HeifMasteringDisplayColourVolume* self,
+                            std::pair<float, float> red,
+                            std::pair<float, float> green,
+                            std::pair<float, float> blue,
+                            std::pair<float, float> white,
+                            double max_lum, double min_lum) {
+            new (self) HeifMasteringDisplayColourVolume{red, green, blue, white, max_lum, min_lum};
+        }, nb::arg("red_primary") = std::make_pair(0.0f, 0.0f),
+           nb::arg("green_primary") = std::make_pair(0.0f, 0.0f),
+           nb::arg("blue_primary") = std::make_pair(0.0f, 0.0f),
+           nb::arg("white_point") = std::make_pair(0.0f, 0.0f),
+           nb::arg("max_luminance") = 0.0,
+           nb::arg("min_luminance") = 0.0)
+        .def_rw("red_primary", &HeifMasteringDisplayColourVolume::red_primary)
+        .def_rw("green_primary", &HeifMasteringDisplayColourVolume::green_primary)
+        .def_rw("blue_primary", &HeifMasteringDisplayColourVolume::blue_primary)
+        .def_rw("white_point", &HeifMasteringDisplayColourVolume::white_point)
+        .def_rw("max_luminance", &HeifMasteringDisplayColourVolume::max_luminance)
+        .def_rw("min_luminance", &HeifMasteringDisplayColourVolume::min_luminance)
+        .def("__repr__", [](const HeifMasteringDisplayColourVolume& self) {
+            return "<pylibheif.HeifMasteringDisplayColourVolume"
+                   " red_primary=(" + std::to_string(self.red_primary.first) + ", " + std::to_string(self.red_primary.second) + ")"
+                   " green_primary=(" + std::to_string(self.green_primary.first) + ", " + std::to_string(self.green_primary.second) + ")"
+                   " blue_primary=(" + std::to_string(self.blue_primary.first) + ", " + std::to_string(self.blue_primary.second) + ")"
+                   " white_point=(" + std::to_string(self.white_point.first) + ", " + std::to_string(self.white_point.second) + ")"
+                   " max_luminance=" + std::to_string(self.max_luminance) +
+                   " min_luminance=" + std::to_string(self.min_luminance) + ">";
+        });
+
+    nb::class_<HeifAmbientViewingEnvironment>(m, "HeifAmbientViewingEnvironment")
+        .def("__init__", [](HeifAmbientViewingEnvironment* self,
+                            double illumination,
+                            std::pair<float, float> light) {
+            new (self) HeifAmbientViewingEnvironment{illumination, light};
+        }, nb::arg("ambient_illumination") = 0.0,
+           nb::arg("ambient_light") = std::make_pair(0.0f, 0.0f))
+        .def_rw("ambient_illumination", &HeifAmbientViewingEnvironment::ambient_illumination)
+        .def_rw("ambient_light", &HeifAmbientViewingEnvironment::ambient_light)
+        .def("__repr__", [](const HeifAmbientViewingEnvironment& self) {
+            return "<pylibheif.HeifAmbientViewingEnvironment"
+                   " ambient_illumination=" + std::to_string(self.ambient_illumination) +
+                   " ambient_light=(" + std::to_string(self.ambient_light.first) + ", " + std::to_string(self.ambient_light.second) + ")>";
+        });
+
     nb::class_<HeifContext>(m, "HeifContext")
         .def(nb::init<>())
         .def("close", &HeifContext::close)
@@ -118,6 +179,12 @@ NB_MODULE(_pylibheif, m) {
              nb::arg("type_filter") = "")
         .def("get_metadata_block_type", &HeifImageHandle::get_metadata_block_type)
         .def("get_metadata_block", &HeifImageHandle::get_metadata_block)
+        .def_prop_ro("has_content_light_level", &HeifImageHandle::has_content_light_level)
+        .def_prop_ro("has_mastering_display_colour_volume", &HeifImageHandle::has_mastering_display_colour_volume)
+        .def_prop_ro("has_ambient_viewing_environment", &HeifImageHandle::has_ambient_viewing_environment)
+        .def_prop_ro("content_light_level", &HeifImageHandle::get_content_light_level)
+        .def_prop_ro("mastering_display_colour_volume", &HeifImageHandle::get_mastering_display_colour_volume)
+        .def_prop_ro("ambient_viewing_environment", &HeifImageHandle::get_ambient_viewing_environment)
         .def("__repr__", [](const HeifImageHandle& self) {
             return "<pylibheif.HeifImageHandle " + std::to_string(self.get_width()) + "x" +
                    std::to_string(self.get_height()) +
@@ -143,6 +210,18 @@ NB_MODULE(_pylibheif, m) {
             nb::arg("channel"), nb::arg("writeable") = false,
             nb::sig("def get_plane(self, channel: HeifChannel, writeable: bool = False) -> "
                     "numpy.ndarray"))
+        .def_prop_ro("has_content_light_level", &HeifImage::has_content_light_level)
+        .def_prop_ro("has_mastering_display_colour_volume", &HeifImage::has_mastering_display_colour_volume)
+        .def_prop_ro("has_ambient_viewing_environment", &HeifImage::has_ambient_viewing_environment)
+        .def_prop_rw("content_light_level",
+            [](const HeifImage& self) { return self.get_content_light_level(); },
+            [](HeifImage& self, const HeifContentLightLevel& val) { self.set_content_light_level(val); })
+        .def_prop_rw("mastering_display_colour_volume",
+            [](const HeifImage& self) { return self.get_mastering_display_colour_volume(); },
+            [](HeifImage& self, const HeifMasteringDisplayColourVolume& val) { self.set_mastering_display_colour_volume(val); })
+        .def_prop_rw("ambient_viewing_environment",
+            [](const HeifImage& self) { return self.get_ambient_viewing_environment(); },
+            [](HeifImage& self, const HeifAmbientViewingEnvironment& val) { self.set_ambient_viewing_environment(val); })
         .def("__repr__", [](const HeifImage& self) {
             return "<pylibheif.HeifImage " + std::to_string(self.get_width()) + "x" +
                    std::to_string(self.get_height()) + ">";
