@@ -2,6 +2,7 @@ name: Build and Publish
 
 on:
   push:
+    branches: [ main ]
     tags:
       - 'v*'
   pull_request:
@@ -123,7 +124,7 @@ jobs:
           # cibuildwheel automatically creates a test venv. We should use python -m pytest to guarantee
           # we run inside the cibuildwheel test venv rather than uv implicitly trying to run in the project root venv
           CIBW_TEST_REQUIRES: pytest numpy pytest-benchmark pillow-heif psutil pytest-asyncio
-          CIBW_TEST_COMMAND: python -m pytest {project}/tests/test_pylibheif.py -v
+          CIBW_TEST_COMMAND: python -m pytest {project}/tests -v
 
 
 
