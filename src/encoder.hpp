@@ -29,21 +29,27 @@ class HeifEncoderDescriptor {
 
 std::vector<HeifEncoderDescriptor> get_encoder_descriptors(
     heif_compression_format format_filter = heif_compression_undefined,
-    const char* name_filter = "");
+    const std::string& name_filter = "");
 
 class HeifEncoder {
    public:
     HeifEncoder(heif_compression_format format);
     HeifEncoder(const HeifEncoderDescriptor& descriptor);
 
+    // Rule of Five (Move-only wrapper)
+    HeifEncoder(const HeifEncoder&) = delete;
+    HeifEncoder& operator=(const HeifEncoder&) = delete;
+    HeifEncoder(HeifEncoder&&) noexcept = default;
+    HeifEncoder& operator=(HeifEncoder&&) noexcept = default;
+
     std::string name() const;
 
     void set_lossy_quality(int quality);
     void set_lossless(bool lossless);
-    void set_parameter(const char* name, const char* value);
+    void set_parameter(const std::string& name, const std::string& value);
 
-    std::shared_ptr<HeifImageHandle> encode_image(HeifContext& ctx, const HeifImage& image,
-                                                  const char* preset = "");
+    HeifImageHandle encode_image(HeifContext& ctx, const HeifImage& image,
+                                 const std::string& preset = "");
 
     heif_encoder* get() const { return encoder.get(); }
 

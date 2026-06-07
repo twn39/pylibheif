@@ -31,18 +31,18 @@ void HeifEncoder::set_lossless(bool lossless) {
     check_error(heif_encoder_set_lossless(encoder.get(), lossless));
 }
 
-void HeifEncoder::set_parameter(const char* name, const char* value) {
-    check_error(heif_encoder_set_parameter(encoder.get(), name, value));
+void HeifEncoder::set_parameter(const std::string& name, const std::string& value) {
+    check_error(heif_encoder_set_parameter(encoder.get(), name.c_str(), value.c_str()));
 }
 
-std::shared_ptr<HeifImageHandle> HeifEncoder::encode_image(HeifContext& ctx, const HeifImage& image,
-                                                           const char* preset) {
-    if (preset && preset[0] != '\0') {
+HeifImageHandle HeifEncoder::encode_image(HeifContext& ctx, const HeifImage& image,
+                                          const std::string& preset) {
+    if (!preset.empty()) {
         set_parameter("preset", preset);
     }
     heif_image_handle* handle = nullptr;
     check_error(heif_context_encode_image(ctx.get(), image.get(), encoder.get(), nullptr, &handle));
-    return std::make_shared<HeifImageHandle>(handle, ctx.get_state());
+    return HeifImageHandle(handle, ctx.get_state());
 }
 
 // HeifEncoderDescriptor
@@ -53,8 +53,8 @@ HeifEncoderDescriptor::HeifEncoderDescriptor(const heif_encoder_descriptor* desc
       m_raw_descriptor(descriptor) {}
 
 std::vector<HeifEncoderDescriptor> get_encoder_descriptors(heif_compression_format format_filter,
-                                                           const char* name_filter) {
-    const char* nf = (name_filter && name_filter[0] != '\0') ? name_filter : nullptr;
+                                                           const std::string& name_filter) {
+    const char* nf = name_filter.empty() ? nullptr : name_filter.c_str();
     int count = heif_get_encoder_descriptors(format_filter, nf, nullptr, 0);
 
     std::vector<HeifEncoderDescriptor> result;

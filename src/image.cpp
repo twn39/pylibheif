@@ -7,7 +7,7 @@
 
 namespace pylibheif {
 
-std::shared_ptr<HeifImage> HeifImage::from_numpy_rgb(
+HeifImage HeifImage::from_numpy_rgb(
     nb::ndarray<uint8_t, nb::ndim<3>, nb::c_contig> arr) {
     if (arr.ndim() != 3) {
         throw std::invalid_argument("Array must be 3-dimensional (H, W, C)");
@@ -25,7 +25,7 @@ std::shared_ptr<HeifImage> HeifImage::from_numpy_rgb(
 
     heif_image* img_ptr = nullptr;
     check_error(heif_image_create(width, height, heif_colorspace_RGB, chroma, &img_ptr));
-    auto img = std::make_shared<HeifImage>(img_ptr);
+    HeifImage img(img_ptr);
 
     check_error(heif_image_add_plane(img_ptr, heif_channel_interleaved, width, height, 8));
 
@@ -85,16 +85,16 @@ int HeifImageHandle::get_chroma_bits_per_pixel() const {
     return heif_image_handle_get_chroma_bits_per_pixel(handle.get());
 }
 
-std::shared_ptr<HeifImage> HeifImageHandle::decode(heif_colorspace colorspace, heif_chroma chroma) {
+HeifImage HeifImageHandle::decode(heif_colorspace colorspace, heif_chroma chroma) {
     check_valid();
     heif_image* img;
     check_error(heif_decode_image(handle.get(), &img, colorspace, chroma, nullptr));
-    return std::make_shared<HeifImage>(img);
+    return HeifImage(img);
 }
 
-std::vector<heif_item_id> HeifImageHandle::get_list_of_metadata_block_IDs(const char* type_filter) {
+std::vector<heif_item_id> HeifImageHandle::get_list_of_metadata_block_IDs(const std::string& type_filter) {
     check_valid();
-    const char* tf = (type_filter && type_filter[0] != '\0') ? type_filter : nullptr;
+    const char* tf = type_filter.empty() ? nullptr : type_filter.c_str();
     int count = heif_image_handle_get_number_of_metadata_blocks(handle.get(), tf);
     std::vector<heif_item_id> ids(count);
     heif_image_handle_get_list_of_metadata_block_IDs(handle.get(), tf, ids.data(), count);

@@ -16,16 +16,22 @@ class HeifImageHandle {
     HeifImageHandle(heif_image_handle* h, std::shared_ptr<ContextState> state)
         : handle(h), m_state(state) {}
 
+    // Rule of Five (Move-only wrapper)
+    HeifImageHandle(const HeifImageHandle&) = delete;
+    HeifImageHandle& operator=(const HeifImageHandle&) = delete;
+    HeifImageHandle(HeifImageHandle&&) noexcept = default;
+    HeifImageHandle& operator=(HeifImageHandle&&) noexcept = default;
+
     int get_width() const;
     int get_height() const;
     bool has_alpha_channel() const;
     int get_luma_bits_per_pixel() const;
     int get_chroma_bits_per_pixel() const;
 
-    std::shared_ptr<HeifImage> decode(heif_colorspace colorspace, heif_chroma chroma);
+    HeifImage decode(heif_colorspace colorspace, heif_chroma chroma);
 
     // Metadata
-    std::vector<heif_item_id> get_list_of_metadata_block_IDs(const char* type_filter = "");
+    std::vector<heif_item_id> get_list_of_metadata_block_IDs(const std::string& type_filter = "");
     std::string get_metadata_block_type(heif_item_id id);
     nb::bytes get_metadata_block(heif_item_id id);
 
@@ -39,11 +45,17 @@ class HeifImageHandle {
 
 class HeifImage {
    public:
-    static std::shared_ptr<HeifImage> from_numpy_rgb(
+    static HeifImage from_numpy_rgb(
         nb::ndarray<uint8_t, nb::ndim<3>, nb::c_contig> arr);
 
     HeifImage(heif_image* img) : image(img) {}
     HeifImage(int width, int height, heif_colorspace colorspace, heif_chroma chroma);
+
+    // Rule of Five (Move-only wrapper)
+    HeifImage(const HeifImage&) = delete;
+    HeifImage& operator=(const HeifImage&) = delete;
+    HeifImage(HeifImage&&) noexcept = default;
+    HeifImage& operator=(HeifImage&&) noexcept = default;
 
     int get_width() const;
     int get_height() const;

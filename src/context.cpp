@@ -12,8 +12,8 @@ HeifContext::HeifContext() : state(std::make_shared<ContextState>()) {
 
 void HeifContext::close() {
     if (state) {
+        state->close_buffer();
         state->ctx.reset();
-        state->memory_reference = nb::object();
         state->is_closed = true;
     }
 }
@@ -24,36 +24,34 @@ void HeifContext::check_closed() const {
     }
 }
 
-void HeifContext::read_from_file(const char* filename) {
+void HeifContext::read_from_file(const std::string& filename) {
     check_closed();
-    check_error(heif_context_read_from_file(state->ctx.get(), filename, nullptr));
+    check_error(heif_context_read_from_file(state->ctx.get(), filename.c_str(), nullptr));
 }
 
 void HeifContext::read_from_memory(const nb::handle& data) {
     check_closed();
-    if (state->memory_reference.is_valid()) {
+    if (state->buffer_holder) {
         throw std::runtime_error("Context already initialized with memory data");
     }
     
-    // Safely extract buffer under the GIL
-    PyBufferHolder buffer(data.ptr(), PyBUF_SIMPLE);
-    
-    // Store in member to ensure data outlives context
+    // Safely extract and lock buffer under the GIL
+    state->buffer_holder = std::make_unique<PyBufferHolder>(data.ptr(), PyBUF_SIMPLE);
     state->memory_reference = nb::borrow(data);
 
-    const char* data_ptr = static_cast<const char*>(buffer.buf());
-    size_t data_size = buffer.len();
+    const char* data_ptr = static_cast<const char*>(state->buffer_holder->buf());
+    size_t data_size = state->buffer_holder->len();
 
     nb::gil_scoped_release release;
     check_error(
         heif_context_read_from_memory_without_copy(state->ctx.get(), data_ptr, data_size, nullptr));
 }
 
-std::shared_ptr<HeifImageHandle> HeifContext::get_primary_image_handle() {
+HeifImageHandle HeifContext::get_primary_image_handle() {
     check_closed();
     heif_image_handle* handle;
     check_error(heif_context_get_primary_image_handle(state->ctx.get(), &handle));
-    return std::make_shared<HeifImageHandle>(handle, state);
+    return HeifImageHandle(handle, state);
 }
 
 std::vector<heif_item_id> HeifContext::get_list_of_top_level_image_IDs() {
@@ -64,16 +62,16 @@ std::vector<heif_item_id> HeifContext::get_list_of_top_level_image_IDs() {
     return ids;
 }
 
-std::shared_ptr<HeifImageHandle> HeifContext::get_image_handle(heif_item_id id) {
+HeifImageHandle HeifContext::get_image_handle(heif_item_id id) {
     check_closed();
     heif_image_handle* handle;
     check_error(heif_context_get_image_handle(state->ctx.get(), id, &handle));
-    return std::make_shared<HeifImageHandle>(handle, state);
+    return HeifImageHandle(handle, state);
 }
 
-void HeifContext::write_to_file(const char* filename) {
+void HeifContext::write_to_file(const std::string& filename) {
     check_closed();
-    check_error(heif_context_write_to_file(state->ctx.get(), filename));
+    check_error(heif_context_write_to_file(state->ctx.get(), filename.c_str()));
 }
 
 struct WriterData {
@@ -136,26 +134,26 @@ nb::bytes HeifContext::write_to_bytes() {
     return nb::bytes((char*)wd.data.data(), wd.data.size());
 }
 
-void HeifContext::add_exif_metadata(std::shared_ptr<HeifImageHandle> handle,
+void HeifContext::add_exif_metadata(const HeifImageHandle& handle,
                                     const nb::bytes& data) {
     check_closed();
-    check_error(heif_context_add_exif_metadata(state->ctx.get(), handle->get(), data.c_str(),
+    check_error(heif_context_add_exif_metadata(state->ctx.get(), handle.get(), data.c_str(),
                                                static_cast<int>(data.size())));
 }
 
-void HeifContext::add_xmp_metadata(std::shared_ptr<HeifImageHandle> handle, const nb::bytes& data) {
+void HeifContext::add_xmp_metadata(const HeifImageHandle& handle, const nb::bytes& data) {
     check_closed();
-    check_error(heif_context_add_XMP_metadata(state->ctx.get(), handle->get(), data.c_str(),
+    check_error(heif_context_add_XMP_metadata(state->ctx.get(), handle.get(), data.c_str(),
                                               static_cast<int>(data.size())));
 }
 
-void HeifContext::add_generic_metadata(std::shared_ptr<HeifImageHandle> handle,
-                                       const nb::bytes& data, const char* item_type,
-                                       const char* content_type) {
+void HeifContext::add_generic_metadata(const HeifImageHandle& handle,
+                                       const nb::bytes& data, const std::string& item_type,
+                                       const std::string& content_type) {
     check_closed();
-    const char* ct = (content_type && content_type[0] != '\0') ? content_type : nullptr;
-    check_error(heif_context_add_generic_metadata(state->ctx.get(), handle->get(), data.c_str(),
-                                                  static_cast<int>(data.size()), item_type, ct));
+    const char* ct = content_type.empty() ? nullptr : content_type.c_str();
+    check_error(heif_context_add_generic_metadata(state->ctx.get(), handle.get(), data.c_str(),
+                                                   static_cast<int>(data.size()), item_type.c_str(), ct));
 }
 
 }  // namespace pylibheif
