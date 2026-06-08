@@ -77,6 +77,14 @@ class HeifChroma(enum.Enum):
 
     InterleavedRGBA = 11
 
+    InterleavedRRGGBB_BE = 12
+
+    InterleavedRRGGBBAA_BE = 13
+
+    InterleavedRRGGBB_LE = 14
+
+    InterleavedRRGGBBAA_LE = 15
+
 C420: HeifChroma = HeifChroma.C420
 
 C422: HeifChroma = HeifChroma.C422
@@ -86,6 +94,14 @@ C444: HeifChroma = HeifChroma.C444
 InterleavedRGB: HeifChroma = HeifChroma.InterleavedRGB
 
 InterleavedRGBA: HeifChroma = HeifChroma.InterleavedRGBA
+
+InterleavedRRGGBB_BE: HeifChroma = HeifChroma.InterleavedRRGGBB_BE
+
+InterleavedRRGGBBAA_BE: HeifChroma = HeifChroma.InterleavedRRGGBBAA_BE
+
+InterleavedRRGGBB_LE: HeifChroma = HeifChroma.InterleavedRRGGBB_LE
+
+InterleavedRRGGBBAA_LE: HeifChroma = HeifChroma.InterleavedRRGGBBAA_LE
 
 class HeifChannel(enum.Enum):
     Y = 0
@@ -181,6 +197,16 @@ class HeifAmbientViewingEnvironment:
         self, ambient_illumination: float = 0.0, ambient_light: tuple[float, float] = (0.0, 0.0)
     ) -> None: ...
 
+class HeifDecodingOptions:
+    ignore_transformations: bool
+    convert_hdr_to_8bit: bool
+    strict_decoding: bool
+    decoder_id: str
+    num_codec_threads: int
+    autocorrect_broken_input: bool
+    output_image_nclx_profile_passthrough: bool
+    def __init__(self) -> None: ...
+
 class HeifContext:
     def __init__(self) -> None: ...
     def close(self) -> None: ...
@@ -226,10 +252,14 @@ class HeifImageHandle:
         self,
         colorspace: HeifColorspace = HeifColorspace.RGB,
         chroma: HeifChroma = HeifChroma.InterleavedRGB,
+        options: HeifDecodingOptions | None = None,
     ) -> HeifImage: ...
     def get_metadata_block_ids(self, type_filter: str = "") -> list[int]: ...
     def get_metadata_block_type(self, arg: int, /) -> str: ...
     def get_metadata_block(self, arg: int, /) -> bytes: ...
+    def get_auxiliary_image_ids(self, aux_key_mask: int = 0) -> list[int]: ...
+    def get_auxiliary_type(self) -> str: ...
+    def get_auxiliary_image_handle(self, id: int, /) -> HeifImageHandle: ...
     @property
     def has_content_light_level(self) -> bool: ...
     @property
@@ -248,7 +278,7 @@ class HeifImage:
         self, arg0: int, arg1: int, arg2: HeifColorspace, arg3: HeifChroma, /
     ) -> None: ...
     @staticmethod
-    def from_numpy(arr: numpy.ndarray) -> HeifImage: ...
+    def from_numpy(arr: numpy.ndarray, bit_depth: int = 10) -> HeifImage: ...
     @property
     def width(self) -> int: ...
     @property
@@ -306,3 +336,7 @@ class HeifEncoder:
     def encode_image(
         self, ctx: HeifContext, image: HeifImage, preset: str = ""
     ) -> HeifImageHandle: ...
+
+
+AUX_IMAGE_FILTER_OMIT_ALPHA: int
+AUX_IMAGE_FILTER_OMIT_DEPTH: int

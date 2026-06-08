@@ -55,6 +55,60 @@ HeifImage HeifImage::from_numpy_rgb(
     return img;
 }
 
+HeifImage HeifImage::from_numpy_rgb_16(
+    nb::ndarray<uint16_t, nb::ndim<3>, nb::c_contig> arr, int bit_depth) {
+    if (arr.ndim() != 3) {
+        throw std::invalid_argument("Array must be 3-dimensional (H, W, C)");
+    }
+    int height = static_cast<int>(arr.shape(0));
+    int width = static_cast<int>(arr.shape(1));
+    int channels = static_cast<int>(arr.shape(2));
+
+    if (channels != 3 && channels != 4) {
+        throw std::invalid_argument("Array must have 3 (RGB) or 4 (RGBA) channels");
+    }
+
+    if (bit_depth < 9 || bit_depth > 16) {
+        throw std::invalid_argument("Bit depth must be between 9 and 16");
+    }
+
+    heif_chroma chroma =
+        (channels == 4) ? heif_chroma_interleaved_RRGGBBAA_LE : heif_chroma_interleaved_RRGGBB_LE;
+
+    heif_image* img_ptr = nullptr;
+    check_error(heif_image_create(width, height, heif_colorspace_RGB, chroma, &img_ptr));
+    HeifImage img(img_ptr);
+
+    check_error(heif_image_add_plane(img_ptr, heif_channel_interleaved, width, height, bit_depth));
+
+    int stride = 0;
+    uint8_t* dst_bytes = heif_image_get_plane(img_ptr, heif_channel_interleaved, &stride);
+    if (!dst_bytes) {
+        throw std::runtime_error("Failed to get writable image plane");
+    }
+
+    uint16_t* dst = reinterpret_cast<uint16_t*>(dst_bytes);
+    int stride_elements = stride / sizeof(uint16_t);
+
+    const uint16_t* src = arr.data();
+    const size_t row_elements = static_cast<size_t>(width) * channels;
+
+    {
+        nb::gil_scoped_release release;
+        if (stride_elements == static_cast<int>(row_elements)) {
+            // Contiguous copy
+            std::memcpy(dst, src, static_cast<size_t>(height) * row_elements * sizeof(uint16_t));
+        } else {
+            // Copy row by row
+            for (int y = 0; y < height; ++y) {
+                std::memcpy(dst + y * stride_elements, src + y * row_elements, row_elements * sizeof(uint16_t));
+            }
+        }
+    }
+
+    return img;
+}
+
 void HeifImageHandle::check_valid() const {
     if (!m_state || m_state->is_closed) {
         throw std::runtime_error("HeifContext has been closed");
@@ -86,11 +140,38 @@ int HeifImageHandle::get_chroma_bits_per_pixel() const {
     return heif_image_handle_get_chroma_bits_per_pixel(handle.get());
 }
 
-HeifImage HeifImageHandle::decode(heif_colorspace colorspace, heif_chroma chroma) {
+HeifImage HeifImageHandle::decode(heif_colorspace colorspace, heif_chroma chroma, const HeifDecodingOptions* options) {
     check_valid();
     heif_image* img;
-    check_error(heif_decode_image(handle.get(), &img, colorspace, chroma, nullptr));
+    const heif_decoding_options* raw_opts = options ? options->get() : nullptr;
+    check_error(heif_decode_image(handle.get(), &img, colorspace, chroma, raw_opts));
     return HeifImage(img);
+}
+
+std::vector<heif_item_id> HeifImageHandle::get_list_of_auxiliary_image_IDs(int aux_key_mask) {
+    check_valid();
+    int count = heif_image_handle_get_number_of_auxiliary_images(handle.get(), aux_key_mask);
+    std::vector<heif_item_id> ids(count);
+    if (count > 0) {
+        heif_image_handle_get_list_of_auxiliary_image_IDs(handle.get(), aux_key_mask, ids.data(), count);
+    }
+    return ids;
+}
+
+std::string HeifImageHandle::get_auxiliary_type() const {
+    check_valid();
+    const char* type_str = nullptr;
+    check_error(heif_image_handle_get_auxiliary_type(handle.get(), &type_str));
+    std::string result(type_str ? type_str : "");
+    heif_image_handle_release_auxiliary_type(handle.get(), &type_str);
+    return result;
+}
+
+HeifImageHandle HeifImageHandle::get_auxiliary_image_handle(heif_item_id id) {
+    check_valid();
+    heif_image_handle* aux_handle = nullptr;
+    check_error(heif_image_handle_get_auxiliary_image_handle(handle.get(), id, &aux_handle));
+    return HeifImageHandle(aux_handle, m_state);
 }
 
 std::vector<heif_item_id> HeifImageHandle::get_list_of_metadata_block_IDs(const std::string& type_filter) {
@@ -161,11 +242,11 @@ nb::object HeifImage::get_array(heif_channel channel, bool writeable, nb::handle
     // Determine number of channels for interleaved formats
     int num_channels = 1;
     heif_chroma chroma = heif_image_get_chroma_format(image.get());
-    if (chroma == heif_chroma_interleaved_RGB) {
+    if (chroma == heif_chroma_interleaved_RGB ||
+        chroma == heif_chroma_interleaved_RRGGBB_BE ||
+        chroma == heif_chroma_interleaved_RRGGBB_LE) {
         num_channels = 3;
     } else if (chroma == heif_chroma_interleaved_RGBA ||
-               chroma == heif_chroma_interleaved_RRGGBB_BE ||
-               chroma == heif_chroma_interleaved_RRGGBB_LE ||
                chroma == heif_chroma_interleaved_RRGGBBAA_BE ||
                chroma == heif_chroma_interleaved_RRGGBBAA_LE) {
         num_channels = 4;
@@ -177,21 +258,47 @@ nb::object HeifImage::get_array(heif_channel channel, bool writeable, nb::handle
     size_t shape[3] = {(size_t)height, (size_t)width, (size_t)num_channels};
     int64_t strides[3] = {elem_stride, num_channels, 1};
 
+    nb::object arr_obj;
     if (num_channels > 1) {
         // Interleaved format: return 3D array (height, width, channels)
         if (bytes_per_channel == 1) {
-            return nb::cast(nb::ndarray<uint8_t, nb::numpy>(data, 3, shape, owner, strides));
+            arr_obj = nb::cast(nb::ndarray<uint8_t, nb::numpy>(data, 3, shape, owner, strides));
         } else {
-            return nb::cast(nb::ndarray<uint16_t, nb::numpy>(data, 3, shape, owner, strides));
+            arr_obj = nb::cast(nb::ndarray<uint16_t, nb::numpy>(data, 3, shape, owner, strides));
         }
     } else {
         // Single channel: return 2D array (height, width)
         if (bytes_per_channel == 1) {
-            return nb::cast(nb::ndarray<uint8_t, nb::numpy>(data, 2, shape, owner, strides));
+            arr_obj = nb::cast(nb::ndarray<uint8_t, nb::numpy>(data, 2, shape, owner, strides));
         } else {
-            return nb::cast(nb::ndarray<uint16_t, nb::numpy>(data, 2, shape, owner, strides));
+            arr_obj = nb::cast(nb::ndarray<uint16_t, nb::numpy>(data, 2, shape, owner, strides));
         }
     }
+
+    if (bytes_per_channel > 1) {
+        bool is_be_format = (chroma == heif_chroma_interleaved_RRGGBB_BE ||
+                             chroma == heif_chroma_interleaved_RRGGBBAA_BE);
+        bool is_le_format = (chroma == heif_chroma_interleaved_RRGGBB_LE ||
+                             chroma == heif_chroma_interleaved_RRGGBBAA_LE);
+
+        const union {
+            uint32_t i;
+            uint8_t c[4];
+        } endian_test = {0x01020304};
+        const bool is_little_endian = (endian_test.c[0] == 4);
+
+        if (is_little_endian) {
+            if (is_be_format) {
+                arr_obj = arr_obj.attr("view")(">u2");
+            }
+        } else {
+            if (is_le_format) {
+                arr_obj = arr_obj.attr("view")("<u2");
+            }
+        }
+    }
+
+    return arr_obj;
 }
 
 bool HeifImageHandle::has_content_light_level() const {

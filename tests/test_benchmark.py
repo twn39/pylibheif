@@ -55,6 +55,25 @@ class TestBenchmarks:
 
         benchmark(_decode)
 
+    def test_benchmark_decode_hevc_parallel(self, benchmark, hevc_encoded_data):
+        """Benchmark parallel HEVC decoding (1080p) using 4 codec threads"""
+        import pylibheif
+
+        opts = pylibheif.HeifDecodingOptions()
+        opts.num_codec_threads = 4
+
+        def _decode():
+            ctx = pylibheif.HeifContext()
+            ctx.read_from_memory(hevc_encoded_data)
+            handle = ctx.get_primary_image_handle()
+            return handle.decode(
+                pylibheif.HeifColorspace.RGB,
+                pylibheif.HeifChroma.InterleavedRGB,
+                options=opts
+            )
+
+        benchmark(_decode)
+
     def test_benchmark_encode_av1(self, benchmark, sample_image_rgb):
         """Benchmark AV1 encoding (1080p) - AOM"""
 

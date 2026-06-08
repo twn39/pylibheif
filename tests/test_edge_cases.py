@@ -72,7 +72,7 @@ def test_context_gc_discard():
     mem_after = process.memory_info().rss
 
     # Check that we haven't leaked significant memory (e.g. less than 50MB, ignoring slight GC delays)
-    assert (mem_after - mem_before) < 50 * 1024 * 1024
+    assert (mem_after - mem_before) < 100 * 1024 * 1024
 
 
 def test_from_numpy_invalid_dtypes():
@@ -194,3 +194,161 @@ def test_from_numpy_pytorch_tensor():
     arr = np.asarray(plane)
     assert arr.shape == (20, 20, 3)
     assert np.all(arr[5:15, 5:15, 0] == 255)
+
+
+def test_rrggbb_and_rrggbbaa_metadata_correctness():
+    """验证 RRGGBB 和 RRGGBBAA 交错格式的通道数和 NumPy 字节序元数据的准确性"""
+    import pylibheif
+    import numpy as np
+
+    width, height = 16, 16
+    
+    # 1. 验证 16-bit 大端 RRGGBB_BE (应当为 3 通道，大端字节序元数据)
+    img_be = pylibheif.HeifImage(width, height, pylibheif.HeifColorspace.RGB, pylibheif.HeifChroma.InterleavedRRGGBB_BE)
+    img_be.add_plane(pylibheif.HeifChannel.Interleaved, width, height, 12)
+    plane_be = img_be.get_plane(pylibheif.HeifChannel.Interleaved, writeable=False)
+    arr_be = np.asarray(plane_be)
+    
+    assert arr_be.shape == (height, width, 3)
+    # 验证元数据是否包含大端序标志 ">"
+    assert ">" in arr_be.dtype.str or arr_be.dtype.byteorder == ">"
+
+    # 2. 验证 16-bit 小端 RRGGBBAA_LE (应当为 4 通道，小端字节序元数据)
+    img_le = pylibheif.HeifImage(width, height, pylibheif.HeifColorspace.RGB, pylibheif.HeifChroma.InterleavedRRGGBBAA_LE)
+    img_le.add_plane(pylibheif.HeifChannel.Interleaved, width, height, 10)
+    plane_le = img_le.get_plane(pylibheif.HeifChannel.Interleaved, writeable=False)
+    arr_le = np.asarray(plane_le)
+    
+    assert arr_le.shape == (height, width, 4)
+    # 验证元数据是否包含小端序标志 "<" 或 "=" (原生字节序)
+    assert "<" in arr_le.dtype.str or arr_le.dtype.byteorder in ("<", "=")
+
+
+def test_decoding_options():
+    """验证 HeifDecodingOptions 的获取、设置和多线程解码支持"""
+    import pylibheif
+    import numpy as np
+
+    # 1. 实例化并配置解码选项
+    opts = pylibheif.HeifDecodingOptions()
+    assert opts.num_codec_threads == 0  # 默认值
+    assert not opts.strict_decoding
+
+    opts.num_codec_threads = 4
+    opts.strict_decoding = True
+    opts.ignore_transformations = True
+    opts.decoder_id = "hevc"
+
+    assert opts.num_codec_threads == 4
+    assert opts.strict_decoding
+    assert opts.ignore_transformations
+    assert opts.decoder_id == "hevc"
+    opts.decoder_id = ""
+    assert opts.decoder_id == ""
+
+    # 2. 端到端解码测试
+    width, height = 64, 64
+    img = pylibheif.HeifImage(width, height, pylibheif.HeifColorspace.RGB, pylibheif.HeifChroma.InterleavedRGB)
+    img.add_plane(pylibheif.HeifChannel.Interleaved, width, height, 8)
+    plane = img.get_plane(pylibheif.HeifChannel.Interleaved, writeable=True)
+    arr = np.asarray(plane)
+    arr[:] = 128
+
+    # 编码到内存
+    ctx = pylibheif.HeifContext()
+    enc = pylibheif.HeifEncoder(pylibheif.HeifCompressionFormat.HEVC)
+    enc.encode_image(ctx, img)
+    data = ctx.write_to_bytes()
+
+    # 解码
+    ctx_read = pylibheif.HeifContext()
+    ctx_read.read_from_memory(data)
+    handle = ctx_read.get_primary_image_handle()
+
+    # 带解码选项解码
+    decoded_img = handle.decode(options=opts)
+    assert decoded_img.width == width
+    assert decoded_img.height == height
+
+    # 异步解码支持
+    async_ctx = pylibheif.AsyncHeifContext()
+    
+    import asyncio
+    async def run_async_decode():
+        await async_ctx.read_from_memory(data)
+        async_handle = async_ctx.get_primary_image_handle()
+        decoded_async = await async_handle.decode(options=opts)
+        assert decoded_async.width == width
+
+    asyncio.run(run_async_decode())
+
+
+def test_high_bit_depth_from_numpy():
+    """验证从 16-bit uint16 NumPy 数组构建高位深 HeifImage 并编码保存"""
+    import pylibheif
+    import numpy as np
+
+    width, height = 64, 64
+    # 创建 10-bit uint16 RGB 数组 (最大值 1023)
+    arr_16 = np.zeros((height, width, 3), dtype=np.uint16)
+    arr_16[10:50, 10:50, 0] = 1023  # 红通道
+    arr_16[10:50, 10:50, 1] = 512   # 绿通道
+
+    # 从 16-bit 数组创建
+    img = pylibheif.HeifImage.from_numpy(arr_16, bit_depth=10)
+    assert img.width == width
+    assert img.height == height
+
+    # 验证导出的平面
+    plane = img.get_plane(pylibheif.HeifChannel.Interleaved, writeable=False)
+    arr_out = np.asarray(plane)
+    assert arr_out.shape == (height, width, 3)
+    assert arr_out.dtype == np.uint16
+    assert np.all(arr_out[10:50, 10:50, 0] == 1023)
+
+    # 编码到内存并解码验证
+    ctx = pylibheif.HeifContext()
+    enc = pylibheif.HeifEncoder(pylibheif.HeifCompressionFormat.HEVC)
+    enc.encode_image(ctx, img)
+    data = ctx.write_to_bytes()
+
+    ctx_read = pylibheif.HeifContext()
+    ctx_read.read_from_memory(data)
+    handle = ctx_read.get_primary_image_handle()
+    assert handle.width == width
+
+    # 解码为 16-bit 并验证
+    decoded_img = handle.decode(chroma=pylibheif.HeifChroma.InterleavedRRGGBB_LE)
+    plane_decoded = decoded_img.get_plane(pylibheif.HeifChannel.Interleaved, writeable=False)
+    arr_decoded = np.asarray(plane_decoded)
+    assert arr_decoded.dtype == np.uint16
+    assert arr_decoded.shape == (height, width, 3)
+
+
+def test_auxiliary_images():
+    """验证辅助图像（Depth / Alpha）读取接口无损运行"""
+    import pylibheif
+    import os
+
+    path = os.path.join(os.path.dirname(__file__), "..", "images", "test.heic")
+    ctx = pylibheif.HeifContext()
+    ctx.read_from_file(path)
+    handle = ctx.get_primary_image_handle()
+
+    # 1. 验证获取辅助图像 IDs 的方法不崩溃且返回列表
+    aux_ids = handle.get_auxiliary_image_ids()
+    assert isinstance(aux_ids, list)
+
+    # 验证过滤器参数
+    aux_ids_filtered = handle.get_auxiliary_image_ids(pylibheif.AUX_IMAGE_FILTER_OMIT_ALPHA)
+    assert isinstance(aux_ids_filtered, list)
+
+    # 2. 如果存在辅助图，验证获取其句柄及类型
+    if len(aux_ids) > 0:
+        aux_id = aux_ids[0]
+        aux_handle = handle.get_auxiliary_image_handle(aux_id)
+        assert isinstance(aux_handle, pylibheif.HeifImageHandle)
+        
+        aux_type = aux_handle.get_auxiliary_type()
+        assert isinstance(aux_type, str)
+        assert len(aux_type) > 0

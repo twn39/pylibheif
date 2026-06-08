@@ -46,6 +46,10 @@ NB_MODULE(_pylibheif, m) {
         .value("C444", heif_chroma_444)
         .value("InterleavedRGB", heif_chroma_interleaved_RGB)
         .value("InterleavedRGBA", heif_chroma_interleaved_RGBA)
+        .value("InterleavedRRGGBB_BE", heif_chroma_interleaved_RRGGBB_BE)
+        .value("InterleavedRRGGBBAA_BE", heif_chroma_interleaved_RRGGBBAA_BE)
+        .value("InterleavedRRGGBB_LE", heif_chroma_interleaved_RRGGBB_LE)
+        .value("InterleavedRRGGBBAA_LE", heif_chroma_interleaved_RRGGBBAA_LE)
         .export_values();
 
     nb::enum_<heif_channel>(m, "HeifChannel")
@@ -140,6 +144,20 @@ NB_MODULE(_pylibheif, m) {
                    " ambient_light=(" + std::to_string(self.ambient_light.first) + ", " + std::to_string(self.ambient_light.second) + ")>";
         });
 
+    nb::class_<HeifDecodingOptions>(m, "HeifDecodingOptions")
+        .def(nb::init<>())
+        .def_prop_rw("ignore_transformations", &HeifDecodingOptions::get_ignore_transformations, &HeifDecodingOptions::set_ignore_transformations)
+        .def_prop_rw("convert_hdr_to_8bit", &HeifDecodingOptions::get_convert_hdr_to_8bit, &HeifDecodingOptions::set_convert_hdr_to_8bit)
+        .def_prop_rw("strict_decoding", &HeifDecodingOptions::get_strict_decoding, &HeifDecodingOptions::set_strict_decoding)
+        .def_prop_rw("decoder_id", &HeifDecodingOptions::get_decoder_id, &HeifDecodingOptions::set_decoder_id)
+        .def_prop_rw("num_codec_threads", &HeifDecodingOptions::get_num_codec_threads, &HeifDecodingOptions::set_num_codec_threads)
+        .def_prop_rw("autocorrect_broken_input", &HeifDecodingOptions::get_autocorrect_broken_input, &HeifDecodingOptions::set_autocorrect_broken_input)
+        .def_prop_rw("output_image_nclx_profile_passthrough", &HeifDecodingOptions::get_output_image_nclx_profile_passthrough, &HeifDecodingOptions::set_output_image_nclx_profile_passthrough)
+        .def("__repr__", [](const HeifDecodingOptions& self) {
+            return "<pylibheif.HeifDecodingOptions num_codec_threads=" + std::to_string(self.get_num_codec_threads()) +
+                   " strict=" + (self.get_strict_decoding() ? "True" : "False") + ">";
+        });
+
     nb::class_<HeifContext>(m, "HeifContext")
         .def(nb::init<>())
         .def("close", &HeifContext::close)
@@ -174,7 +192,12 @@ NB_MODULE(_pylibheif, m) {
         .def_prop_ro("chroma_bits_per_pixel", &HeifImageHandle::get_chroma_bits_per_pixel)
         .def("decode", &HeifImageHandle::decode, nb::arg("colorspace") = heif_colorspace_RGB,
              nb::arg("chroma") = heif_chroma_interleaved_RGB,
+             nb::arg("options") = nullptr,
              nb::call_guard<nb::gil_scoped_release>())
+        .def("get_auxiliary_image_ids", &HeifImageHandle::get_list_of_auxiliary_image_IDs,
+             nb::arg("aux_key_mask") = 0)
+        .def("get_auxiliary_type", &HeifImageHandle::get_auxiliary_type)
+        .def("get_auxiliary_image_handle", &HeifImageHandle::get_auxiliary_image_handle)
         .def("get_metadata_block_ids", &HeifImageHandle::get_list_of_metadata_block_IDs,
              nb::arg("type_filter") = "")
         .def("get_metadata_block_type", &HeifImageHandle::get_metadata_block_type)
@@ -195,6 +218,9 @@ NB_MODULE(_pylibheif, m) {
         .def_static("from_numpy", &HeifImage::from_numpy_rgb,
                     nb::arg("arr"),
                     nb::sig("def from_numpy(arr: numpy.ndarray) -> HeifImage"))
+        .def_static("from_numpy", &HeifImage::from_numpy_rgb_16,
+                    nb::arg("arr"), nb::arg("bit_depth") = 10,
+                    nb::sig("def from_numpy(arr: numpy.ndarray, bit_depth: int = 10) -> HeifImage"))
         .def(nb::init<int, int, heif_colorspace, heif_chroma>())
         .def_prop_ro("width", nb::overload_cast<>(&HeifImage::get_width, nb::const_))
         .def_prop_ro("height", nb::overload_cast<>(&HeifImage::get_height, nb::const_))
@@ -260,4 +286,7 @@ NB_MODULE(_pylibheif, m) {
         .def("__repr__", [](const HeifEncoder& self) {
             return "<pylibheif.HeifEncoder name='" + self.name() + "'>";
         });
+
+    m.attr("AUX_IMAGE_FILTER_OMIT_ALPHA") = nb::cast(LIBHEIF_AUX_IMAGE_FILTER_OMIT_ALPHA);
+    m.attr("AUX_IMAGE_FILTER_OMIT_DEPTH") = nb::cast(LIBHEIF_AUX_IMAGE_FILTER_OMIT_DEPTH);
 }

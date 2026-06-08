@@ -41,3 +41,10 @@ images/output_*
 .cache
 pylibheif_audit.md
 docs
+# Graphify output
+graphify-out/
+.agents
+.codex
+.mypy_cache
+.ruff_cache
+.pytest_cache

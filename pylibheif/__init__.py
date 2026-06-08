@@ -14,6 +14,9 @@ from ._pylibheif import (
     HeifContentLightLevel,
     HeifMasteringDisplayColourVolume,
     HeifAmbientViewingEnvironment,
+    HeifDecodingOptions,
+    AUX_IMAGE_FILTER_OMIT_ALPHA,
+    AUX_IMAGE_FILTER_OMIT_DEPTH,
     __doc__,
 )
 
@@ -38,6 +41,9 @@ __all__ = [
     "HeifContentLightLevel",
     "HeifMasteringDisplayColourVolume",
     "HeifAmbientViewingEnvironment",
+    "HeifDecodingOptions",
+    "AUX_IMAGE_FILTER_OMIT_ALPHA",
+    "AUX_IMAGE_FILTER_OMIT_DEPTH",
     "AsyncHeifContext",
     "AsyncHeifImageHandle",
     "AsyncHeifEncoder",
@@ -102,9 +108,10 @@ class AsyncHeifImageHandle:
         self,
         colorspace: HeifColorspace = HeifColorspace.RGB,
         chroma: HeifChroma = HeifChroma.InterleavedRGB,
+        options: Optional[HeifDecodingOptions] = None,
     ) -> HeifImage:
         """Asynchronously decode the image."""
-        return await asyncio.to_thread(self._handle.decode, colorspace, chroma)
+        return await asyncio.to_thread(self._handle.decode, colorspace, chroma, options)
 
     def get_metadata_block_ids(self, type_filter: str = "") -> List[int]:
         return self._handle.get_metadata_block_ids(type_filter)
@@ -114,6 +121,16 @@ class AsyncHeifImageHandle:
 
     def get_metadata_block(self, id: int) -> bytes:
         return self._handle.get_metadata_block(id)
+
+    def get_auxiliary_image_ids(self, aux_key_mask: int = 0) -> List[int]:
+        return self._handle.get_auxiliary_image_ids(aux_key_mask)
+
+    def get_auxiliary_type(self) -> str:
+        return self._handle.get_auxiliary_type()
+
+    def get_auxiliary_image_handle(self, id: int) -> "AsyncHeifImageHandle":
+        handle = self._handle.get_auxiliary_image_handle(id)
+        return AsyncHeifImageHandle(handle)
 
 
 class AsyncHeifContext:
