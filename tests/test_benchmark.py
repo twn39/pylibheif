@@ -35,8 +35,9 @@ class TestBenchmarks:
             ctx = pylibheif.HeifContext()
             encoder = pylibheif.HeifEncoder(pylibheif.HeifCompressionFormat.HEVC)
             encoder.set_lossy_quality(80)  # Realistic quality
-            # Use medium (default) for realistic testing
-            encoder.encode_image(ctx, sample_image_rgb, preset="medium")
+            # Use medium preset only if encoder is x265 (Kvazaar does not support preset parameter)
+            preset = "medium" if "x265" in encoder.name.lower() else ""
+            encoder.encode_image(ctx, sample_image_rgb, preset=preset)
             return ctx
 
         benchmark(_encode)
