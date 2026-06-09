@@ -309,7 +309,12 @@ def test_high_bit_depth_from_numpy():
     # 编码到内存并解码验证
     ctx = pylibheif.HeifContext()
     enc = pylibheif.HeifEncoder(pylibheif.HeifCompressionFormat.HEVC)
-    enc.encode_image(ctx, img)
+    try:
+        enc.encode_image(ctx, img)
+    except pylibheif.HeifError as e:
+        if "Unsupported bit depth" in str(e) or "Bit depth not supported" in str(e):
+            pytest.skip("10-bit encoding is not supported by the available HEVC encoder.")
+        raise
     data = ctx.write_to_bytes()
 
     ctx_read = pylibheif.HeifContext()
