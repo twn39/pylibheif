@@ -355,6 +355,62 @@ NB_MODULE(_pylibheif, m) {
     m.def("get_encoder_descriptors", &get_encoder_descriptors,
           nb::arg("format_filter") = heif_compression_undefined, nb::arg("name_filter") = "");
 
+    nb::enum_<heif_encoder_parameter_type>(m, "HeifEncoderParameterType")
+        .value("Integer", heif_encoder_parameter_type_integer)
+        .value("Boolean", heif_encoder_parameter_type_boolean)
+        .value("String", heif_encoder_parameter_type_string)
+        .export_values();
+
+    nb::class_<HeifEncoderParameter>(m, "HeifEncoderParameter")
+        .def_prop_ro("name", &HeifEncoderParameter::name)
+        .def_prop_ro("type", &HeifEncoderParameter::type)
+        .def_prop_ro("has_default", &HeifEncoderParameter::has_default)
+        .def_prop_ro("default_value", [](const HeifEncoderParameter& self) -> nb::object {
+            if (!self.has_default()) return nb::none();
+            if (self.type() == heif_encoder_parameter_type_integer) {
+                auto val = self.default_integer();
+                return val ? nb::cast(*val) : nb::none();
+            } else if (self.type() == heif_encoder_parameter_type_boolean) {
+                auto val = self.default_boolean();
+                return val ? nb::cast(*val) : nb::none();
+            } else if (self.type() == heif_encoder_parameter_type_string) {
+                auto val = self.default_string();
+                return val ? nb::cast(*val) : nb::none();
+            }
+            return nb::none();
+        })
+        .def_prop_ro("valid_integer_range", [](const HeifEncoderParameter& self) -> nb::object {
+            auto range = self.valid_integer_range();
+            if (range) {
+                return nb::make_tuple(range->first, range->second);
+            }
+            return nb::none();
+        })
+        .def_prop_ro("valid_integer_values", [](const HeifEncoderParameter& self) -> nb::object {
+            auto vals = self.valid_integer_values();
+            if (!vals.empty()) {
+                return nb::cast(vals);
+            }
+            return nb::none();
+        })
+        .def_prop_ro("valid_string_values", [](const HeifEncoderParameter& self) -> nb::object {
+            auto vals = self.valid_string_values();
+            if (!vals.empty()) {
+                return nb::cast(vals);
+            }
+            return nb::none();
+        })
+        .def("__repr__", [](const HeifEncoderParameter& self) {
+            std::string type_str;
+            switch (self.type()) {
+                case heif_encoder_parameter_type_integer: type_str = "Integer"; break;
+                case heif_encoder_parameter_type_boolean: type_str = "Boolean"; break;
+                case heif_encoder_parameter_type_string: type_str = "String"; break;
+                default: type_str = "Unknown"; break;
+            }
+            return "<pylibheif.HeifEncoderParameter name='" + self.name() + "' type=" + type_str + ">";
+        });
+
     nb::class_<HeifEncoder>(m, "HeifEncoder")
         .def(nb::init<heif_compression_format>(), nb::call_guard<nb::gil_scoped_release>())
         .def(nb::init<HeifEncoderDescriptor>(), nb::call_guard<nb::gil_scoped_release>())
@@ -362,6 +418,14 @@ NB_MODULE(_pylibheif, m) {
         .def("set_lossy_quality", &HeifEncoder::set_lossy_quality)
         .def("set_lossless", &HeifEncoder::set_lossless)
         .def("set_parameter", &HeifEncoder::set_parameter)
+        .def("get_parameter", &HeifEncoder::get_parameter)
+        .def("set_integer_parameter", &HeifEncoder::set_integer_parameter)
+        .def("get_integer_parameter", &HeifEncoder::get_integer_parameter)
+        .def("set_boolean_parameter", &HeifEncoder::set_boolean_parameter)
+        .def("get_boolean_parameter", &HeifEncoder::get_boolean_parameter)
+        .def("set_string_parameter", &HeifEncoder::set_string_parameter)
+        .def("get_string_parameter", &HeifEncoder::get_string_parameter)
+        .def("_list_parameters", &HeifEncoder::list_parameters)
         .def("encode_image", &HeifEncoder::encode_image, nb::arg("ctx"), nb::arg("image"),
              nb::arg("preset") = "", nb::arg("options") = nb::none(),
              nb::call_guard<nb::gil_scoped_release>(),
@@ -371,5 +435,6 @@ NB_MODULE(_pylibheif, m) {
         });
 
     m.attr("AUX_IMAGE_FILTER_OMIT_ALPHA") = nb::cast(LIBHEIF_AUX_IMAGE_FILTER_OMIT_ALPHA);
+
     m.attr("AUX_IMAGE_FILTER_OMIT_DEPTH") = nb::cast(LIBHEIF_AUX_IMAGE_FILTER_OMIT_DEPTH);
 }

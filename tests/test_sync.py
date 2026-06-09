@@ -462,8 +462,67 @@ class TestEncoding:
         finally:
             os.unlink(output_path)
 
+    def test_encoder_parameter_introspection_and_typed_access(self):
+        import pylibheif
+
+        # 1. 实例化 HEVC 编码器并进行基本内省
+        encoder = pylibheif.HeifEncoder(pylibheif.HeifCompressionFormat.HEVC)
+        params = encoder.parameters
+        assert isinstance(params, pylibheif.HeifEncoderParametersProxy)
+        assert len(params) > 0
+
+        # 验证键名迭代和包含操作
+        keys = list(params.keys())
+        assert len(keys) > 0
+        assert "lossless" in params
+
+        # 2. 验证元数据与默认值
+        # 至少要包含 lossless 参数
+        lossless_param = next((p for p in params.values() if p.name == "lossless"), None)
+        assert lossless_param is not None
+        assert lossless_param.type == pylibheif.HeifEncoderParameterType.Boolean
+        assert lossless_param.has_default is True
+        assert lossless_param.default_value is False
+
+        # 验证布尔值的动态读取
+        assert params["lossless"] is False
+
+        # 3. 验证类型化写入与读取
+        params["lossless"] = True
+        assert params["lossless"] is True
+
+        # 再次设置为 False
+        params["lossless"] = False
+        assert params["lossless"] is False
+
+        # 验证整数参数的约束校验
+        int_param = next((p for p in params.values() if p.type == pylibheif.HeifEncoderParameterType.Integer), None)
+        if int_param:
+            name = int_param.name
+            original_val = params[name]
+
+            # 测试整数校验边界
+            if int_param.valid_integer_range:
+                min_v, max_v = int_param.valid_integer_range
+                assert min_v <= original_val <= max_v
+
+                # 设置超出范围的值，断言抛出 ValueError
+                with pytest.raises(ValueError):
+                    params[name] = min_v - 1
+                with pytest.raises(ValueError):
+                    params[name] = max_v + 1
+
+            # 设置错误类型，断言抛出 TypeError
+            with pytest.raises(TypeError):
+                params[name] = "not_an_int"
+
+        # 4. 验证前缀透传参数（例如 x265:ctu）
+        params["x265:ctu"] = 64
+        assert "x265:ctu" in params
+
 
 class TestRoundTrip:
+
     """测试编码-解码往返"""
 
     def create_test_image(self, width=100, height=100):

@@ -91,3 +91,15 @@ class TestAsyncHeif:
             await encoder.encode_image(ctx, img)
             data = await ctx.write_to_bytes()
             assert len(data) > 0
+
+    async def test_async_encoder_parameters(self):
+        encoder = pylibheif.AsyncHeifEncoder(pylibheif.HeifCompressionFormat.HEVC)
+        params = encoder.parameters
+        assert isinstance(params, pylibheif.HeifEncoderParametersProxy)
+        assert len(params) > 0
+        assert "lossless" in params
+
+        assert params["lossless"] is False
+        params["lossless"] = True
+        assert params["lossless"] is True
+

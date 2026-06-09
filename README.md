@@ -582,6 +582,10 @@ Gets a zero-copy NumPy array mapping to the image plane memory.
 
 Controls the encoding process.
 
+#### Properties
+
+- **`parameters`** *(HeifEncoderParametersProxy)*: A dictionary-like interface providing access to all configurable encoder parameters. It dynamically routes settings to the correct type-safe setters with validation.
+
 #### Methods
 
 **`__init__(format: HeifCompressionFormat)`**
@@ -592,17 +596,55 @@ Creates a new encoder for the specified format.
 Sets the quality for lossy compression.
 - `quality`: Integer between 0 (lowest) and 100 (highest).
 
+**`set_lossless(lossless: bool) -> None`**
+Enables or disables lossless compression.
+
 **`set_parameter(name: str, value: str) -> None`**
-Sets a low-level encoder parameter.
-- `name`: Parameter name (e.g. "speed" for AV1).
+Sets a low-level encoder parameter as a string.
+- `name`: Parameter name.
 - `value`: Parameter value.
+
+**`get_parameter(name: str) -> str`**
+Gets the string representation of a parameter value.
+
+**`set_integer_parameter(name: str, value: int) -> None`**
+**`get_integer_parameter(name: str) -> int`**
+**`set_boolean_parameter(name: str, value: bool) -> None`**
+**`get_boolean_parameter(name: str) -> bool`**
+**`set_string_parameter(name: str, value: str) -> None`**
+**`get_string_parameter(name: str) -> str`**
+Type-safe getters and setters for parameter values.
 
 **`encode_image(context: HeifContext, image: HeifImage, preset: str = "") -> HeifImageHandle`**
 Encodes the given image and appends it to the context.
 - `context`: The destination `HeifContext`.
 - `image`: The source `HeifImage` to encode.
-- `preset`: Optional encoder preset (e.g. "ultrafast", "slow"). Default is empty (balanced/default). **Note**: This maps to the 'preset' parameter in libheif. It works for x265 (check version), but AOM and others may use different parameters (e.g. 'speed') which should be set via `set_parameter` instead.
+- `preset`: Optional encoder preset (e.g. "ultrafast", "slow"). Default is empty (balanced/default). **Note**: This maps to the 'preset' parameter in libheif. It works for x265 (check version), but AOM and others may use different parameters (e.g. 'speed') which should be set via `set_parameter` or `parameters` instead.
 - Returns: `HeifImageHandle` for the encoded image. Can be used to add metadata.
+
+---
+
+### Encoder Parameters Introspection
+
+`pylibheif` supports inspecting and dynamically validating encoder parameters at runtime using `encoder.parameters`.
+
+#### class `pylibheif.HeifEncoderParameter`
+
+Describes a parameter supported by the selected encoder.
+
+- **`name`** *(str)*: Parameter name.
+- **`type`** *(HeifEncoderParameterType)*: Data type of the parameter (Integer, Boolean, or String).
+- **`has_default`** *(bool)*: Whether the parameter has a default value.
+- **`default_value`** *(Union[int, bool, str, None])*: The default value.
+- **`valid_integer_range`** *(Optional[Tuple[int, int]])*: Min and max allowed integers if bounded.
+- **`valid_integer_values`** *(Optional[List[int]])*: Specific allowed integers.
+- **`valid_string_values`** *(Optional[List[str]])*: Specific allowed string choices.
+
+#### enum `pylibheif.HeifEncoderParameterType`
+
+- `Integer`
+- `Boolean`
+- `String`
 
 ---
 
@@ -664,6 +706,10 @@ Asynchronously decodes the image.
 ### class `pylibheif.AsyncHeifEncoder`
 
 Asynchronous wrapper for `HeifEncoder`.
+
+#### Properties
+
+- **`parameters`** *(HeifEncoderParametersProxy)*: Synchronous dictionary-like proxy to access and set encoder parameters.
 
 #### Methods
 
