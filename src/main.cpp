@@ -13,6 +13,10 @@
 namespace nb = nanobind;
 using namespace pylibheif;
 
+namespace pylibheif {
+    void bind_image(nb::module_& m);
+}
+
 NB_MODULE(_pylibheif, m) {
     m.doc() = "Python bindings for libheif using nanobind";
 
@@ -72,11 +76,60 @@ NB_MODULE(_pylibheif, m) {
         .value("JPEG2000", heif_compression_JPEG2000)
         .export_values();
 
-    // Exception
+    // Exception registrations
     static nb::exception<HeifError> exc(m, "HeifError");
+    static nb::exception<HeifInputDoesNotExistError> input_not_found_exc(m, "HeifInputDoesNotExistError", exc.ptr());
+    static nb::exception<HeifInvalidInputError> invalid_input_exc(m, "HeifInvalidInputError", exc.ptr());
+    static nb::exception<HeifUnsupportedFiletypeError> unsupported_filetype_exc(m, "HeifUnsupportedFiletypeError", exc.ptr());
+    static nb::exception<HeifUnsupportedFeatureError> unsupported_feature_exc(m, "HeifUnsupportedFeatureError", exc.ptr());
+    static nb::exception<HeifUsageError> usage_exc(m, "HeifUsageError", exc.ptr());
+    static nb::exception<HeifMemoryAllocationError> memory_exc(m, "HeifMemoryAllocationError", exc.ptr());
+    static nb::exception<HeifEncodingError> encoding_exc(m, "HeifEncodingError", exc.ptr());
+    static nb::exception<HeifColorProfileDoesNotExistError> color_profile_exc(m, "HeifColorProfileDoesNotExistError", exc.ptr());
+
     nb::register_exception_translator([](const std::exception_ptr& p, void* /* payload */) {
         try {
             std::rethrow_exception(p);
+        } catch (const HeifInputDoesNotExistError& e) {
+            nb::object err = input_not_found_exc(e.what());
+            nb::setattr(err, "code", nb::cast(static_cast<int>(e.code)));
+            nb::setattr(err, "subcode", nb::cast(static_cast<int>(e.subcode)));
+            PyErr_SetObject(input_not_found_exc.ptr(), err.ptr());
+        } catch (const HeifInvalidInputError& e) {
+            nb::object err = invalid_input_exc(e.what());
+            nb::setattr(err, "code", nb::cast(static_cast<int>(e.code)));
+            nb::setattr(err, "subcode", nb::cast(static_cast<int>(e.subcode)));
+            PyErr_SetObject(invalid_input_exc.ptr(), err.ptr());
+        } catch (const HeifUnsupportedFiletypeError& e) {
+            nb::object err = unsupported_filetype_exc(e.what());
+            nb::setattr(err, "code", nb::cast(static_cast<int>(e.code)));
+            nb::setattr(err, "subcode", nb::cast(static_cast<int>(e.subcode)));
+            PyErr_SetObject(unsupported_filetype_exc.ptr(), err.ptr());
+        } catch (const HeifUnsupportedFeatureError& e) {
+            nb::object err = unsupported_feature_exc(e.what());
+            nb::setattr(err, "code", nb::cast(static_cast<int>(e.code)));
+            nb::setattr(err, "subcode", nb::cast(static_cast<int>(e.subcode)));
+            PyErr_SetObject(unsupported_feature_exc.ptr(), err.ptr());
+        } catch (const HeifUsageError& e) {
+            nb::object err = usage_exc(e.what());
+            nb::setattr(err, "code", nb::cast(static_cast<int>(e.code)));
+            nb::setattr(err, "subcode", nb::cast(static_cast<int>(e.subcode)));
+            PyErr_SetObject(usage_exc.ptr(), err.ptr());
+        } catch (const HeifMemoryAllocationError& e) {
+            nb::object err = memory_exc(e.what());
+            nb::setattr(err, "code", nb::cast(static_cast<int>(e.code)));
+            nb::setattr(err, "subcode", nb::cast(static_cast<int>(e.subcode)));
+            PyErr_SetObject(memory_exc.ptr(), err.ptr());
+        } catch (const HeifEncodingError& e) {
+            nb::object err = encoding_exc(e.what());
+            nb::setattr(err, "code", nb::cast(static_cast<int>(e.code)));
+            nb::setattr(err, "subcode", nb::cast(static_cast<int>(e.subcode)));
+            PyErr_SetObject(encoding_exc.ptr(), err.ptr());
+        } catch (const HeifColorProfileDoesNotExistError& e) {
+            nb::object err = color_profile_exc(e.what());
+            nb::setattr(err, "code", nb::cast(static_cast<int>(e.code)));
+            nb::setattr(err, "subcode", nb::cast(static_cast<int>(e.subcode)));
+            PyErr_SetObject(color_profile_exc.ptr(), err.ptr());
         } catch (const HeifError& e) {
             nb::object err = exc(e.what());
             nb::setattr(err, "code", nb::cast(static_cast<int>(e.code)));
@@ -184,74 +237,7 @@ NB_MODULE(_pylibheif, m) {
             return "<pylibheif.HeifContext" + std::string(self.get() ? "" : " (closed)") + ">";
         });
 
-    nb::class_<HeifImageHandle>(m, "HeifImageHandle")
-        .def_prop_ro("width", &HeifImageHandle::get_width)
-        .def_prop_ro("height", &HeifImageHandle::get_height)
-        .def_prop_ro("has_alpha", &HeifImageHandle::has_alpha_channel)
-        .def_prop_ro("luma_bits_per_pixel", &HeifImageHandle::get_luma_bits_per_pixel)
-        .def_prop_ro("chroma_bits_per_pixel", &HeifImageHandle::get_chroma_bits_per_pixel)
-        .def("decode", &HeifImageHandle::decode, nb::arg("colorspace") = heif_colorspace_RGB,
-             nb::arg("chroma") = heif_chroma_interleaved_RGB,
-             nb::arg("options") = nullptr,
-             nb::call_guard<nb::gil_scoped_release>())
-        .def("get_auxiliary_image_ids", &HeifImageHandle::get_list_of_auxiliary_image_IDs,
-             nb::arg("aux_key_mask") = 0)
-        .def("get_auxiliary_type", &HeifImageHandle::get_auxiliary_type)
-        .def("get_auxiliary_image_handle", &HeifImageHandle::get_auxiliary_image_handle)
-        .def("get_metadata_block_ids", &HeifImageHandle::get_list_of_metadata_block_IDs,
-             nb::arg("type_filter") = "")
-        .def("get_metadata_block_type", &HeifImageHandle::get_metadata_block_type)
-        .def("get_metadata_block", &HeifImageHandle::get_metadata_block)
-        .def_prop_ro("has_content_light_level", &HeifImageHandle::has_content_light_level)
-        .def_prop_ro("has_mastering_display_colour_volume", &HeifImageHandle::has_mastering_display_colour_volume)
-        .def_prop_ro("has_ambient_viewing_environment", &HeifImageHandle::has_ambient_viewing_environment)
-        .def_prop_ro("content_light_level", &HeifImageHandle::get_content_light_level)
-        .def_prop_ro("mastering_display_colour_volume", &HeifImageHandle::get_mastering_display_colour_volume)
-        .def_prop_ro("ambient_viewing_environment", &HeifImageHandle::get_ambient_viewing_environment)
-        .def("__repr__", [](const HeifImageHandle& self) {
-            return "<pylibheif.HeifImageHandle " + std::to_string(self.get_width()) + "x" +
-                   std::to_string(self.get_height()) +
-                   " alpha=" + (self.has_alpha_channel() ? "True" : "False") + ">";
-        });
-
-    nb::class_<HeifImage>(m, "HeifImage")
-        .def_static("from_numpy", &HeifImage::from_numpy_rgb,
-                    nb::arg("arr"),
-                    nb::sig("def from_numpy(arr: numpy.ndarray) -> HeifImage"))
-        .def_static("from_numpy", &HeifImage::from_numpy_rgb_16,
-                    nb::arg("arr"), nb::arg("bit_depth") = 10,
-                    nb::sig("def from_numpy(arr: numpy.ndarray, bit_depth: int = 10) -> HeifImage"))
-        .def(nb::init<int, int, heif_colorspace, heif_chroma>())
-        .def_prop_ro("width", nb::overload_cast<>(&HeifImage::get_width, nb::const_))
-        .def_prop_ro("height", nb::overload_cast<>(&HeifImage::get_height, nb::const_))
-        .def("get_width", nb::overload_cast<heif_channel>(&HeifImage::get_width, nb::const_))
-        .def("get_height", nb::overload_cast<heif_channel>(&HeifImage::get_height, nb::const_))
-        .def("add_plane", &HeifImage::add_plane)
-        .def(
-            "get_plane",
-            [](nb::handle self, heif_channel channel, bool writeable) {
-                auto& native_self = nb::cast<HeifImage&>(self);
-                return native_self.get_array(channel, writeable, self);
-            },
-            nb::arg("channel"), nb::arg("writeable") = false,
-            nb::sig("def get_plane(self, channel: HeifChannel, writeable: bool = False) -> "
-                    "numpy.ndarray"))
-        .def_prop_ro("has_content_light_level", &HeifImage::has_content_light_level)
-        .def_prop_ro("has_mastering_display_colour_volume", &HeifImage::has_mastering_display_colour_volume)
-        .def_prop_ro("has_ambient_viewing_environment", &HeifImage::has_ambient_viewing_environment)
-        .def_prop_rw("content_light_level",
-            [](const HeifImage& self) { return self.get_content_light_level(); },
-            [](HeifImage& self, const HeifContentLightLevel& val) { self.set_content_light_level(val); })
-        .def_prop_rw("mastering_display_colour_volume",
-            [](const HeifImage& self) { return self.get_mastering_display_colour_volume(); },
-            [](HeifImage& self, const HeifMasteringDisplayColourVolume& val) { self.set_mastering_display_colour_volume(val); })
-        .def_prop_rw("ambient_viewing_environment",
-            [](const HeifImage& self) { return self.get_ambient_viewing_environment(); },
-            [](HeifImage& self, const HeifAmbientViewingEnvironment& val) { self.set_ambient_viewing_environment(val); })
-        .def("__repr__", [](const HeifImage& self) {
-            return "<pylibheif.HeifImage " + std::to_string(self.get_width()) + "x" +
-                   std::to_string(self.get_height()) + ">";
-        });
+    bind_image(m);
 
     nb::class_<HeifEncoderDescriptor>(m, "HeifEncoderDescriptor")
         .def_prop_ro("id_name", &HeifEncoderDescriptor::id_name)

@@ -1,7 +1,7 @@
 """
 pylibheif 测试套件
 
-运行测试: uv run pytest tests/test_pylibheif.py -v
+运行测试: uv run pytest tests/test_sync.py -v
 """
 
 import pytest

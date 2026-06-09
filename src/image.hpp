@@ -3,7 +3,7 @@
 #include <memory>
 #include <vector>
 
-#include <nanobind/ndarray.h>
+// Removed nanobind dependency
 #include <optional>
 #include "common.hpp"
 #include "hdr_metadata.hpp"
@@ -99,7 +99,7 @@ class HeifImageHandle {
     // Metadata
     std::vector<heif_item_id> get_list_of_metadata_block_IDs(const std::string& type_filter = "");
     std::string get_metadata_block_type(heif_item_id id);
-    nb::bytes get_metadata_block(heif_item_id id);
+    std::vector<uint8_t> get_metadata_block(heif_item_id id);
 
     // HDR Metadata
     bool has_content_light_level() const;
@@ -119,10 +119,7 @@ class HeifImageHandle {
 
 class HeifImage {
    public:
-    static HeifImage from_numpy_rgb(
-        nb::ndarray<uint8_t, nb::ndim<3>, nb::c_contig> arr);
-    static HeifImage from_numpy_rgb_16(
-        nb::ndarray<uint16_t, nb::ndim<3>, nb::c_contig> arr, int bit_depth = 10);
+    // numpy creation functions moved to bindings
 
     HeifImage(heif_image* img) : image(img) {}
     HeifImage(int width, int height, heif_colorspace colorspace, heif_chroma chroma);
@@ -139,9 +136,7 @@ class HeifImage {
     int get_height(heif_channel channel) const;
     void add_plane(heif_channel channel, int width, int height, int bit_depth);
 
-    // Array sequence support
-    nb::object get_array(heif_channel channel, bool writeable = false,
-                         nb::handle owner = nb::handle());
+    // get_array moved to bindings
 
     // HDR Metadata
     bool has_content_light_level() const;

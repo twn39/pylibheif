@@ -51,6 +51,7 @@ add_subdirectory(third_party/libheif EXCLUDE_FROM_ALL)
 # Define the extension module
 nanobind_add_module(_pylibheif
     src/main.cpp
+    src/bindings_image.cpp
     src/context.cpp
     src/image.cpp
     src/encoder.cpp

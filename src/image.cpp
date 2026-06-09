@@ -1,113 +1,13 @@
 #include "image.hpp"
 
-#include <nanobind/nanobind.h>
-#include <nanobind/ndarray.h>
+// Removed nanobind dependencies
 #include <cstring>
 #include <cmath>
 #include "context.hpp"
 
 namespace pylibheif {
 
-HeifImage HeifImage::from_numpy_rgb(
-    nb::ndarray<uint8_t, nb::ndim<3>, nb::c_contig> arr) {
-    if (arr.ndim() != 3) {
-        throw std::invalid_argument("Array must be 3-dimensional (H, W, C)");
-    }
-    int height = static_cast<int>(arr.shape(0));
-    int width = static_cast<int>(arr.shape(1));
-    int channels = static_cast<int>(arr.shape(2));
-
-    if (channels != 3 && channels != 4) {
-        throw std::invalid_argument("Array must have 3 (RGB) or 4 (RGBA) channels");
-    }
-
-    heif_chroma chroma =
-        (channels == 4) ? heif_chroma_interleaved_RGBA : heif_chroma_interleaved_RGB;
-
-    heif_image* img_ptr = nullptr;
-    check_error(heif_image_create(width, height, heif_colorspace_RGB, chroma, &img_ptr));
-    HeifImage img(img_ptr);
-
-    check_error(heif_image_add_plane(img_ptr, heif_channel_interleaved, width, height, 8));
-
-    int stride = 0;
-    uint8_t* dst = heif_image_get_plane(img_ptr, heif_channel_interleaved, &stride);
-    if (!dst) {
-        throw std::runtime_error("Failed to get writable image plane");
-    }
-
-    const uint8_t* src = arr.data();
-    const size_t row_bytes = static_cast<size_t>(width) * channels;
-
-    {
-        nb::gil_scoped_release release;
-        if (stride == static_cast<int>(row_bytes)) {
-            // Contiguous copy
-            std::memcpy(dst, src, static_cast<size_t>(height) * row_bytes);
-        } else {
-            // Copy row by row
-            for (int y = 0; y < height; ++y) {
-                std::memcpy(dst + y * stride, src + y * row_bytes, row_bytes);
-            }
-        }
-    }
-
-    return img;
-}
-
-HeifImage HeifImage::from_numpy_rgb_16(
-    nb::ndarray<uint16_t, nb::ndim<3>, nb::c_contig> arr, int bit_depth) {
-    if (arr.ndim() != 3) {
-        throw std::invalid_argument("Array must be 3-dimensional (H, W, C)");
-    }
-    int height = static_cast<int>(arr.shape(0));
-    int width = static_cast<int>(arr.shape(1));
-    int channels = static_cast<int>(arr.shape(2));
-
-    if (channels != 3 && channels != 4) {
-        throw std::invalid_argument("Array must have 3 (RGB) or 4 (RGBA) channels");
-    }
-
-    if (bit_depth < 9 || bit_depth > 16) {
-        throw std::invalid_argument("Bit depth must be between 9 and 16");
-    }
-
-    heif_chroma chroma =
-        (channels == 4) ? heif_chroma_interleaved_RRGGBBAA_LE : heif_chroma_interleaved_RRGGBB_LE;
-
-    heif_image* img_ptr = nullptr;
-    check_error(heif_image_create(width, height, heif_colorspace_RGB, chroma, &img_ptr));
-    HeifImage img(img_ptr);
-
-    check_error(heif_image_add_plane(img_ptr, heif_channel_interleaved, width, height, bit_depth));
-
-    int stride = 0;
-    uint8_t* dst_bytes = heif_image_get_plane(img_ptr, heif_channel_interleaved, &stride);
-    if (!dst_bytes) {
-        throw std::runtime_error("Failed to get writable image plane");
-    }
-
-    uint16_t* dst = reinterpret_cast<uint16_t*>(dst_bytes);
-    int stride_elements = stride / sizeof(uint16_t);
-
-    const uint16_t* src = arr.data();
-    const size_t row_elements = static_cast<size_t>(width) * channels;
-
-    {
-        nb::gil_scoped_release release;
-        if (stride_elements == static_cast<int>(row_elements)) {
-            // Contiguous copy
-            std::memcpy(dst, src, static_cast<size_t>(height) * row_elements * sizeof(uint16_t));
-        } else {
-            // Copy row by row
-            for (int y = 0; y < height; ++y) {
-                std::memcpy(dst + y * stride_elements, src + y * row_elements, row_elements * sizeof(uint16_t));
-            }
-        }
-    }
-
-    return img;
-}
+// from_numpy_rgb and from_numpy_rgb_16 moved to bindings_image.cpp
 
 void HeifImageHandle::check_valid() const {
     if (!m_state || m_state->is_closed) {
@@ -188,17 +88,14 @@ std::string HeifImageHandle::get_metadata_block_type(heif_item_id id) {
     return heif_image_handle_get_metadata_type(handle.get(), id);
 }
 
-nb::bytes HeifImageHandle::get_metadata_block(heif_item_id id) {
+std::vector<uint8_t> HeifImageHandle::get_metadata_block(heif_item_id id) {
     check_valid();
     size_t size = heif_image_handle_get_metadata_size(handle.get(), id);
-    PyObject* py_bytes = PyBytes_FromStringAndSize(nullptr, static_cast<Py_ssize_t>(size));
-    if (!py_bytes) {
-        throw std::bad_alloc();
+    std::vector<uint8_t> result(size);
+    if (size > 0) {
+        check_error(heif_image_handle_get_metadata(handle.get(), id, reinterpret_cast<char*>(result.data())));
     }
-    nb::object bytes_obj = nb::steal(py_bytes);
-    char* buffer = PyBytes_AS_STRING(bytes_obj.ptr());
-    check_error(heif_image_handle_get_metadata(handle.get(), id, buffer));
-    return nb::cast<nb::bytes>(bytes_obj);
+    return result;
 }
 
 HeifImage::HeifImage(int width, int height, heif_colorspace colorspace, heif_chroma chroma) {
@@ -222,84 +119,7 @@ void HeifImage::add_plane(heif_channel channel, int width, int height, int bit_d
     check_error(heif_image_add_plane(image.get(), channel, width, height, bit_depth));
 }
 
-nb::object HeifImage::get_array(heif_channel channel, bool writeable, nb::handle owner) {
-    int stride;
-    uint8_t* data;
-    if (writeable) {
-        data = heif_image_get_plane(image.get(), channel, &stride);
-    } else {
-        data = const_cast<uint8_t*>(heif_image_get_plane_readonly(image.get(), channel, &stride));
-    }
-
-    if (!data) {
-        throw std::runtime_error("Failed to get image plane data");
-    }
-
-    int width = heif_image_get_width(image.get(), channel);
-    int height = heif_image_get_height(image.get(), channel);
-    int bpp_per_channel = heif_image_get_bits_per_pixel_range(image.get(), channel);
-
-    // Determine number of channels for interleaved formats
-    int num_channels = 1;
-    heif_chroma chroma = heif_image_get_chroma_format(image.get());
-    if (chroma == heif_chroma_interleaved_RGB ||
-        chroma == heif_chroma_interleaved_RRGGBB_BE ||
-        chroma == heif_chroma_interleaved_RRGGBB_LE) {
-        num_channels = 3;
-    } else if (chroma == heif_chroma_interleaved_RGBA ||
-               chroma == heif_chroma_interleaved_RRGGBBAA_BE ||
-               chroma == heif_chroma_interleaved_RRGGBBAA_LE) {
-        num_channels = 4;
-    }
-
-    size_t bytes_per_channel = (bpp_per_channel + 7) / 8;
-    int64_t elem_stride = stride / bytes_per_channel;
-
-    size_t shape[3] = {(size_t)height, (size_t)width, (size_t)num_channels};
-    int64_t strides[3] = {elem_stride, num_channels, 1};
-
-    nb::object arr_obj;
-    if (num_channels > 1) {
-        // Interleaved format: return 3D array (height, width, channels)
-        if (bytes_per_channel == 1) {
-            arr_obj = nb::cast(nb::ndarray<uint8_t, nb::numpy>(data, 3, shape, owner, strides));
-        } else {
-            arr_obj = nb::cast(nb::ndarray<uint16_t, nb::numpy>(data, 3, shape, owner, strides));
-        }
-    } else {
-        // Single channel: return 2D array (height, width)
-        if (bytes_per_channel == 1) {
-            arr_obj = nb::cast(nb::ndarray<uint8_t, nb::numpy>(data, 2, shape, owner, strides));
-        } else {
-            arr_obj = nb::cast(nb::ndarray<uint16_t, nb::numpy>(data, 2, shape, owner, strides));
-        }
-    }
-
-    if (bytes_per_channel > 1) {
-        bool is_be_format = (chroma == heif_chroma_interleaved_RRGGBB_BE ||
-                             chroma == heif_chroma_interleaved_RRGGBBAA_BE);
-        bool is_le_format = (chroma == heif_chroma_interleaved_RRGGBB_LE ||
-                             chroma == heif_chroma_interleaved_RRGGBBAA_LE);
-
-        const union {
-            uint32_t i;
-            uint8_t c[4];
-        } endian_test = {0x01020304};
-        const bool is_little_endian = (endian_test.c[0] == 4);
-
-        if (is_little_endian) {
-            if (is_be_format) {
-                arr_obj = arr_obj.attr("view")(">u2");
-            }
-        } else {
-            if (is_le_format) {
-                arr_obj = arr_obj.attr("view")("<u2");
-            }
-        }
-    }
-
-    return arr_obj;
-}
+// get_array moved to bindings_image.cpp
 
 bool HeifImageHandle::has_content_light_level() const {
     check_valid();

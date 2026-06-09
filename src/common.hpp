@@ -40,9 +40,68 @@ class HeifError : public std::runtime_error {
     heif_suberror_code subcode;
 };
 
+class HeifInputDoesNotExistError : public HeifError {
+   public:
+    HeifInputDoesNotExistError(const heif_error& err) : HeifError(err) {}
+};
+
+class HeifInvalidInputError : public HeifError {
+   public:
+    HeifInvalidInputError(const heif_error& err) : HeifError(err) {}
+};
+
+class HeifUnsupportedFiletypeError : public HeifError {
+   public:
+    HeifUnsupportedFiletypeError(const heif_error& err) : HeifError(err) {}
+};
+
+class HeifUnsupportedFeatureError : public HeifError {
+   public:
+    HeifUnsupportedFeatureError(const heif_error& err) : HeifError(err) {}
+};
+
+class HeifUsageError : public HeifError {
+   public:
+    HeifUsageError(const heif_error& err) : HeifError(err) {}
+};
+
+class HeifMemoryAllocationError : public HeifError {
+   public:
+    HeifMemoryAllocationError(const heif_error& err) : HeifError(err) {}
+};
+
+class HeifEncodingError : public HeifError {
+   public:
+    HeifEncodingError(const heif_error& err) : HeifError(err) {}
+};
+
+class HeifColorProfileDoesNotExistError : public HeifError {
+   public:
+    HeifColorProfileDoesNotExistError(const heif_error& err) : HeifError(err) {}
+};
+
 inline void check_error(const heif_error& err) {
     if (err.code != heif_error_Ok) {
-        throw HeifError(err);
+        switch (err.code) {
+            case heif_error_Input_does_not_exist:
+                throw HeifInputDoesNotExistError(err);
+            case heif_error_Invalid_input:
+                throw HeifInvalidInputError(err);
+            case heif_error_Unsupported_filetype:
+                throw HeifUnsupportedFiletypeError(err);
+            case heif_error_Unsupported_feature:
+                throw HeifUnsupportedFeatureError(err);
+            case heif_error_Usage_error:
+                throw HeifUsageError(err);
+            case heif_error_Memory_allocation_error:
+                throw HeifMemoryAllocationError(err);
+            case heif_error_Encoding_error:
+                throw HeifEncodingError(err);
+            case heif_error_Color_profile_does_not_exist:
+                throw HeifColorProfileDoesNotExistError(err);
+            default:
+                throw HeifError(err);
+        }
     }
 }
 
