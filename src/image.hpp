@@ -7,6 +7,7 @@
 #include <optional>
 #include "common.hpp"
 #include "hdr_metadata.hpp"
+#include "color_profile.hpp"
 
 namespace pylibheif {
 
@@ -72,6 +73,86 @@ class HeifDecodingOptions {
     std::string m_decoder_id;
 };
 
+class HeifEncodingOptions {
+   public:
+    HeifEncodingOptions() {
+        options = heif_encoding_options_alloc();
+        if (!options) {
+            throw std::bad_alloc();
+        }
+    }
+    ~HeifEncodingOptions() {
+        if (options) {
+            heif_encoding_options_free(options);
+        }
+    }
+
+    // Rule of Five (Move-only wrapper)
+    HeifEncodingOptions(const HeifEncodingOptions&) = delete;
+    HeifEncodingOptions& operator=(const HeifEncodingOptions&) = delete;
+    HeifEncodingOptions(HeifEncodingOptions&& other) noexcept 
+        : options(other.options) {
+        other.options = nullptr;
+    }
+    HeifEncodingOptions& operator=(HeifEncodingOptions&& other) noexcept {
+        if (this != &other) {
+            if (options) heif_encoding_options_free(options);
+            options = other.options;
+            other.options = nullptr;
+        }
+        return *this;
+    }
+
+    heif_encoding_options* get() const { return options; }
+
+    bool get_save_alpha_channel() const { return options->save_alpha_channel != 0; }
+    void set_save_alpha_channel(bool val) { options->save_alpha_channel = val ? 1 : 0; }
+
+    bool get_save_two_colr_boxes_when_ICC_and_nclx_available() const {
+        return options->save_two_colr_boxes_when_ICC_and_nclx_available != 0;
+    }
+    void set_save_two_colr_boxes_when_ICC_and_nclx_available(bool val) {
+        options->save_two_colr_boxes_when_ICC_and_nclx_available = val ? 1 : 0;
+    }
+
+    bool get_macOS_compatibility_workaround_no_nclx_profile() const {
+        return options->macOS_compatibility_workaround_no_nclx_profile != 0;
+    }
+    void set_macOS_compatibility_workaround_no_nclx_profile(bool val) {
+        options->macOS_compatibility_workaround_no_nclx_profile = val ? 1 : 0;
+    }
+
+    heif_orientation get_image_orientation() const { return options->image_orientation; }
+    void set_image_orientation(heif_orientation val) { options->image_orientation = val; }
+
+    bool get_prefer_uncC_short_form() const { return options->prefer_uncC_short_form != 0; }
+    void set_prefer_uncC_short_form(bool val) { options->prefer_uncC_short_form = val ? 1 : 0; }
+
+    heif_chroma_downsampling_algorithm get_preferred_chroma_downsampling_algorithm() const {
+        return options->color_conversion_options.preferred_chroma_downsampling_algorithm;
+    }
+    void set_preferred_chroma_downsampling_algorithm(heif_chroma_downsampling_algorithm val) {
+        options->color_conversion_options.preferred_chroma_downsampling_algorithm = val;
+    }
+
+    heif_chroma_upsampling_algorithm get_preferred_chroma_upsampling_algorithm() const {
+        return options->color_conversion_options.preferred_chroma_upsampling_algorithm;
+    }
+    void set_preferred_chroma_upsampling_algorithm(heif_chroma_upsampling_algorithm val) {
+        options->color_conversion_options.preferred_chroma_upsampling_algorithm = val;
+    }
+
+    bool get_only_use_preferred_chroma_algorithm() const {
+        return options->color_conversion_options.only_use_preferred_chroma_algorithm != 0;
+    }
+    void set_only_use_preferred_chroma_algorithm(bool val) {
+        options->color_conversion_options.only_use_preferred_chroma_algorithm = val ? 1 : 0;
+    }
+
+   private:
+    heif_encoding_options* options = nullptr;
+};
+
 class HeifImageHandle {
    public:
     HeifImageHandle(heif_image_handle* h, std::shared_ptr<ContextState> state)
@@ -100,6 +181,10 @@ class HeifImageHandle {
     std::vector<heif_item_id> get_list_of_metadata_block_IDs(const std::string& type_filter = "");
     std::string get_metadata_block_type(heif_item_id id);
     std::vector<uint8_t> get_metadata_block(heif_item_id id);
+
+    // Color Profile
+    heif_color_profile_type get_color_profile_type() const;
+    std::optional<HeifColorProfileNclx> get_nclx_color_profile() const;
 
     // HDR Metadata
     bool has_content_light_level() const;
@@ -137,6 +222,11 @@ class HeifImage {
     void add_plane(heif_channel channel, int width, int height, int bit_depth);
 
     // get_array moved to bindings
+
+    // Color Profile
+    heif_color_profile_type get_color_profile_type() const;
+    std::optional<HeifColorProfileNclx> get_nclx_color_profile() const;
+    void set_nclx_color_profile(const HeifColorProfileNclx& color_profile);
 
     // HDR Metadata
     bool has_content_light_level() const;

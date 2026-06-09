@@ -36,12 +36,25 @@ void HeifEncoder::set_parameter(const std::string& name, const std::string& valu
 }
 
 HeifImageHandle HeifEncoder::encode_image(HeifContext& ctx, const HeifImage& image,
-                                          const std::string& preset) {
+                                          const std::string& preset,
+                                          const HeifEncodingOptions* options) {
     if (!preset.empty()) {
         set_parameter("preset", preset);
     }
+    heif_encoding_options* alloc_options = nullptr;
+    const heif_encoding_options* opts_ptr = nullptr;
+    if (options) {
+        opts_ptr = options->get();
+    } else {
+        alloc_options = heif_encoding_options_alloc();
+        opts_ptr = alloc_options;
+    }
     heif_image_handle* handle = nullptr;
-    check_error(heif_context_encode_image(ctx.get(), image.get(), encoder.get(), nullptr, &handle));
+    heif_error err = heif_context_encode_image(ctx.get(), image.get(), encoder.get(), opts_ptr, &handle);
+    if (alloc_options) {
+        heif_encoding_options_free(alloc_options);
+    }
+    check_error(err);
     return HeifImageHandle(handle, ctx.get_state());
 }
 

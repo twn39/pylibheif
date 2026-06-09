@@ -163,6 +163,82 @@ Undefined: HeifCompressionFormat = HeifCompressionFormat.Undefined
 
 Monochrome: HeifChroma = HeifChroma.Monochrome
 
+class HeifColorProfileType(enum.Enum):
+    NotPresent = 0
+    Nclx = 1852009592
+    RICC = 1919247171
+    Prof = 1886547814
+
+class HeifColorPrimaries(enum.Enum):
+    ITU_R_BT_709_5 = 1
+    Unspecified = 2
+    ITU_R_BT_470_6_System_M = 4
+    ITU_R_BT_470_6_System_B_G = 5
+    ITU_R_BT_601_6 = 6
+    SMPTE_240M = 7
+    GenericFilm = 8
+    ITU_R_BT_2020_2_and_2100_0 = 9
+    SMPTE_ST_428_1 = 10
+    SMPTE_RP_431_2 = 11
+    SMPTE_EG_432_1 = 12
+    EBU_Tech_3213_E = 22
+
+class HeifTransferCharacteristics(enum.Enum):
+    ITU_R_BT_709_5 = 1
+    Unspecified = 2
+    ITU_R_BT_470_6_System_M = 4
+    ITU_R_BT_470_6_System_B_G = 5
+    ITU_R_BT_601_6 = 6
+    SMPTE_240M = 7
+    Linear = 8
+    Logarithmic_100 = 9
+    Logarithmic_100_sqrt10 = 10
+    IEC_61966_2_4 = 11
+    ITU_R_BT_1361 = 12
+    IEC_61966_2_1 = 13
+    ITU_R_BT_2020_2_10bit = 14
+    ITU_R_BT_2020_2_12bit = 15
+    ITU_R_BT_2100_0_PQ = 16
+    SMPTE_ST_428_1 = 17
+    ITU_R_BT_2100_0_HLG = 18
+
+class HeifMatrixCoefficients(enum.Enum):
+    RGB_GBR = 0
+    ITU_R_BT_709_5 = 1
+    Unspecified = 2
+    US_FCC_T47 = 4
+    ITU_R_BT_470_6_System_B_G = 5
+    ITU_R_BT_601_6 = 6
+    SMPTE_240M = 7
+    YCgCo = 8
+    ITU_R_BT_2020_2_non_constant_luminance = 9
+    ITU_R_BT_2020_2_constant_luminance = 10
+    SMPTE_ST_2085 = 11
+    Chromaticity_derived_non_constant_luminance = 12
+    Chromaticity_derived_constant_luminance = 13
+    ICtCp = 14
+
+class HeifColorProfileNclx:
+    color_primaries: HeifColorPrimaries
+    transfer_characteristics: HeifTransferCharacteristics
+    matrix_coefficients: HeifMatrixCoefficients
+    full_range_flag: bool
+    color_primary_red_x: float
+    color_primary_red_y: float
+    color_primary_green_x: float
+    color_primary_green_y: float
+    color_primary_blue_x: float
+    color_primary_blue_y: float
+    color_primary_white_x: float
+    color_primary_white_y: float
+    def __init__(
+        self,
+        color_primaries: HeifColorPrimaries,
+        transfer_characteristics: HeifTransferCharacteristics,
+        matrix_coefficients: HeifMatrixCoefficients,
+        full_range_flag: bool,
+    ) -> None: ...
+
 class HeifError(Exception):
     pass
 
@@ -205,6 +281,36 @@ class HeifDecodingOptions:
     num_codec_threads: int
     autocorrect_broken_input: bool
     output_image_nclx_profile_passthrough: bool
+    def __init__(self) -> None: ...
+
+class HeifOrientation(enum.Enum):
+    Normal = 1
+    FlipHorizontally = 2
+    Rotate180 = 3
+    FlipVertically = 4
+    Rotate90CwThenFlipHorizontally = 5
+    Rotate90Cw = 6
+    Rotate90CwThenFlipVertically = 7
+    Rotate270Cw = 8
+
+class HeifChromaDownsamplingAlgorithm(enum.Enum):
+    NearestNeighbor = 1
+    Average = 2
+    SharpYuv = 3
+
+class HeifChromaUpsamplingAlgorithm(enum.Enum):
+    NearestNeighbor = 1
+    Bilinear = 2
+
+class HeifEncodingOptions:
+    save_alpha_channel: bool
+    save_two_colr_boxes_when_ICC_and_nclx_available: bool
+    macOS_compatibility_workaround_no_nclx_profile: bool
+    image_orientation: HeifOrientation
+    prefer_uncC_short_form: bool
+    preferred_chroma_downsampling_algorithm: HeifChromaDownsamplingAlgorithm
+    preferred_chroma_upsampling_algorithm: HeifChromaUpsamplingAlgorithm
+    only_use_preferred_chroma_algorithm: bool
     def __init__(self) -> None: ...
 
 class HeifContext:
@@ -261,6 +367,10 @@ class HeifImageHandle:
     def get_auxiliary_type(self) -> str: ...
     def get_auxiliary_image_handle(self, id: int, /) -> HeifImageHandle: ...
     @property
+    def color_profile_type(self) -> HeifColorProfileType: ...
+    def get_raw_color_profile(self) -> bytes: ...
+    def get_nclx_color_profile(self) -> HeifColorProfileNclx | None: ...
+    @property
     def has_content_light_level(self) -> bool: ...
     @property
     def has_mastering_display_colour_volume(self) -> bool: ...
@@ -291,6 +401,12 @@ class HeifImage:
     def get_plane(
         self, channel: HeifChannel, writeable: bool = False
     ) -> numpy.ndarray: ...
+    @property
+    def color_profile_type(self) -> HeifColorProfileType: ...
+    def get_raw_color_profile(self) -> bytes: ...
+    def get_nclx_color_profile(self) -> HeifColorProfileNclx | None: ...
+    def set_raw_color_profile(self, profile_type: str, data: bytes, /) -> None: ...
+    def set_nclx_color_profile(self, color_profile: HeifColorProfileNclx, /) -> None: ...
     @property
     def has_content_light_level(self) -> bool: ...
     @property
@@ -334,7 +450,7 @@ class HeifEncoder:
     def set_lossless(self, arg: bool, /) -> None: ...
     def set_parameter(self, arg0: str, arg1: str, /) -> None: ...
     def encode_image(
-        self, ctx: HeifContext, image: HeifImage, preset: str = ""
+        self, ctx: HeifContext, image: HeifImage, preset: str = "", options: HeifEncodingOptions | None = None
     ) -> HeifImageHandle: ...
 
 

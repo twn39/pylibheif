@@ -98,6 +98,41 @@ std::vector<uint8_t> HeifImageHandle::get_metadata_block(heif_item_id id) {
     return result;
 }
 
+heif_color_profile_type HeifImageHandle::get_color_profile_type() const {
+    check_valid();
+    return heif_image_handle_get_color_profile_type(handle.get());
+}
+
+std::optional<HeifColorProfileNclx> HeifImageHandle::get_nclx_color_profile() const {
+    check_valid();
+    heif_color_profile_nclx* nclx = nullptr;
+    heif_error err = heif_image_handle_get_nclx_color_profile(handle.get(), &nclx);
+    if (err.code == heif_error_Color_profile_does_not_exist) {
+        return std::nullopt;
+    }
+    check_error(err);
+    if (!nclx) {
+        return std::nullopt;
+    }
+    HeifColorProfileNclx result(
+        nclx->color_primaries,
+        nclx->transfer_characteristics,
+        nclx->matrix_coefficients,
+        nclx->full_range_flag != 0
+    );
+    result.color_primary_red_x = nclx->color_primary_red_x;
+    result.color_primary_red_y = nclx->color_primary_red_y;
+    result.color_primary_green_x = nclx->color_primary_green_x;
+    result.color_primary_green_y = nclx->color_primary_green_y;
+    result.color_primary_blue_x = nclx->color_primary_blue_x;
+    result.color_primary_blue_y = nclx->color_primary_blue_y;
+    result.color_primary_white_x = nclx->color_primary_white_x;
+    result.color_primary_white_y = nclx->color_primary_white_y;
+    
+    heif_nclx_color_profile_free(nclx);
+    return result;
+}
+
 HeifImage::HeifImage(int width, int height, heif_colorspace colorspace, heif_chroma chroma) {
     heif_image* img = nullptr;
     check_error(heif_image_create(width, height, colorspace, chroma, &img));
@@ -252,6 +287,71 @@ void HeifImage::set_ambient_viewing_environment(const HeifAmbientViewingEnvironm
     raw_amve.ambient_light_x = static_cast<uint16_t>(std::round(amve.ambient_light.first * 50000.0f));
     raw_amve.ambient_light_y = static_cast<uint16_t>(std::round(amve.ambient_light.second * 50000.0f));
     heif_image_set_ambient_viewing_environment(image.get(), &raw_amve);
+}
+
+heif_color_profile_type HeifImage::get_color_profile_type() const {
+    return heif_image_get_color_profile_type(image.get());
+}
+
+std::optional<HeifColorProfileNclx> HeifImage::get_nclx_color_profile() const {
+    heif_color_profile_nclx* nclx = nullptr;
+    heif_error err = heif_image_get_nclx_color_profile(image.get(), &nclx);
+    if (err.code == heif_error_Color_profile_does_not_exist) {
+        return std::nullopt;
+    }
+    check_error(err);
+    if (!nclx) {
+        return std::nullopt;
+    }
+    HeifColorProfileNclx result(
+        nclx->color_primaries,
+        nclx->transfer_characteristics,
+        nclx->matrix_coefficients,
+        nclx->full_range_flag != 0
+    );
+    result.color_primary_red_x = nclx->color_primary_red_x;
+    result.color_primary_red_y = nclx->color_primary_red_y;
+    result.color_primary_green_x = nclx->color_primary_green_x;
+    result.color_primary_green_y = nclx->color_primary_green_y;
+    result.color_primary_blue_x = nclx->color_primary_blue_x;
+    result.color_primary_blue_y = nclx->color_primary_blue_y;
+    result.color_primary_white_x = nclx->color_primary_white_x;
+    result.color_primary_white_y = nclx->color_primary_white_y;
+    
+    heif_nclx_color_profile_free(nclx);
+    return result;
+}
+
+void HeifImage::set_nclx_color_profile(const HeifColorProfileNclx& color_profile) {
+    heif_color_profile_nclx* nclx = heif_nclx_color_profile_alloc();
+    if (!nclx) {
+        heif_error raw_err = {heif_error_Memory_allocation_error, heif_suberror_Unspecified, "Failed to allocate heif_color_profile_nclx"};
+        throw HeifMemoryAllocationError(raw_err);
+    }
+    
+    heif_error err = heif_nclx_color_profile_set_color_primaries(nclx, static_cast<uint16_t>(color_profile.color_primaries));
+    if (err.code != heif_error_Ok) {
+        heif_nclx_color_profile_free(nclx);
+        check_error(err);
+    }
+    
+    err = heif_nclx_color_profile_set_transfer_characteristics(nclx, static_cast<uint16_t>(color_profile.transfer_characteristics));
+    if (err.code != heif_error_Ok) {
+        heif_nclx_color_profile_free(nclx);
+        check_error(err);
+    }
+    
+    err = heif_nclx_color_profile_set_matrix_coefficients(nclx, static_cast<uint16_t>(color_profile.matrix_coefficients));
+    if (err.code != heif_error_Ok) {
+        heif_nclx_color_profile_free(nclx);
+        check_error(err);
+    }
+    
+    nclx->full_range_flag = color_profile.full_range_flag ? 1 : 0;
+    
+    err = heif_image_set_nclx_color_profile(image.get(), nclx);
+    heif_nclx_color_profile_free(nclx);
+    check_error(err);
 }
 
 }  // namespace pylibheif

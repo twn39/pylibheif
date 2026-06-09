@@ -22,7 +22,16 @@ from ._pylibheif import (
     HeifContentLightLevel,
     HeifMasteringDisplayColourVolume,
     HeifAmbientViewingEnvironment,
+    HeifColorProfileType,
+    HeifColorPrimaries,
+    HeifTransferCharacteristics,
+    HeifMatrixCoefficients,
+    HeifColorProfileNclx,
     HeifDecodingOptions,
+    HeifOrientation,
+    HeifChromaDownsamplingAlgorithm,
+    HeifChromaUpsamplingAlgorithm,
+    HeifEncodingOptions,
     AUX_IMAGE_FILTER_OMIT_ALPHA,
     AUX_IMAGE_FILTER_OMIT_DEPTH,
     __doc__,
@@ -57,7 +66,16 @@ __all__ = [
     "HeifContentLightLevel",
     "HeifMasteringDisplayColourVolume",
     "HeifAmbientViewingEnvironment",
+    "HeifColorProfileType",
+    "HeifColorPrimaries",
+    "HeifTransferCharacteristics",
+    "HeifMatrixCoefficients",
+    "HeifColorProfileNclx",
     "HeifDecodingOptions",
+    "HeifOrientation",
+    "HeifChromaDownsamplingAlgorithm",
+    "HeifChromaUpsamplingAlgorithm",
+    "HeifEncodingOptions",
     "AUX_IMAGE_FILTER_OMIT_ALPHA",
     "AUX_IMAGE_FILTER_OMIT_DEPTH",
     "AsyncHeifContext",
@@ -119,6 +137,16 @@ class AsyncHeifImageHandle:
     @property
     def ambient_viewing_environment(self) -> Optional[HeifAmbientViewingEnvironment]:
         return self._handle.ambient_viewing_environment
+
+    @property
+    def color_profile_type(self) -> HeifColorProfileType:
+        return self._handle.color_profile_type
+
+    def get_raw_color_profile(self) -> bytes:
+        return self._handle.get_raw_color_profile()
+
+    def get_nclx_color_profile(self) -> Optional[HeifColorProfileNclx]:
+        return self._handle.get_nclx_color_profile()
 
     async def decode(
         self,
@@ -240,10 +268,11 @@ class AsyncHeifEncoder:
         context: Union[HeifContext, AsyncHeifContext],
         image: HeifImage,
         preset: str = "",
+        options: Optional[HeifEncodingOptions] = None,
     ) -> HeifImageHandle:
         """Asynchronously encode image."""
         ctx = context._ctx if isinstance(context, AsyncHeifContext) else context
-        return await asyncio.to_thread(self._encoder.encode_image, ctx, image, preset)
+        return await asyncio.to_thread(self._encoder.encode_image, ctx, image, preset, options)
 
     def set_lossy_quality(self, quality: int) -> None:
         self._encoder.set_lossy_quality(quality)

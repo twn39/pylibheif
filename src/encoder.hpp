@@ -10,6 +10,7 @@ namespace pylibheif {
 class HeifContext;
 class HeifImage;
 class HeifImageHandle;
+class HeifEncodingOptions;
 
 class HeifEncoderDescriptor {
    public:
@@ -49,7 +50,8 @@ class HeifEncoder {
     void set_parameter(const std::string& name, const std::string& value);
 
     HeifImageHandle encode_image(HeifContext& ctx, const HeifImage& image,
-                                 const std::string& preset = "");
+                                 const std::string& preset = "",
+                                 const HeifEncodingOptions* options = nullptr);
 
     heif_encoder* get() const { return encoder.get(); }
 

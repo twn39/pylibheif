@@ -76,6 +76,65 @@ NB_MODULE(_pylibheif, m) {
         .value("JPEG2000", heif_compression_JPEG2000)
         .export_values();
 
+    nb::enum_<heif_color_profile_type>(m, "HeifColorProfileType")
+        .value("NotPresent", heif_color_profile_type_not_present)
+        .value("Nclx", heif_color_profile_type_nclx)
+        .value("RICC", heif_color_profile_type_rICC)
+        .value("Prof", heif_color_profile_type_prof)
+        .export_values();
+
+    nb::enum_<heif_color_primaries>(m, "HeifColorPrimaries")
+        .value("ITU_R_BT_709_5", heif_color_primaries_ITU_R_BT_709_5)
+        .value("Unspecified", heif_color_primaries_unspecified)
+        .value("ITU_R_BT_470_6_System_M", heif_color_primaries_ITU_R_BT_470_6_System_M)
+        .value("ITU_R_BT_470_6_System_B_G", heif_color_primaries_ITU_R_BT_470_6_System_B_G)
+        .value("ITU_R_BT_601_6", heif_color_primaries_ITU_R_BT_601_6)
+        .value("SMPTE_240M", heif_color_primaries_SMPTE_240M)
+        .value("GenericFilm", heif_color_primaries_generic_film)
+        .value("ITU_R_BT_2020_2_and_2100_0", heif_color_primaries_ITU_R_BT_2020_2_and_2100_0)
+        .value("SMPTE_ST_428_1", heif_color_primaries_SMPTE_ST_428_1)
+        .value("SMPTE_RP_431_2", heif_color_primaries_SMPTE_RP_431_2)
+        .value("SMPTE_EG_432_1", heif_color_primaries_SMPTE_EG_432_1)
+        .value("EBU_Tech_3213_E", heif_color_primaries_EBU_Tech_3213_E)
+        .export_values();
+
+    nb::enum_<heif_transfer_characteristics>(m, "HeifTransferCharacteristics")
+        .value("ITU_R_BT_709_5", heif_transfer_characteristic_ITU_R_BT_709_5)
+        .value("Unspecified", heif_transfer_characteristic_unspecified)
+        .value("ITU_R_BT_470_6_System_M", heif_transfer_characteristic_ITU_R_BT_470_6_System_M)
+        .value("ITU_R_BT_470_6_System_B_G", heif_transfer_characteristic_ITU_R_BT_470_6_System_B_G)
+        .value("ITU_R_BT_601_6", heif_transfer_characteristic_ITU_R_BT_601_6)
+        .value("SMPTE_240M", heif_transfer_characteristic_SMPTE_240M)
+        .value("Linear", heif_transfer_characteristic_linear)
+        .value("Logarithmic_100", heif_transfer_characteristic_logarithmic_100)
+        .value("Logarithmic_100_sqrt10", heif_transfer_characteristic_logarithmic_100_sqrt10)
+        .value("IEC_61966_2_4", heif_transfer_characteristic_IEC_61966_2_4)
+        .value("ITU_R_BT_1361", heif_transfer_characteristic_ITU_R_BT_1361)
+        .value("IEC_61966_2_1", heif_transfer_characteristic_IEC_61966_2_1)
+        .value("ITU_R_BT_2020_2_10bit", heif_transfer_characteristic_ITU_R_BT_2020_2_10bit)
+        .value("ITU_R_BT_2020_2_12bit", heif_transfer_characteristic_ITU_R_BT_2020_2_12bit)
+        .value("ITU_R_BT_2100_0_PQ", heif_transfer_characteristic_ITU_R_BT_2100_0_PQ)
+        .value("SMPTE_ST_428_1", heif_transfer_characteristic_SMPTE_ST_428_1)
+        .value("ITU_R_BT_2100_0_HLG", heif_transfer_characteristic_ITU_R_BT_2100_0_HLG)
+        .export_values();
+
+    nb::enum_<heif_matrix_coefficients>(m, "HeifMatrixCoefficients")
+        .value("RGB_GBR", heif_matrix_coefficients_RGB_GBR)
+        .value("ITU_R_BT_709_5", heif_matrix_coefficients_ITU_R_BT_709_5)
+        .value("Unspecified", heif_matrix_coefficients_unspecified)
+        .value("US_FCC_T47", heif_matrix_coefficients_US_FCC_T47)
+        .value("ITU_R_BT_470_6_System_B_G", heif_matrix_coefficients_ITU_R_BT_470_6_System_B_G)
+        .value("ITU_R_BT_601_6", heif_matrix_coefficients_ITU_R_BT_601_6)
+        .value("SMPTE_240M", heif_matrix_coefficients_SMPTE_240M)
+        .value("YCgCo", heif_matrix_coefficients_YCgCo)
+        .value("ITU_R_BT_2020_2_non_constant_luminance", heif_matrix_coefficients_ITU_R_BT_2020_2_non_constant_luminance)
+        .value("ITU_R_BT_2020_2_constant_luminance", heif_matrix_coefficients_ITU_R_BT_2020_2_constant_luminance)
+        .value("SMPTE_ST_2085", heif_matrix_coefficients_SMPTE_ST_2085)
+        .value("Chromaticity_derived_non_constant_luminance", heif_matrix_coefficients_chromaticity_derived_non_constant_luminance)
+        .value("Chromaticity_derived_constant_luminance", heif_matrix_coefficients_chromaticity_derived_constant_luminance)
+        .value("ICtCp", heif_matrix_coefficients_ICtCp)
+        .export_values();
+
     // Exception registrations
     static nb::exception<HeifError> exc(m, "HeifError");
     static nb::exception<HeifInputDoesNotExistError> input_not_found_exc(m, "HeifInputDoesNotExistError", exc.ptr());
@@ -211,6 +270,43 @@ NB_MODULE(_pylibheif, m) {
                    " strict=" + (self.get_strict_decoding() ? "True" : "False") + ">";
         });
 
+    nb::enum_<heif_orientation>(m, "HeifOrientation")
+        .value("Normal", heif_orientation_normal)
+        .value("FlipHorizontally", heif_orientation_flip_horizontally)
+        .value("Rotate180", heif_orientation_rotate_180)
+        .value("FlipVertically", heif_orientation_flip_vertically)
+        .value("Rotate90CwThenFlipHorizontally", heif_orientation_rotate_90_cw_then_flip_horizontally)
+        .value("Rotate90Cw", heif_orientation_rotate_90_cw)
+        .value("Rotate90CwThenFlipVertically", heif_orientation_rotate_90_cw_then_flip_vertically)
+        .value("Rotate270Cw", heif_orientation_rotate_270_cw)
+        .export_values();
+
+    nb::enum_<heif_chroma_downsampling_algorithm>(m, "HeifChromaDownsamplingAlgorithm")
+        .value("NearestNeighbor", heif_chroma_downsampling_nearest_neighbor)
+        .value("Average", heif_chroma_downsampling_average)
+        .value("SharpYuv", heif_chroma_downsampling_sharp_yuv)
+        .export_values();
+
+    nb::enum_<heif_chroma_upsampling_algorithm>(m, "HeifChromaUpsamplingAlgorithm")
+        .value("NearestNeighbor", heif_chroma_upsampling_nearest_neighbor)
+        .value("Bilinear", heif_chroma_upsampling_bilinear)
+        .export_values();
+
+    nb::class_<HeifEncodingOptions>(m, "HeifEncodingOptions")
+        .def(nb::init<>())
+        .def_prop_rw("save_alpha_channel", &HeifEncodingOptions::get_save_alpha_channel, &HeifEncodingOptions::set_save_alpha_channel)
+        .def_prop_rw("save_two_colr_boxes_when_ICC_and_nclx_available", &HeifEncodingOptions::get_save_two_colr_boxes_when_ICC_and_nclx_available, &HeifEncodingOptions::set_save_two_colr_boxes_when_ICC_and_nclx_available)
+        .def_prop_rw("macOS_compatibility_workaround_no_nclx_profile", &HeifEncodingOptions::get_macOS_compatibility_workaround_no_nclx_profile, &HeifEncodingOptions::set_macOS_compatibility_workaround_no_nclx_profile)
+        .def_prop_rw("image_orientation", &HeifEncodingOptions::get_image_orientation, &HeifEncodingOptions::set_image_orientation)
+        .def_prop_rw("prefer_uncC_short_form", &HeifEncodingOptions::get_prefer_uncC_short_form, &HeifEncodingOptions::set_prefer_uncC_short_form)
+        .def_prop_rw("preferred_chroma_downsampling_algorithm", &HeifEncodingOptions::get_preferred_chroma_downsampling_algorithm, &HeifEncodingOptions::set_preferred_chroma_downsampling_algorithm)
+        .def_prop_rw("preferred_chroma_upsampling_algorithm", &HeifEncodingOptions::get_preferred_chroma_upsampling_algorithm, &HeifEncodingOptions::set_preferred_chroma_upsampling_algorithm)
+        .def_prop_rw("only_use_preferred_chroma_algorithm", &HeifEncodingOptions::get_only_use_preferred_chroma_algorithm, &HeifEncodingOptions::set_only_use_preferred_chroma_algorithm)
+        .def("__repr__", [](const HeifEncodingOptions& self) {
+            return "<pylibheif.HeifEncodingOptions save_alpha_channel=" + (self.get_save_alpha_channel() ? std::string("True") : std::string("False")) +
+                   " prefer_uncC_short_form=" + (self.get_prefer_uncC_short_form() ? std::string("True") : std::string("False")) + ">";
+        });
+
     nb::class_<HeifContext>(m, "HeifContext")
         .def(nb::init<>())
         .def("close", &HeifContext::close)
@@ -267,7 +363,8 @@ NB_MODULE(_pylibheif, m) {
         .def("set_lossless", &HeifEncoder::set_lossless)
         .def("set_parameter", &HeifEncoder::set_parameter)
         .def("encode_image", &HeifEncoder::encode_image, nb::arg("ctx"), nb::arg("image"),
-             nb::arg("preset") = "", nb::call_guard<nb::gil_scoped_release>(),
+             nb::arg("preset") = "", nb::arg("options") = nb::none(),
+             nb::call_guard<nb::gil_scoped_release>(),
              nb::keep_alive<0, 2>())
         .def("__repr__", [](const HeifEncoder& self) {
             return "<pylibheif.HeifEncoder name='" + self.name() + "'>";
