@@ -41,6 +41,7 @@ from ._pylibheif import (
 
 import asyncio
 import weakref
+import threading
 from typing import Optional, Union, List
 
 
@@ -95,9 +96,16 @@ class HeifEncoderParametersProxy:
     """Proxy class providing dict-like access to HeifEncoder parameters."""
 
     def __init__(self, encoder: HeifEncoder):
-        self._encoder = encoder
+        self._encoder_ref = weakref.ref(encoder)
         # Cache the metadata of parameters for quick lookup and local validation
         self._metadata = {p.name: p for p in encoder._list_parameters()}
+
+    @property
+    def _encoder(self) -> HeifEncoder:
+        enc = self._encoder_ref()
+        if enc is None:
+            raise ReferenceError("The underlying HeifEncoder has been garbage collected")
+        return enc
 
     def __getitem__(self, name: str):
         if name not in self._metadata:
@@ -171,12 +179,14 @@ class HeifEncoderParametersProxy:
 
 
 _encoder_parameters_cache = weakref.WeakKeyDictionary()
+_encoder_parameters_lock = threading.Lock()
 
 def _get_encoder_parameters(encoder: HeifEncoder) -> HeifEncoderParametersProxy:
     try:
-        if encoder not in _encoder_parameters_cache:
-            _encoder_parameters_cache[encoder] = HeifEncoderParametersProxy(encoder)
-        return _encoder_parameters_cache[encoder]
+        with _encoder_parameters_lock:
+            if encoder not in _encoder_parameters_cache:
+                _encoder_parameters_cache[encoder] = HeifEncoderParametersProxy(encoder)
+            return _encoder_parameters_cache[encoder]
     except TypeError:
         # Fallback if not weak-referenceable
         return HeifEncoderParametersProxy(encoder)

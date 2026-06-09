@@ -411,7 +411,7 @@ NB_MODULE(_pylibheif, m) {
             return "<pylibheif.HeifEncoderParameter name='" + self.name() + "' type=" + type_str + ">";
         });
 
-    nb::class_<HeifEncoder>(m, "HeifEncoder")
+    nb::class_<HeifEncoder>(m, "HeifEncoder", nb::is_weak_referenceable())
         .def(nb::init<heif_compression_format>(), nb::call_guard<nb::gil_scoped_release>())
         .def(nb::init<HeifEncoderDescriptor>(), nb::call_guard<nb::gil_scoped_release>())
         .def_prop_ro("name", &HeifEncoder::name)

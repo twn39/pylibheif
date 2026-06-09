@@ -967,5 +967,85 @@ class TestMemoryManagement:
         assert True
 
 
+class TestEncoderWeakrefAndCache:
+    """测试编码器弱引用支持与缓存效率"""
+
+    def test_encoder_weakref_support(self):
+        import pylibheif
+        import weakref
+
+        encoder = pylibheif.HeifEncoder(pylibheif.HeifCompressionFormat.HEVC)
+        # 验证 C++ 导出类已标记 nb::is_weak_referenceable
+        ref = weakref.ref(encoder)
+        assert ref() is encoder
+
+    def test_encoder_parameters_cache_hit(self):
+        import pylibheif
+
+        encoder = pylibheif.HeifEncoder(pylibheif.HeifCompressionFormat.HEVC)
+        
+        # 第一次访问
+        params1 = encoder.parameters
+        # 第二次访问
+        params2 = encoder.parameters
+
+        # 验证缓存生效，返回的 Proxy 实例是同一个对象
+        assert params1 is params2
+        assert id(params1) == id(params2)
+
+    def test_encoder_parameters_cache_gc(self):
+        import pylibheif
+        import gc
+        import weakref
+        from pylibheif import _encoder_parameters_cache
+
+        encoder = pylibheif.HeifEncoder(pylibheif.HeifCompressionFormat.HEVC)
+        # 触发缓存写入
+        _ = encoder.parameters
+
+        encoder_ref = weakref.ref(encoder)
+        assert encoder in _encoder_parameters_cache
+
+        # 显式删除并触发垃圾回收
+        del encoder
+        gc.collect()
+
+        # 验证 encoder 已被析构，弱引用失效
+        assert encoder_ref() is None
+        # 验证全局缓存已被垃圾回收自动清理该条目
+        assert len(_encoder_parameters_cache) == 0
+
+    def test_encoder_parameters_multithread_safety(self):
+        import pylibheif
+        import threading
+        import time
+
+        errors = []
+
+        def worker():
+            try:
+                for _ in range(50):
+                    # 每个线程独立实例化编码器
+                    encoder = pylibheif.HeifEncoder(pylibheif.HeifCompressionFormat.HEVC)
+                    params = encoder.parameters
+                    # 读写属性，触发缓存提取与字典更新
+                    assert "lossless" in params
+                    params["lossless"] = True
+                    assert params["lossless"] is True
+                    # 模拟极短时间切换
+                    time.sleep(0.001)
+            except Exception as e:
+                errors.append(e)
+
+        threads = [threading.Thread(target=worker) for _ in range(10)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        # 确保多线程并发访问和修改没有产生任何 Race Condition 异常
+        assert len(errors) == 0, f"Multithreading test failed with errors: {errors}"
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
