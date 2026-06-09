@@ -516,9 +516,18 @@ class TestEncoding:
             with pytest.raises(TypeError):
                 params[name] = "not_an_int"
 
-        # 4. 验证前缀透传参数（例如 x265:ctu）
-        params["x265:ctu"] = 64
-        assert "x265:ctu" in params
+        # 4. 验证前缀透传参数（当 x265 编码器可用时进行真实赋值路由测试，否则仅验证 contains 判定）
+        assert "any_prefix:dummy" in params
+        descriptors = pylibheif.get_encoder_descriptors(pylibheif.HeifCompressionFormat.HEVC)
+        x265_desc = next((d for d in descriptors if "x265" in d.id_name.lower()), None)
+        if x265_desc:
+            if "x265" not in encoder.name.lower():
+                x265_enc = pylibheif.HeifEncoder(x265_desc)
+                x265_params = x265_enc.parameters
+            else:
+                x265_params = params
+            x265_params["x265:ctu"] = 64
+            assert "x265:ctu" in x265_params
 
 
 class TestRoundTrip:
