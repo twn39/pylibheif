@@ -5,9 +5,10 @@
 
 // Removed nanobind dependency
 #include <optional>
+
+#include "color_profile.hpp"
 #include "common.hpp"
 #include "hdr_metadata.hpp"
-#include "color_profile.hpp"
 
 namespace pylibheif {
 
@@ -16,9 +17,7 @@ struct ContextState;
 
 class HeifDecodingOptions {
    public:
-    HeifDecodingOptions() {
-        options = heif_decoding_options_alloc();
-    }
+    HeifDecodingOptions() { options = heif_decoding_options_alloc(); }
     ~HeifDecodingOptions() {
         if (options) {
             heif_decoding_options_free(options);
@@ -28,7 +27,7 @@ class HeifDecodingOptions {
     // Rule of Five (Move-only wrapper)
     HeifDecodingOptions(const HeifDecodingOptions&) = delete;
     HeifDecodingOptions& operator=(const HeifDecodingOptions&) = delete;
-    HeifDecodingOptions(HeifDecodingOptions&& other) noexcept 
+    HeifDecodingOptions(HeifDecodingOptions&& other) noexcept
         : options(other.options), m_decoder_id(std::move(other.m_decoder_id)) {
         other.options = nullptr;
     }
@@ -65,8 +64,12 @@ class HeifDecodingOptions {
     bool get_autocorrect_broken_input() const { return options->autocorrect_broken_input != 0; }
     void set_autocorrect_broken_input(bool val) { options->autocorrect_broken_input = val ? 1 : 0; }
 
-    bool get_output_image_nclx_profile_passthrough() const { return options->output_image_nclx_profile_passthrough != 0; }
-    void set_output_image_nclx_profile_passthrough(bool val) { options->output_image_nclx_profile_passthrough = val ? 1 : 0; }
+    bool get_output_image_nclx_profile_passthrough() const {
+        return options->output_image_nclx_profile_passthrough != 0;
+    }
+    void set_output_image_nclx_profile_passthrough(bool val) {
+        options->output_image_nclx_profile_passthrough = val ? 1 : 0;
+    }
 
    private:
     heif_decoding_options* options = nullptr;
@@ -90,8 +93,7 @@ class HeifEncodingOptions {
     // Rule of Five (Move-only wrapper)
     HeifEncodingOptions(const HeifEncodingOptions&) = delete;
     HeifEncodingOptions& operator=(const HeifEncodingOptions&) = delete;
-    HeifEncodingOptions(HeifEncodingOptions&& other) noexcept 
-        : options(other.options) {
+    HeifEncodingOptions(HeifEncodingOptions&& other) noexcept : options(other.options) {
         other.options = nullptr;
     }
     HeifEncodingOptions& operator=(HeifEncodingOptions&& other) noexcept {
@@ -150,7 +152,7 @@ class HeifEncodingOptions {
     }
 
    private:
-     heif_encoding_options* options = nullptr;
+    heif_encoding_options* options = nullptr;
 };
 
 struct HeifPlaneLayout {
@@ -165,22 +167,26 @@ struct HeifPlaneLayout {
 
     std::vector<size_t> shape() const {
         if (num_channels > 1) {
-            return { static_cast<size_t>(height), static_cast<size_t>(width), static_cast<size_t>(num_channels) };
+            return {static_cast<size_t>(height), static_cast<size_t>(width),
+                    static_cast<size_t>(num_channels)};
         }
-        return { static_cast<size_t>(height), static_cast<size_t>(width) };
+        return {static_cast<size_t>(height), static_cast<size_t>(width)};
     }
 
     std::vector<int64_t> strides() const {
         int64_t elem_stride = stride_bytes / bytes_per_channel;
         if (num_channels > 1) {
-            return { elem_stride, num_channels, 1 };
+            return {elem_stride, num_channels, 1};
         }
-        return { elem_stride, 1 };
+        return {elem_stride, 1};
     }
 
     std::string numpy_dtype_suffix() const {
         if (bytes_per_channel == 1) return "u1";
-        const union { uint32_t i; uint8_t c[4]; } endian_test = { 0x01020304 };
+        const union {
+            uint32_t i;
+            uint8_t c[4];
+        } endian_test = {0x01020304};
         const bool host_is_little = (endian_test.c[0] == 4);
         if (host_is_little == is_big_endian) {
             return is_big_endian ? ">u2" : "<u2";
@@ -190,21 +196,22 @@ struct HeifPlaneLayout {
 };
 
 class HeifImageLayout {
-public:
+   public:
     static HeifImageLayout from_image(const heif_image* img);
     static HeifImageLayout from_image(const HeifImage& img);
 
     HeifImageLayout(heif_colorspace colorspace, heif_chroma chroma, int width, int height)
         : m_colorspace(colorspace), m_chroma(chroma), m_width(width), m_height(height) {}
 
-    HeifPlaneLayout get_plane_layout(heif_channel channel, int stride_bytes, int bits_per_pixel) const;
+    HeifPlaneLayout get_plane_layout(heif_channel channel, int stride_bytes,
+                                     int bits_per_pixel) const;
 
     heif_colorspace colorspace() const { return m_colorspace; }
     heif_chroma chroma() const { return m_chroma; }
     int width() const { return m_width; }
     int height() const { return m_height; }
 
-private:
+   private:
     heif_colorspace m_colorspace;
     heif_chroma m_chroma;
     int m_width;
@@ -228,7 +235,8 @@ class HeifImageHandle {
     int get_luma_bits_per_pixel() const;
     int get_chroma_bits_per_pixel() const;
 
-    HeifImage decode(heif_colorspace colorspace, heif_chroma chroma, const HeifDecodingOptions* options = nullptr);
+    HeifImage decode(heif_colorspace colorspace, heif_chroma chroma,
+                     const HeifDecodingOptions* options = nullptr);
 
     // Auxiliary Images
     std::vector<heif_item_id> get_list_of_auxiliary_image_IDs(int aux_key_mask = 0);

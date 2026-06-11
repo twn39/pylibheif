@@ -16,9 +16,7 @@ struct ContextState {
     bool is_closed = false;
     std::unique_ptr<PyBufferHolder> buffer_holder;
 
-    ~ContextState() {
-        close_buffer();
-    }
+    ~ContextState() { close_buffer(); }
 
     void close_buffer() {
         if (buffer_holder) {

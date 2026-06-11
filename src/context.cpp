@@ -34,7 +34,7 @@ void HeifContext::read_from_memory(const nb::handle& data) {
     if (state->buffer_holder) {
         throw std::runtime_error("Context already initialized with memory data");
     }
-    
+
     // Safely extract and lock buffer under the GIL
     state->buffer_holder = std::make_unique<PyBufferHolder>(data.ptr(), PyBUF_SIMPLE);
     state->memory_reference = nb::borrow(data);
@@ -134,8 +134,7 @@ nb::bytes HeifContext::write_to_bytes() {
     return nb::bytes((char*)wd.data.data(), wd.data.size());
 }
 
-void HeifContext::add_exif_metadata(const HeifImageHandle& handle,
-                                    const nb::bytes& data) {
+void HeifContext::add_exif_metadata(const HeifImageHandle& handle, const nb::bytes& data) {
     check_closed();
     check_error(heif_context_add_exif_metadata(state->ctx.get(), handle.get(), data.c_str(),
                                                static_cast<int>(data.size())));
@@ -147,13 +146,14 @@ void HeifContext::add_xmp_metadata(const HeifImageHandle& handle, const nb::byte
                                               static_cast<int>(data.size())));
 }
 
-void HeifContext::add_generic_metadata(const HeifImageHandle& handle,
-                                       const nb::bytes& data, const std::string& item_type,
+void HeifContext::add_generic_metadata(const HeifImageHandle& handle, const nb::bytes& data,
+                                       const std::string& item_type,
                                        const std::string& content_type) {
     check_closed();
     const char* ct = content_type.empty() ? nullptr : content_type.c_str();
     check_error(heif_context_add_generic_metadata(state->ctx.get(), handle.get(), data.c_str(),
-                                                   static_cast<int>(data.size()), item_type.c_str(), ct));
+                                                  static_cast<int>(data.size()), item_type.c_str(),
+                                                  ct));
 }
 
 }  // namespace pylibheif

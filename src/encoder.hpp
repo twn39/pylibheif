@@ -1,9 +1,9 @@
 #pragma once
 #include <memory>
-#include <string>
-#include <vector>
 #include <optional>
+#include <string>
 #include <utility>
+#include <vector>
 
 #include "common.hpp"
 
@@ -102,4 +102,3 @@ class HeifEncoder {
 };
 
 }  // namespace pylibheif
-

@@ -83,7 +83,8 @@ std::vector<HeifEncoderParameter> HeifEncoder::list_parameters() const {
 }
 
 // HeifEncoderParameter
-HeifEncoderParameter::HeifEncoderParameter(const heif_encoder_parameter* param, heif_encoder* encoder) {
+HeifEncoderParameter::HeifEncoderParameter(const heif_encoder_parameter* param,
+                                           heif_encoder* encoder) {
     m_name = heif_encoder_parameter_get_name(param);
     m_type = heif_encoder_parameter_get_type(param);
     m_has_default = (heif_encoder_has_default(encoder, m_name.c_str()) != 0);
@@ -91,7 +92,8 @@ HeifEncoderParameter::HeifEncoderParameter(const heif_encoder_parameter* param, 
     if (m_type == heif_encoder_parameter_type_integer) {
         if (m_has_default) {
             int val = 0;
-            if (heif_encoder_get_parameter_integer(encoder, m_name.c_str(), &val).code == heif_error_Ok) {
+            if (heif_encoder_get_parameter_integer(encoder, m_name.c_str(), &val).code ==
+                heif_error_Ok) {
                 m_default_integer = val;
             }
         }
@@ -99,10 +101,9 @@ HeifEncoderParameter::HeifEncoderParameter(const heif_encoder_parameter* param, 
         int min_val = 0, max_val = 0;
         int num_vals = 0;
         const int* vals = nullptr;
-        if (heif_encoder_parameter_integer_valid_values(encoder, m_name.c_str(),
-                                                        &have_min, &have_max,
-                                                        &min_val, &max_val,
-                                                        &num_vals, &vals).code == heif_error_Ok) {
+        if (heif_encoder_parameter_integer_valid_values(
+                encoder, m_name.c_str(), &have_min, &have_max, &min_val, &max_val, &num_vals, &vals)
+                .code == heif_error_Ok) {
             if (have_min || have_max) {
                 m_valid_integer_range = std::make_pair(min_val, max_val);
             }
@@ -113,26 +114,29 @@ HeifEncoderParameter::HeifEncoderParameter(const heif_encoder_parameter* param, 
     } else if (m_type == heif_encoder_parameter_type_boolean) {
         if (m_has_default) {
             int val = 0;
-            if (heif_encoder_get_parameter_boolean(encoder, m_name.c_str(), &val).code == heif_error_Ok) {
+            if (heif_encoder_get_parameter_boolean(encoder, m_name.c_str(), &val).code ==
+                heif_error_Ok) {
                 m_default_boolean = (val != 0);
             }
         }
     } else if (m_type == heif_encoder_parameter_type_string) {
         if (m_has_default) {
             char val[512];
-            if (heif_encoder_get_parameter_string(encoder, m_name.c_str(), val, sizeof(val)).code == heif_error_Ok) {
+            if (heif_encoder_get_parameter_string(encoder, m_name.c_str(), val, sizeof(val)).code ==
+                heif_error_Ok) {
                 m_default_string = std::string(val);
             }
         }
         const char* const* stringarray = nullptr;
-        if (heif_encoder_parameter_string_valid_values(encoder, m_name.c_str(), &stringarray).code == heif_error_Ok && stringarray) {
+        if (heif_encoder_parameter_string_valid_values(encoder, m_name.c_str(), &stringarray)
+                    .code == heif_error_Ok &&
+            stringarray) {
             for (int i = 0; stringarray[i]; ++i) {
                 m_valid_string_values.push_back(stringarray[i]);
             }
         }
     }
 }
-
 
 HeifImageHandle HeifEncoder::encode_image(HeifContext& ctx, const HeifImage& image,
                                           const std::string& preset,
@@ -149,7 +153,8 @@ HeifImageHandle HeifEncoder::encode_image(HeifContext& ctx, const HeifImage& ima
         opts_ptr = alloc_options;
     }
     heif_image_handle* handle = nullptr;
-    heif_error err = heif_context_encode_image(ctx.get(), image.get(), encoder.get(), opts_ptr, &handle);
+    heif_error err =
+        heif_context_encode_image(ctx.get(), image.get(), encoder.get(), opts_ptr, &handle);
     if (alloc_options) {
         heif_encoding_options_free(alloc_options);
     }

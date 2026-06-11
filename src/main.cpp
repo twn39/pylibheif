@@ -1,20 +1,20 @@
 #include <nanobind/nanobind.h>
 #include <nanobind/ndarray.h>
+#include <nanobind/stl/optional.h>
+#include <nanobind/stl/pair.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/vector.h>
-#include <nanobind/stl/pair.h>
-#include <nanobind/stl/optional.h>
-#include "hdr_metadata.hpp"
 
 #include "context.hpp"
 #include "encoder.hpp"
+#include "hdr_metadata.hpp"
 #include "image.hpp"
 
 namespace nb = nanobind;
 using namespace pylibheif;
 
 namespace pylibheif {
-    void bind_image(nb::module_& m);
+void bind_image(nb::module_& m);
 }
 
 NB_MODULE(_pylibheif, m) {
@@ -127,24 +127,34 @@ NB_MODULE(_pylibheif, m) {
         .value("ITU_R_BT_601_6", heif_matrix_coefficients_ITU_R_BT_601_6)
         .value("SMPTE_240M", heif_matrix_coefficients_SMPTE_240M)
         .value("YCgCo", heif_matrix_coefficients_YCgCo)
-        .value("ITU_R_BT_2020_2_non_constant_luminance", heif_matrix_coefficients_ITU_R_BT_2020_2_non_constant_luminance)
-        .value("ITU_R_BT_2020_2_constant_luminance", heif_matrix_coefficients_ITU_R_BT_2020_2_constant_luminance)
+        .value("ITU_R_BT_2020_2_non_constant_luminance",
+               heif_matrix_coefficients_ITU_R_BT_2020_2_non_constant_luminance)
+        .value("ITU_R_BT_2020_2_constant_luminance",
+               heif_matrix_coefficients_ITU_R_BT_2020_2_constant_luminance)
         .value("SMPTE_ST_2085", heif_matrix_coefficients_SMPTE_ST_2085)
-        .value("Chromaticity_derived_non_constant_luminance", heif_matrix_coefficients_chromaticity_derived_non_constant_luminance)
-        .value("Chromaticity_derived_constant_luminance", heif_matrix_coefficients_chromaticity_derived_constant_luminance)
+        .value("Chromaticity_derived_non_constant_luminance",
+               heif_matrix_coefficients_chromaticity_derived_non_constant_luminance)
+        .value("Chromaticity_derived_constant_luminance",
+               heif_matrix_coefficients_chromaticity_derived_constant_luminance)
         .value("ICtCp", heif_matrix_coefficients_ICtCp)
         .export_values();
 
     // Exception registrations
     static nb::exception<HeifError> exc(m, "HeifError");
-    static nb::exception<HeifInputDoesNotExistError> input_not_found_exc(m, "HeifInputDoesNotExistError", exc.ptr());
-    static nb::exception<HeifInvalidInputError> invalid_input_exc(m, "HeifInvalidInputError", exc.ptr());
-    static nb::exception<HeifUnsupportedFiletypeError> unsupported_filetype_exc(m, "HeifUnsupportedFiletypeError", exc.ptr());
-    static nb::exception<HeifUnsupportedFeatureError> unsupported_feature_exc(m, "HeifUnsupportedFeatureError", exc.ptr());
+    static nb::exception<HeifInputDoesNotExistError> input_not_found_exc(
+        m, "HeifInputDoesNotExistError", exc.ptr());
+    static nb::exception<HeifInvalidInputError> invalid_input_exc(m, "HeifInvalidInputError",
+                                                                  exc.ptr());
+    static nb::exception<HeifUnsupportedFiletypeError> unsupported_filetype_exc(
+        m, "HeifUnsupportedFiletypeError", exc.ptr());
+    static nb::exception<HeifUnsupportedFeatureError> unsupported_feature_exc(
+        m, "HeifUnsupportedFeatureError", exc.ptr());
     static nb::exception<HeifUsageError> usage_exc(m, "HeifUsageError", exc.ptr());
-    static nb::exception<HeifMemoryAllocationError> memory_exc(m, "HeifMemoryAllocationError", exc.ptr());
+    static nb::exception<HeifMemoryAllocationError> memory_exc(m, "HeifMemoryAllocationError",
+                                                               exc.ptr());
     static nb::exception<HeifEncodingError> encoding_exc(m, "HeifEncodingError", exc.ptr());
-    static nb::exception<HeifColorProfileDoesNotExistError> color_profile_exc(m, "HeifColorProfileDoesNotExistError", exc.ptr());
+    static nb::exception<HeifColorProfileDoesNotExistError> color_profile_exc(
+        m, "HeifColorProfileDoesNotExistError", exc.ptr());
 
     nb::register_exception_translator([](const std::exception_ptr& p, void* /* payload */) {
         try {
@@ -199,32 +209,34 @@ NB_MODULE(_pylibheif, m) {
 
     // Classes
     nb::class_<HeifContentLightLevel>(m, "HeifContentLightLevel")
-        .def("__init__", [](HeifContentLightLevel* self, uint16_t max_cll, uint16_t max_fall) {
-            new (self) HeifContentLightLevel{max_cll, max_fall};
-        }, nb::arg("max_content_light_level") = 0, nb::arg("max_pic_average_light_level") = 0)
+        .def(
+            "__init__",
+            [](HeifContentLightLevel* self, uint16_t max_cll, uint16_t max_fall) {
+                new (self) HeifContentLightLevel{max_cll, max_fall};
+            },
+            nb::arg("max_content_light_level") = 0, nb::arg("max_pic_average_light_level") = 0)
         .def_rw("max_content_light_level", &HeifContentLightLevel::max_content_light_level)
         .def_rw("max_pic_average_light_level", &HeifContentLightLevel::max_pic_average_light_level)
         .def("__repr__", [](const HeifContentLightLevel& self) {
             return "<pylibheif.HeifContentLightLevel max_content_light_level=" +
-                   std::to_string(self.max_content_light_level) +
-                   " max_pic_average_light_level=" +
+                   std::to_string(self.max_content_light_level) + " max_pic_average_light_level=" +
                    std::to_string(self.max_pic_average_light_level) + ">";
         });
 
     nb::class_<HeifMasteringDisplayColourVolume>(m, "HeifMasteringDisplayColourVolume")
-        .def("__init__", [](HeifMasteringDisplayColourVolume* self,
-                            std::pair<float, float> red,
-                            std::pair<float, float> green,
-                            std::pair<float, float> blue,
-                            std::pair<float, float> white,
-                            double max_lum, double min_lum) {
-            new (self) HeifMasteringDisplayColourVolume{red, green, blue, white, max_lum, min_lum};
-        }, nb::arg("red_primary") = std::make_pair(0.0f, 0.0f),
-           nb::arg("green_primary") = std::make_pair(0.0f, 0.0f),
-           nb::arg("blue_primary") = std::make_pair(0.0f, 0.0f),
-           nb::arg("white_point") = std::make_pair(0.0f, 0.0f),
-           nb::arg("max_luminance") = 0.0,
-           nb::arg("min_luminance") = 0.0)
+        .def(
+            "__init__",
+            [](HeifMasteringDisplayColourVolume* self, std::pair<float, float> red,
+               std::pair<float, float> green, std::pair<float, float> blue,
+               std::pair<float, float> white, double max_lum, double min_lum) {
+                new (self)
+                    HeifMasteringDisplayColourVolume{red, green, blue, white, max_lum, min_lum};
+            },
+            nb::arg("red_primary") = std::make_pair(0.0f, 0.0f),
+            nb::arg("green_primary") = std::make_pair(0.0f, 0.0f),
+            nb::arg("blue_primary") = std::make_pair(0.0f, 0.0f),
+            nb::arg("white_point") = std::make_pair(0.0f, 0.0f), nb::arg("max_luminance") = 0.0,
+            nb::arg("min_luminance") = 0.0)
         .def_rw("red_primary", &HeifMasteringDisplayColourVolume::red_primary)
         .def_rw("green_primary", &HeifMasteringDisplayColourVolume::green_primary)
         .def_rw("blue_primary", &HeifMasteringDisplayColourVolume::blue_primary)
@@ -233,40 +245,66 @@ NB_MODULE(_pylibheif, m) {
         .def_rw("min_luminance", &HeifMasteringDisplayColourVolume::min_luminance)
         .def("__repr__", [](const HeifMasteringDisplayColourVolume& self) {
             return "<pylibheif.HeifMasteringDisplayColourVolume"
-                   " red_primary=(" + std::to_string(self.red_primary.first) + ", " + std::to_string(self.red_primary.second) + ")"
-                   " green_primary=(" + std::to_string(self.green_primary.first) + ", " + std::to_string(self.green_primary.second) + ")"
-                   " blue_primary=(" + std::to_string(self.blue_primary.first) + ", " + std::to_string(self.blue_primary.second) + ")"
-                   " white_point=(" + std::to_string(self.white_point.first) + ", " + std::to_string(self.white_point.second) + ")"
-                   " max_luminance=" + std::to_string(self.max_luminance) +
+                   " red_primary=(" +
+                   std::to_string(self.red_primary.first) + ", " +
+                   std::to_string(self.red_primary.second) +
+                   ")"
+                   " green_primary=(" +
+                   std::to_string(self.green_primary.first) + ", " +
+                   std::to_string(self.green_primary.second) +
+                   ")"
+                   " blue_primary=(" +
+                   std::to_string(self.blue_primary.first) + ", " +
+                   std::to_string(self.blue_primary.second) +
+                   ")"
+                   " white_point=(" +
+                   std::to_string(self.white_point.first) + ", " +
+                   std::to_string(self.white_point.second) +
+                   ")"
+                   " max_luminance=" +
+                   std::to_string(self.max_luminance) +
                    " min_luminance=" + std::to_string(self.min_luminance) + ">";
         });
 
     nb::class_<HeifAmbientViewingEnvironment>(m, "HeifAmbientViewingEnvironment")
-        .def("__init__", [](HeifAmbientViewingEnvironment* self,
-                            double illumination,
-                            std::pair<float, float> light) {
-            new (self) HeifAmbientViewingEnvironment{illumination, light};
-        }, nb::arg("ambient_illumination") = 0.0,
-           nb::arg("ambient_light") = std::make_pair(0.0f, 0.0f))
+        .def(
+            "__init__",
+            [](HeifAmbientViewingEnvironment* self, double illumination,
+               std::pair<float, float> light) {
+                new (self) HeifAmbientViewingEnvironment{illumination, light};
+            },
+            nb::arg("ambient_illumination") = 0.0,
+            nb::arg("ambient_light") = std::make_pair(0.0f, 0.0f))
         .def_rw("ambient_illumination", &HeifAmbientViewingEnvironment::ambient_illumination)
         .def_rw("ambient_light", &HeifAmbientViewingEnvironment::ambient_light)
         .def("__repr__", [](const HeifAmbientViewingEnvironment& self) {
             return "<pylibheif.HeifAmbientViewingEnvironment"
-                   " ambient_illumination=" + std::to_string(self.ambient_illumination) +
-                   " ambient_light=(" + std::to_string(self.ambient_light.first) + ", " + std::to_string(self.ambient_light.second) + ")>";
+                   " ambient_illumination=" +
+                   std::to_string(self.ambient_illumination) + " ambient_light=(" +
+                   std::to_string(self.ambient_light.first) + ", " +
+                   std::to_string(self.ambient_light.second) + ")>";
         });
 
     nb::class_<HeifDecodingOptions>(m, "HeifDecodingOptions")
         .def(nb::init<>())
-        .def_prop_rw("ignore_transformations", &HeifDecodingOptions::get_ignore_transformations, &HeifDecodingOptions::set_ignore_transformations)
-        .def_prop_rw("convert_hdr_to_8bit", &HeifDecodingOptions::get_convert_hdr_to_8bit, &HeifDecodingOptions::set_convert_hdr_to_8bit)
-        .def_prop_rw("strict_decoding", &HeifDecodingOptions::get_strict_decoding, &HeifDecodingOptions::set_strict_decoding)
-        .def_prop_rw("decoder_id", &HeifDecodingOptions::get_decoder_id, &HeifDecodingOptions::set_decoder_id)
-        .def_prop_rw("num_codec_threads", &HeifDecodingOptions::get_num_codec_threads, &HeifDecodingOptions::set_num_codec_threads)
-        .def_prop_rw("autocorrect_broken_input", &HeifDecodingOptions::get_autocorrect_broken_input, &HeifDecodingOptions::set_autocorrect_broken_input)
-        .def_prop_rw("output_image_nclx_profile_passthrough", &HeifDecodingOptions::get_output_image_nclx_profile_passthrough, &HeifDecodingOptions::set_output_image_nclx_profile_passthrough)
+        .def_prop_rw("ignore_transformations", &HeifDecodingOptions::get_ignore_transformations,
+                     &HeifDecodingOptions::set_ignore_transformations)
+        .def_prop_rw("convert_hdr_to_8bit", &HeifDecodingOptions::get_convert_hdr_to_8bit,
+                     &HeifDecodingOptions::set_convert_hdr_to_8bit)
+        .def_prop_rw("strict_decoding", &HeifDecodingOptions::get_strict_decoding,
+                     &HeifDecodingOptions::set_strict_decoding)
+        .def_prop_rw("decoder_id", &HeifDecodingOptions::get_decoder_id,
+                     &HeifDecodingOptions::set_decoder_id)
+        .def_prop_rw("num_codec_threads", &HeifDecodingOptions::get_num_codec_threads,
+                     &HeifDecodingOptions::set_num_codec_threads)
+        .def_prop_rw("autocorrect_broken_input", &HeifDecodingOptions::get_autocorrect_broken_input,
+                     &HeifDecodingOptions::set_autocorrect_broken_input)
+        .def_prop_rw("output_image_nclx_profile_passthrough",
+                     &HeifDecodingOptions::get_output_image_nclx_profile_passthrough,
+                     &HeifDecodingOptions::set_output_image_nclx_profile_passthrough)
         .def("__repr__", [](const HeifDecodingOptions& self) {
-            return "<pylibheif.HeifDecodingOptions num_codec_threads=" + std::to_string(self.get_num_codec_threads()) +
+            return "<pylibheif.HeifDecodingOptions num_codec_threads=" +
+                   std::to_string(self.get_num_codec_threads()) +
                    " strict=" + (self.get_strict_decoding() ? "True" : "False") + ">";
         });
 
@@ -275,7 +313,8 @@ NB_MODULE(_pylibheif, m) {
         .value("FlipHorizontally", heif_orientation_flip_horizontally)
         .value("Rotate180", heif_orientation_rotate_180)
         .value("FlipVertically", heif_orientation_flip_vertically)
-        .value("Rotate90CwThenFlipHorizontally", heif_orientation_rotate_90_cw_then_flip_horizontally)
+        .value("Rotate90CwThenFlipHorizontally",
+               heif_orientation_rotate_90_cw_then_flip_horizontally)
         .value("Rotate90Cw", heif_orientation_rotate_90_cw)
         .value("Rotate90CwThenFlipVertically", heif_orientation_rotate_90_cw_then_flip_vertically)
         .value("Rotate270Cw", heif_orientation_rotate_270_cw)
@@ -294,17 +333,34 @@ NB_MODULE(_pylibheif, m) {
 
     nb::class_<HeifEncodingOptions>(m, "HeifEncodingOptions")
         .def(nb::init<>())
-        .def_prop_rw("save_alpha_channel", &HeifEncodingOptions::get_save_alpha_channel, &HeifEncodingOptions::set_save_alpha_channel)
-        .def_prop_rw("save_two_colr_boxes_when_ICC_and_nclx_available", &HeifEncodingOptions::get_save_two_colr_boxes_when_ICC_and_nclx_available, &HeifEncodingOptions::set_save_two_colr_boxes_when_ICC_and_nclx_available)
-        .def_prop_rw("macOS_compatibility_workaround_no_nclx_profile", &HeifEncodingOptions::get_macOS_compatibility_workaround_no_nclx_profile, &HeifEncodingOptions::set_macOS_compatibility_workaround_no_nclx_profile)
-        .def_prop_rw("image_orientation", &HeifEncodingOptions::get_image_orientation, &HeifEncodingOptions::set_image_orientation)
-        .def_prop_rw("prefer_uncC_short_form", &HeifEncodingOptions::get_prefer_uncC_short_form, &HeifEncodingOptions::set_prefer_uncC_short_form)
-        .def_prop_rw("preferred_chroma_downsampling_algorithm", &HeifEncodingOptions::get_preferred_chroma_downsampling_algorithm, &HeifEncodingOptions::set_preferred_chroma_downsampling_algorithm)
-        .def_prop_rw("preferred_chroma_upsampling_algorithm", &HeifEncodingOptions::get_preferred_chroma_upsampling_algorithm, &HeifEncodingOptions::set_preferred_chroma_upsampling_algorithm)
-        .def_prop_rw("only_use_preferred_chroma_algorithm", &HeifEncodingOptions::get_only_use_preferred_chroma_algorithm, &HeifEncodingOptions::set_only_use_preferred_chroma_algorithm)
+        .def_prop_rw("save_alpha_channel", &HeifEncodingOptions::get_save_alpha_channel,
+                     &HeifEncodingOptions::set_save_alpha_channel)
+        .def_prop_rw("save_two_colr_boxes_when_ICC_and_nclx_available",
+                     &HeifEncodingOptions::get_save_two_colr_boxes_when_ICC_and_nclx_available,
+                     &HeifEncodingOptions::set_save_two_colr_boxes_when_ICC_and_nclx_available)
+        .def_prop_rw("macOS_compatibility_workaround_no_nclx_profile",
+                     &HeifEncodingOptions::get_macOS_compatibility_workaround_no_nclx_profile,
+                     &HeifEncodingOptions::set_macOS_compatibility_workaround_no_nclx_profile)
+        .def_prop_rw("image_orientation", &HeifEncodingOptions::get_image_orientation,
+                     &HeifEncodingOptions::set_image_orientation)
+        .def_prop_rw("prefer_uncC_short_form", &HeifEncodingOptions::get_prefer_uncC_short_form,
+                     &HeifEncodingOptions::set_prefer_uncC_short_form)
+        .def_prop_rw("preferred_chroma_downsampling_algorithm",
+                     &HeifEncodingOptions::get_preferred_chroma_downsampling_algorithm,
+                     &HeifEncodingOptions::set_preferred_chroma_downsampling_algorithm)
+        .def_prop_rw("preferred_chroma_upsampling_algorithm",
+                     &HeifEncodingOptions::get_preferred_chroma_upsampling_algorithm,
+                     &HeifEncodingOptions::set_preferred_chroma_upsampling_algorithm)
+        .def_prop_rw("only_use_preferred_chroma_algorithm",
+                     &HeifEncodingOptions::get_only_use_preferred_chroma_algorithm,
+                     &HeifEncodingOptions::set_only_use_preferred_chroma_algorithm)
         .def("__repr__", [](const HeifEncodingOptions& self) {
-            return "<pylibheif.HeifEncodingOptions save_alpha_channel=" + (self.get_save_alpha_channel() ? std::string("True") : std::string("False")) +
-                   " prefer_uncC_short_form=" + (self.get_prefer_uncC_short_form() ? std::string("True") : std::string("False")) + ">";
+            return "<pylibheif.HeifEncodingOptions save_alpha_channel=" +
+                   (self.get_save_alpha_channel() ? std::string("True") : std::string("False")) +
+                   " prefer_uncC_short_form=" +
+                   (self.get_prefer_uncC_short_form() ? std::string("True")
+                                                      : std::string("False")) +
+                   ">";
         });
 
     nb::class_<HeifContext>(m, "HeifContext")
@@ -342,14 +398,27 @@ NB_MODULE(_pylibheif, m) {
         .def("__repr__", [](const HeifEncoderDescriptor& self) {
             std::string format;
             switch (self.compression_format()) {
-                case heif_compression_HEVC: format = "HEVC"; break;
-                case heif_compression_AVC: format = "AVC"; break;
-                case heif_compression_JPEG: format = "JPEG"; break;
-                case heif_compression_AV1: format = "AV1"; break;
-                case heif_compression_JPEG2000: format = "JPEG2000"; break;
-                default: format = "Undefined"; break;
+                case heif_compression_HEVC:
+                    format = "HEVC";
+                    break;
+                case heif_compression_AVC:
+                    format = "AVC";
+                    break;
+                case heif_compression_JPEG:
+                    format = "JPEG";
+                    break;
+                case heif_compression_AV1:
+                    format = "AV1";
+                    break;
+                case heif_compression_JPEG2000:
+                    format = "JPEG2000";
+                    break;
+                default:
+                    format = "Undefined";
+                    break;
             }
-            return "<pylibheif.HeifEncoderDescriptor id_name='" + self.id_name() + "' format=" + format + ">";
+            return "<pylibheif.HeifEncoderDescriptor id_name='" + self.id_name() +
+                   "' format=" + format + ">";
         });
 
     m.def("get_encoder_descriptors", &get_encoder_descriptors,
@@ -365,50 +434,63 @@ NB_MODULE(_pylibheif, m) {
         .def_prop_ro("name", &HeifEncoderParameter::name)
         .def_prop_ro("type", &HeifEncoderParameter::type)
         .def_prop_ro("has_default", &HeifEncoderParameter::has_default)
-        .def_prop_ro("default_value", [](const HeifEncoderParameter& self) -> nb::object {
-            if (!self.has_default()) return nb::none();
-            if (self.type() == heif_encoder_parameter_type_integer) {
-                auto val = self.default_integer();
-                return val ? nb::cast(*val) : nb::none();
-            } else if (self.type() == heif_encoder_parameter_type_boolean) {
-                auto val = self.default_boolean();
-                return val ? nb::cast(*val) : nb::none();
-            } else if (self.type() == heif_encoder_parameter_type_string) {
-                auto val = self.default_string();
-                return val ? nb::cast(*val) : nb::none();
-            }
-            return nb::none();
-        })
-        .def_prop_ro("valid_integer_range", [](const HeifEncoderParameter& self) -> nb::object {
-            auto range = self.valid_integer_range();
-            if (range) {
-                return nb::make_tuple(range->first, range->second);
-            }
-            return nb::none();
-        })
-        .def_prop_ro("valid_integer_values", [](const HeifEncoderParameter& self) -> nb::object {
-            auto vals = self.valid_integer_values();
-            if (!vals.empty()) {
-                return nb::cast(vals);
-            }
-            return nb::none();
-        })
-        .def_prop_ro("valid_string_values", [](const HeifEncoderParameter& self) -> nb::object {
-            auto vals = self.valid_string_values();
-            if (!vals.empty()) {
-                return nb::cast(vals);
-            }
-            return nb::none();
-        })
+        .def_prop_ro("default_value",
+                     [](const HeifEncoderParameter& self) -> nb::object {
+                         if (!self.has_default()) return nb::none();
+                         if (self.type() == heif_encoder_parameter_type_integer) {
+                             auto val = self.default_integer();
+                             return val ? nb::cast(*val) : nb::none();
+                         } else if (self.type() == heif_encoder_parameter_type_boolean) {
+                             auto val = self.default_boolean();
+                             return val ? nb::cast(*val) : nb::none();
+                         } else if (self.type() == heif_encoder_parameter_type_string) {
+                             auto val = self.default_string();
+                             return val ? nb::cast(*val) : nb::none();
+                         }
+                         return nb::none();
+                     })
+        .def_prop_ro("valid_integer_range",
+                     [](const HeifEncoderParameter& self) -> nb::object {
+                         auto range = self.valid_integer_range();
+                         if (range) {
+                             return nb::make_tuple(range->first, range->second);
+                         }
+                         return nb::none();
+                     })
+        .def_prop_ro("valid_integer_values",
+                     [](const HeifEncoderParameter& self) -> nb::object {
+                         auto vals = self.valid_integer_values();
+                         if (!vals.empty()) {
+                             return nb::cast(vals);
+                         }
+                         return nb::none();
+                     })
+        .def_prop_ro("valid_string_values",
+                     [](const HeifEncoderParameter& self) -> nb::object {
+                         auto vals = self.valid_string_values();
+                         if (!vals.empty()) {
+                             return nb::cast(vals);
+                         }
+                         return nb::none();
+                     })
         .def("__repr__", [](const HeifEncoderParameter& self) {
             std::string type_str;
             switch (self.type()) {
-                case heif_encoder_parameter_type_integer: type_str = "Integer"; break;
-                case heif_encoder_parameter_type_boolean: type_str = "Boolean"; break;
-                case heif_encoder_parameter_type_string: type_str = "String"; break;
-                default: type_str = "Unknown"; break;
+                case heif_encoder_parameter_type_integer:
+                    type_str = "Integer";
+                    break;
+                case heif_encoder_parameter_type_boolean:
+                    type_str = "Boolean";
+                    break;
+                case heif_encoder_parameter_type_string:
+                    type_str = "String";
+                    break;
+                default:
+                    type_str = "Unknown";
+                    break;
             }
-            return "<pylibheif.HeifEncoderParameter name='" + self.name() + "' type=" + type_str + ">";
+            return "<pylibheif.HeifEncoderParameter name='" + self.name() + "' type=" + type_str +
+                   ">";
         });
 
     nb::class_<HeifEncoder>(m, "HeifEncoder", nb::is_weak_referenceable())
@@ -428,8 +510,7 @@ NB_MODULE(_pylibheif, m) {
         .def("_list_parameters", &HeifEncoder::list_parameters)
         .def("encode_image", &HeifEncoder::encode_image, nb::arg("ctx"), nb::arg("image"),
              nb::arg("preset") = "", nb::arg("options") = nb::none(),
-             nb::call_guard<nb::gil_scoped_release>(),
-             nb::keep_alive<0, 2>())
+             nb::call_guard<nb::gil_scoped_release>(), nb::keep_alive<0, 2>())
         .def("__repr__", [](const HeifEncoder& self) {
             return "<pylibheif.HeifEncoder name='" + self.name() + "'>";
         });

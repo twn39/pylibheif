@@ -25,11 +25,12 @@ struct HeifColorProfileNclx {
           matrix_coefficients(heif_matrix_coefficients_unspecified),
           full_range_flag(false) {}
 
-    HeifColorProfileNclx(heif_color_primaries cp, heif_transfer_characteristics tc, heif_matrix_coefficients mc, bool fr)
+    HeifColorProfileNclx(heif_color_primaries cp, heif_transfer_characteristics tc,
+                         heif_matrix_coefficients mc, bool fr)
         : color_primaries(cp),
           transfer_characteristics(tc),
           matrix_coefficients(mc),
           full_range_flag(fr) {}
 };
 
-} // namespace pylibheif
+}  // namespace pylibheif

@@ -1,14 +1,16 @@
 #include <nanobind/nanobind.h>
 #include <nanobind/ndarray.h>
+#include <nanobind/stl/optional.h>
+#include <nanobind/stl/pair.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/vector.h>
-#include <nanobind/stl/pair.h>
-#include <nanobind/stl/optional.h>
-#include <cstring>
+
 #include <cmath>
-#include "image.hpp"
+#include <cstring>
+
 #include "color_profile.hpp"
 #include "context.hpp"
+#include "image.hpp"
 
 namespace nb = nanobind;
 
@@ -60,7 +62,8 @@ HeifImage from_numpy_rgb_impl(nb::ndarray<uint8_t, nb::ndim<3>, nb::c_contig> ar
     return img;
 }
 
-HeifImage from_numpy_rgb_16_impl(nb::ndarray<uint16_t, nb::ndim<3>, nb::c_contig> arr, int bit_depth) {
+HeifImage from_numpy_rgb_16_impl(nb::ndarray<uint16_t, nb::ndim<3>, nb::c_contig> arr,
+                                 int bit_depth) {
     if (arr.ndim() != 3) {
         throw std::invalid_argument("Array must be 3-dimensional (H, W, C)");
     }
@@ -105,7 +108,8 @@ HeifImage from_numpy_rgb_16_impl(nb::ndarray<uint16_t, nb::ndim<3>, nb::c_contig
         } else {
             // Copy row by row
             for (int y = 0; y < height; ++y) {
-                std::memcpy(dst + y * stride_elements, src + y * row_elements, row_elements * sizeof(uint16_t));
+                std::memcpy(dst + y * stride_elements, src + y * row_elements,
+                            row_elements * sizeof(uint16_t));
             }
         }
     }
@@ -120,7 +124,8 @@ nb::object get_image_plane_array(nb::handle self, heif_channel channel, bool wri
     if (writeable) {
         data = heif_image_get_plane(native_self.get(), channel, &stride);
     } else {
-        data = const_cast<uint8_t*>(heif_image_get_plane_readonly(native_self.get(), channel, &stride));
+        data = const_cast<uint8_t*>(
+            heif_image_get_plane_readonly(native_self.get(), channel, &stride));
     }
 
     if (!data) {
@@ -138,10 +143,12 @@ nb::object get_image_plane_array(nb::handle self, heif_channel channel, bool wri
 
     nb::object arr_obj;
     if (plane_layout.bytes_per_channel == 1) {
-        arr_obj = nb::cast(nb::ndarray<uint8_t, nb::numpy>(data, ndim, shape.data(), self, strides.data()));
+        arr_obj = nb::cast(
+            nb::ndarray<uint8_t, nb::numpy>(data, ndim, shape.data(), self, strides.data()));
     } else {
-        arr_obj = nb::cast(nb::ndarray<uint16_t, nb::numpy>(data, ndim, shape.data(), self, strides.data()));
-        
+        arr_obj = nb::cast(
+            nb::ndarray<uint16_t, nb::numpy>(data, ndim, shape.data(), self, strides.data()));
+
         std::string view_suffix = plane_layout.numpy_dtype_suffix();
         if (view_suffix != "u2") {
             arr_obj = arr_obj.attr("view")(view_suffix.c_str());
@@ -177,12 +184,15 @@ void bind_image(nb::module_& m) {
         .def_prop_ro("width", &HeifImageLayout::width)
         .def_prop_ro("height", &HeifImageLayout::height)
         .def("__repr__", [](const HeifImageLayout& self) {
-            return "<pylibheif.HeifImageLayout " + std::to_string(self.width()) + "x" + std::to_string(self.height()) + ">";
+            return "<pylibheif.HeifImageLayout " + std::to_string(self.width()) + "x" +
+                   std::to_string(self.height()) + ">";
         });
 
     nb::class_<HeifColorProfileNclx>(m, "HeifColorProfileNclx")
-        .def(nb::init<heif_color_primaries, heif_transfer_characteristics, heif_matrix_coefficients, bool>(),
-             nb::arg("color_primaries"), nb::arg("transfer_characteristics"), nb::arg("matrix_coefficients"), nb::arg("full_range_flag"))
+        .def(nb::init<heif_color_primaries, heif_transfer_characteristics, heif_matrix_coefficients,
+                      bool>(),
+             nb::arg("color_primaries"), nb::arg("transfer_characteristics"),
+             nb::arg("matrix_coefficients"), nb::arg("full_range_flag"))
         .def_rw("color_primaries", &HeifColorProfileNclx::color_primaries)
         .def_rw("transfer_characteristics", &HeifColorProfileNclx::transfer_characteristics)
         .def_rw("matrix_coefficients", &HeifColorProfileNclx::matrix_coefficients)
@@ -196,7 +206,8 @@ void bind_image(nb::module_& m) {
         .def_ro("color_primary_white_x", &HeifColorProfileNclx::color_primary_white_x)
         .def_ro("color_primary_white_y", &HeifColorProfileNclx::color_primary_white_y)
         .def("__repr__", [](const HeifColorProfileNclx& self) {
-            return "<pylibheif.HeifColorProfileNclx primaries=" + std::to_string(static_cast<int>(self.color_primaries)) +
+            return "<pylibheif.HeifColorProfileNclx primaries=" +
+                   std::to_string(static_cast<int>(self.color_primaries)) +
                    " transfer=" + std::to_string(static_cast<int>(self.transfer_characteristics)) +
                    " matrix=" + std::to_string(static_cast<int>(self.matrix_coefficients)) +
                    " full_range=" + (self.full_range_flag ? "True" : "False") + ">";
@@ -209,8 +220,7 @@ void bind_image(nb::module_& m) {
         .def_prop_ro("luma_bits_per_pixel", &HeifImageHandle::get_luma_bits_per_pixel)
         .def_prop_ro("chroma_bits_per_pixel", &HeifImageHandle::get_chroma_bits_per_pixel)
         .def("decode", &HeifImageHandle::decode, nb::arg("colorspace") = heif_colorspace_RGB,
-             nb::arg("chroma") = heif_chroma_interleaved_RGB,
-             nb::arg("options") = nullptr,
+             nb::arg("chroma") = heif_chroma_interleaved_RGB, nb::arg("options") = nullptr,
              nb::call_guard<nb::gil_scoped_release>())
         .def("get_auxiliary_image_ids", &HeifImageHandle::get_list_of_auxiliary_image_IDs,
              nb::arg("aux_key_mask") = 0)
@@ -219,30 +229,36 @@ void bind_image(nb::module_& m) {
         .def("get_metadata_block_ids", &HeifImageHandle::get_list_of_metadata_block_IDs,
              nb::arg("type_filter") = "")
         .def("get_metadata_block_type", &HeifImageHandle::get_metadata_block_type)
-        .def("get_metadata_block", [](HeifImageHandle& self, heif_item_id id) {
-            std::vector<uint8_t> block = self.get_metadata_block(id);
-            return nb::bytes(reinterpret_cast<const char*>(block.data()), block.size());
-        })
+        .def("get_metadata_block",
+             [](HeifImageHandle& self, heif_item_id id) {
+                 std::vector<uint8_t> block = self.get_metadata_block(id);
+                 return nb::bytes(reinterpret_cast<const char*>(block.data()), block.size());
+             })
         .def_prop_ro("color_profile_type", &HeifImageHandle::get_color_profile_type)
-        .def("get_raw_color_profile", [](HeifImageHandle& self) -> nb::object {
-            size_t size = heif_image_handle_get_raw_color_profile_size(self.get());
-            PyObject* py_bytes = PyBytes_FromStringAndSize(nullptr, size);
-            if (!py_bytes) {
-                throw std::bad_alloc();
-            }
-            if (size > 0) {
-                char* buffer = PyBytes_AS_STRING(py_bytes);
-                check_error(heif_image_handle_get_raw_color_profile(self.get(), buffer));
-            }
-            return nb::steal(py_bytes);
-        })
+        .def("get_raw_color_profile",
+             [](HeifImageHandle& self) -> nb::object {
+                 size_t size = heif_image_handle_get_raw_color_profile_size(self.get());
+                 PyObject* py_bytes = PyBytes_FromStringAndSize(nullptr, size);
+                 if (!py_bytes) {
+                     throw std::bad_alloc();
+                 }
+                 if (size > 0) {
+                     char* buffer = PyBytes_AS_STRING(py_bytes);
+                     check_error(heif_image_handle_get_raw_color_profile(self.get(), buffer));
+                 }
+                 return nb::steal(py_bytes);
+             })
         .def("get_nclx_color_profile", &HeifImageHandle::get_nclx_color_profile)
         .def_prop_ro("has_content_light_level", &HeifImageHandle::has_content_light_level)
-        .def_prop_ro("has_mastering_display_colour_volume", &HeifImageHandle::has_mastering_display_colour_volume)
-        .def_prop_ro("has_ambient_viewing_environment", &HeifImageHandle::has_ambient_viewing_environment)
+        .def_prop_ro("has_mastering_display_colour_volume",
+                     &HeifImageHandle::has_mastering_display_colour_volume)
+        .def_prop_ro("has_ambient_viewing_environment",
+                     &HeifImageHandle::has_ambient_viewing_environment)
         .def_prop_ro("content_light_level", &HeifImageHandle::get_content_light_level)
-        .def_prop_ro("mastering_display_colour_volume", &HeifImageHandle::get_mastering_display_colour_volume)
-        .def_prop_ro("ambient_viewing_environment", &HeifImageHandle::get_ambient_viewing_environment)
+        .def_prop_ro("mastering_display_colour_volume",
+                     &HeifImageHandle::get_mastering_display_colour_volume)
+        .def_prop_ro("ambient_viewing_environment",
+                     &HeifImageHandle::get_ambient_viewing_environment)
         .def("__repr__", [](const HeifImageHandle& self) {
             return "<pylibheif.HeifImageHandle " + std::to_string(self.get_width()) + "x" +
                    std::to_string(self.get_height()) +
@@ -250,11 +266,10 @@ void bind_image(nb::module_& m) {
         });
 
     nb::class_<HeifImage>(m, "HeifImage")
-        .def_static("from_numpy", &from_numpy_rgb_impl,
-                    nb::arg("arr"),
+        .def_static("from_numpy", &from_numpy_rgb_impl, nb::arg("arr"),
                     nb::sig("def from_numpy(arr: numpy.ndarray) -> HeifImage"))
-        .def_static("from_numpy", &from_numpy_rgb_16_impl,
-                    nb::arg("arr"), nb::arg("bit_depth") = 10,
+        .def_static("from_numpy", &from_numpy_rgb_16_impl, nb::arg("arr"),
+                    nb::arg("bit_depth") = 10,
                     nb::sig("def from_numpy(arr: numpy.ndarray, bit_depth: int = 10) -> HeifImage"))
         .def(nb::init<int, int, heif_colorspace, heif_chroma>())
         .def_prop_ro("width", nb::overload_cast<>(&HeifImage::get_width, nb::const_))
@@ -262,43 +277,58 @@ void bind_image(nb::module_& m) {
         .def("get_width", nb::overload_cast<heif_channel>(&HeifImage::get_width, nb::const_))
         .def("get_height", nb::overload_cast<heif_channel>(&HeifImage::get_height, nb::const_))
         .def("add_plane", &HeifImage::add_plane)
-        .def("get_plane", &get_image_plane_array,
-            nb::arg("channel"), nb::arg("writeable") = false,
-            nb::sig("def get_plane(self, channel: HeifChannel, writeable: bool = False) -> numpy.ndarray"))
+        .def("get_plane", &get_image_plane_array, nb::arg("channel"), nb::arg("writeable") = false,
+             nb::sig("def get_plane(self, channel: HeifChannel, writeable: bool = False) -> "
+                     "numpy.ndarray"))
         .def_prop_ro("color_profile_type", &HeifImage::get_color_profile_type)
-        .def("get_raw_color_profile", [](HeifImage& self) -> nb::object {
-            size_t size = heif_image_get_raw_color_profile_size(self.get());
-            PyObject* py_bytes = PyBytes_FromStringAndSize(nullptr, size);
-            if (!py_bytes) {
-                throw std::bad_alloc();
-            }
-            if (size > 0) {
-                char* buffer = PyBytes_AS_STRING(py_bytes);
-                check_error(heif_image_get_raw_color_profile(self.get(), buffer));
-            }
-            return nb::steal(py_bytes);
-        })
+        .def("get_raw_color_profile",
+             [](HeifImage& self) -> nb::object {
+                 size_t size = heif_image_get_raw_color_profile_size(self.get());
+                 PyObject* py_bytes = PyBytes_FromStringAndSize(nullptr, size);
+                 if (!py_bytes) {
+                     throw std::bad_alloc();
+                 }
+                 if (size > 0) {
+                     char* buffer = PyBytes_AS_STRING(py_bytes);
+                     check_error(heif_image_get_raw_color_profile(self.get(), buffer));
+                 }
+                 return nb::steal(py_bytes);
+             })
         .def("get_nclx_color_profile", &HeifImage::get_nclx_color_profile)
-        .def("set_raw_color_profile", [](HeifImage& self, const std::string& type, const nb::bytes& data) {
-            check_error(heif_image_set_raw_color_profile(self.get(), type.c_str(), data.c_str(), data.size()));
-        }, nb::arg("profile_type"), nb::arg("data"))
+        .def(
+            "set_raw_color_profile",
+            [](HeifImage& self, const std::string& type, const nb::bytes& data) {
+                check_error(heif_image_set_raw_color_profile(self.get(), type.c_str(), data.c_str(),
+                                                             data.size()));
+            },
+            nb::arg("profile_type"), nb::arg("data"))
         .def("set_nclx_color_profile", &HeifImage::set_nclx_color_profile, nb::arg("color_profile"))
         .def_prop_ro("has_content_light_level", &HeifImage::has_content_light_level)
-        .def_prop_ro("has_mastering_display_colour_volume", &HeifImage::has_mastering_display_colour_volume)
+        .def_prop_ro("has_mastering_display_colour_volume",
+                     &HeifImage::has_mastering_display_colour_volume)
         .def_prop_ro("has_ambient_viewing_environment", &HeifImage::has_ambient_viewing_environment)
-        .def_prop_rw("content_light_level",
+        .def_prop_rw(
+            "content_light_level",
             [](const HeifImage& self) { return self.get_content_light_level(); },
-            [](HeifImage& self, const HeifContentLightLevel& val) { self.set_content_light_level(val); })
-        .def_prop_rw("mastering_display_colour_volume",
+            [](HeifImage& self, const HeifContentLightLevel& val) {
+                self.set_content_light_level(val);
+            })
+        .def_prop_rw(
+            "mastering_display_colour_volume",
             [](const HeifImage& self) { return self.get_mastering_display_colour_volume(); },
-            [](HeifImage& self, const HeifMasteringDisplayColourVolume& val) { self.set_mastering_display_colour_volume(val); })
-        .def_prop_rw("ambient_viewing_environment",
+            [](HeifImage& self, const HeifMasteringDisplayColourVolume& val) {
+                self.set_mastering_display_colour_volume(val);
+            })
+        .def_prop_rw(
+            "ambient_viewing_environment",
             [](const HeifImage& self) { return self.get_ambient_viewing_environment(); },
-            [](HeifImage& self, const HeifAmbientViewingEnvironment& val) { self.set_ambient_viewing_environment(val); })
+            [](HeifImage& self, const HeifAmbientViewingEnvironment& val) {
+                self.set_ambient_viewing_environment(val);
+            })
         .def("__repr__", [](const HeifImage& self) {
             return "<pylibheif.HeifImage " + std::to_string(self.get_width()) + "x" +
                    std::to_string(self.get_height()) + ">";
         });
 }
 
-} // namespace pylibheif
+}  // namespace pylibheif
