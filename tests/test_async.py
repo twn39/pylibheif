@@ -102,4 +102,3 @@ class TestAsyncHeif:
         assert params["lossless"] is False
         params["lossless"] = True
         assert params["lossless"] is True
-

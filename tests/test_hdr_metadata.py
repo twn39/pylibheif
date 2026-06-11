@@ -9,7 +9,9 @@ import pylibheif
 
 def test_metadata_struct_init():
     # HeifContentLightLevel
-    cll = pylibheif.HeifContentLightLevel(max_content_light_level=1000, max_pic_average_light_level=400)
+    cll = pylibheif.HeifContentLightLevel(
+        max_content_light_level=1000, max_pic_average_light_level=400
+    )
     assert cll.max_content_light_level == 1000
     assert cll.max_pic_average_light_level == 400
 
@@ -25,7 +27,7 @@ def test_metadata_struct_init():
         blue_primary=(0.150, 0.060),
         white_point=(0.3127, 0.3290),
         max_luminance=1000.0,
-        min_luminance=0.005
+        min_luminance=0.005,
     )
     assert pytest.approx(mdcv.red_primary[0], abs=1e-6) == 0.680
     assert pytest.approx(mdcv.red_primary[1], abs=1e-6) == 0.320
@@ -40,8 +42,7 @@ def test_metadata_struct_init():
 
     # HeifAmbientViewingEnvironment
     amve = pylibheif.HeifAmbientViewingEnvironment(
-        ambient_illumination=314.15,
-        ambient_light=(0.3127, 0.3290)
+        ambient_illumination=314.15, ambient_light=(0.3127, 0.3290)
     )
     assert amve.ambient_illumination == 314.15
     assert pytest.approx(amve.ambient_light[0], abs=1e-6) == 0.3127
@@ -50,13 +51,15 @@ def test_metadata_struct_init():
 
 def test_image_metadata_get_set():
     width, height = 64, 64
-    img = pylibheif.HeifImage(width, height, pylibheif.HeifColorspace.RGB, pylibheif.HeifChroma.InterleavedRGB)
-    
+    img = pylibheif.HeifImage(
+        width, height, pylibheif.HeifColorspace.RGB, pylibheif.HeifChroma.InterleavedRGB
+    )
+
     # 1. Verify default state (no metadata)
     assert not img.has_content_light_level
     assert not img.has_mastering_display_colour_volume
     assert not img.has_ambient_viewing_environment
-    
+
     assert img.content_light_level is None
     assert img.mastering_display_colour_volume is None
     assert img.ambient_viewing_environment is None
@@ -77,7 +80,7 @@ def test_image_metadata_get_set():
         blue_primary=(0.150, 0.060),
         white_point=(0.3127, 0.3290),
         max_luminance=1000.0,
-        min_luminance=0.005
+        min_luminance=0.005,
     )
     img.mastering_display_colour_volume = mdcv
     assert img.has_mastering_display_colour_volume
@@ -98,8 +101,7 @@ def test_image_metadata_get_set():
 
     # 4. Ambient Viewing Environment (AMVE)
     amve = pylibheif.HeifAmbientViewingEnvironment(
-        ambient_illumination=315.5,
-        ambient_light=(0.3127, 0.3290)
+        ambient_illumination=315.5, ambient_light=(0.3127, 0.3290)
     )
     img.ambient_viewing_environment = amve
     assert img.has_ambient_viewing_environment
@@ -113,7 +115,9 @@ def test_image_metadata_get_set():
 def test_hdr_metadata_roundtrip():
     # Create an image and set HDR metadata
     width, height = 64, 64
-    img = pylibheif.HeifImage(width, height, pylibheif.HeifColorspace.RGB, pylibheif.HeifChroma.InterleavedRGB)
+    img = pylibheif.HeifImage(
+        width, height, pylibheif.HeifColorspace.RGB, pylibheif.HeifChroma.InterleavedRGB
+    )
     img.add_plane(pylibheif.HeifChannel.Interleaved, width, height, 8)
     plane = img.get_plane(pylibheif.HeifChannel.Interleaved, True)
     arr = np.asarray(plane)
@@ -126,11 +130,10 @@ def test_hdr_metadata_roundtrip():
         blue_primary=(0.150, 0.060),
         white_point=(0.3127, 0.3290),
         max_luminance=1000.0,
-        min_luminance=0.005
+        min_luminance=0.005,
     )
     amve = pylibheif.HeifAmbientViewingEnvironment(
-        ambient_illumination=314.0,
-        ambient_light=(0.3127, 0.3290)
+        ambient_illumination=314.0, ambient_light=(0.3127, 0.3290)
     )
 
     img.content_light_level = cll
@@ -195,23 +198,25 @@ def test_hdr_metadata_roundtrip():
 async def test_async_hdr_metadata():
     # Read/write via Async wrapper
     width, height = 64, 64
-    img = pylibheif.HeifImage(width, height, pylibheif.HeifColorspace.RGB, pylibheif.HeifChroma.InterleavedRGB)
+    img = pylibheif.HeifImage(
+        width, height, pylibheif.HeifColorspace.RGB, pylibheif.HeifChroma.InterleavedRGB
+    )
     img.add_plane(pylibheif.HeifChannel.Interleaved, width, height, 8)
-    
+
     cll = pylibheif.HeifContentLightLevel(800, 300)
     img.content_light_level = cll
 
     ctx = pylibheif.AsyncHeifContext()
     encoder = pylibheif.AsyncHeifEncoder(pylibheif.HeifCompressionFormat.HEVC)
     await encoder.encode_image(ctx, img)
-    
+
     data = await ctx.write_to_bytes()
-    
+
     # Read back async
     ctx2 = pylibheif.AsyncHeifContext()
     await ctx2.read_from_memory(data)
     handle = ctx2.get_primary_image_handle()
-    
+
     assert handle.has_content_light_level
     h_cll = handle.content_light_level
     assert h_cll is not None

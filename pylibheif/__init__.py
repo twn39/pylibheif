@@ -108,12 +108,16 @@ class HeifEncoderParametersProxy:
     def _encoder(self) -> HeifEncoder:
         enc = self._encoder_ref()
         if enc is None:
-            raise ReferenceError("The underlying HeifEncoder has been garbage collected")
+            raise ReferenceError(
+                "The underlying HeifEncoder has been garbage collected"
+            )
         return enc
 
     def __getitem__(self, name: str):
         if name not in self._metadata:
-            raise KeyError(f"Parameter '{name}' not found on encoder '{self._encoder.name}'")
+            raise KeyError(
+                f"Parameter '{name}' not found on encoder '{self._encoder.name}'"
+            )
         param = self._metadata[name]
         if param.type == HeifEncoderParameterType.Integer:
             return self._encoder.get_integer_parameter(name)
@@ -130,33 +134,45 @@ class HeifEncoderParametersProxy:
             if ":" in name:
                 self._encoder.set_parameter(name, str(value))
                 return
-            raise KeyError(f"Parameter '{name}' not found on encoder '{self._encoder.name}'")
+            raise KeyError(
+                f"Parameter '{name}' not found on encoder '{self._encoder.name}'"
+            )
 
         param = self._metadata[name]
         if param.type == HeifEncoderParameterType.Integer:
             if not isinstance(value, (int, float)):
-                raise TypeError(f"Parameter '{name}' requires an integer value, got {type(value)}")
+                raise TypeError(
+                    f"Parameter '{name}' requires an integer value, got {type(value)}"
+                )
             int_val = int(value)
             # Validate ranges/values if they exist
             if param.valid_integer_range is not None:
                 min_v, max_v = param.valid_integer_range
                 if not (min_v <= int_val <= max_v):
-                    raise ValueError(f"Value {int_val} for parameter '{name}' is out of range [{min_v}, {max_v}]")
+                    raise ValueError(
+                        f"Value {int_val} for parameter '{name}' is out of range [{min_v}, {max_v}]"
+                    )
             if param.valid_integer_values is not None:
                 if int_val not in param.valid_integer_values:
-                    raise ValueError(f"Value {int_val} for parameter '{name}' is not in valid values {param.valid_integer_values}")
+                    raise ValueError(
+                        f"Value {int_val} for parameter '{name}' is not in valid values {param.valid_integer_values}"
+                    )
             self._encoder.set_integer_parameter(name, int_val)
 
         elif param.type == HeifEncoderParameterType.Boolean:
             if not isinstance(value, bool):
-                raise TypeError(f"Parameter '{name}' requires a boolean value, got {type(value)}")
+                raise TypeError(
+                    f"Parameter '{name}' requires a boolean value, got {type(value)}"
+                )
             self._encoder.set_boolean_parameter(name, value)
 
         elif param.type == HeifEncoderParameterType.String:
             str_val = str(value)
             if param.valid_string_values is not None:
                 if str_val not in param.valid_string_values:
-                    raise ValueError(f"Value '{str_val}' for parameter '{name}' is not in valid values {param.valid_string_values}")
+                    raise ValueError(
+                        f"Value '{str_val}' for parameter '{name}' is not in valid values {param.valid_string_values}"
+                    )
             self._encoder.set_string_parameter(name, str_val)
 
     def __contains__(self, name: str) -> bool:
@@ -185,6 +201,7 @@ class HeifEncoderParametersProxy:
 _encoder_parameters_cache = weakref.WeakKeyDictionary()
 _encoder_parameters_lock = threading.Lock()
 
+
 def _get_encoder_parameters(encoder: HeifEncoder) -> HeifEncoderParametersProxy:
     try:
         with _encoder_parameters_lock:
@@ -195,8 +212,8 @@ def _get_encoder_parameters(encoder: HeifEncoder) -> HeifEncoderParametersProxy:
         # Fallback if not weak-referenceable
         return HeifEncoderParametersProxy(encoder)
 
-HeifEncoder.parameters = property(_get_encoder_parameters)
 
+HeifEncoder.parameters = property(_get_encoder_parameters)  # type: ignore
 
 
 class AsyncHeifImageHandle:
@@ -245,7 +262,9 @@ class AsyncHeifImageHandle:
         return self._handle.content_light_level
 
     @property
-    def mastering_display_colour_volume(self) -> Optional[HeifMasteringDisplayColourVolume]:
+    def mastering_display_colour_volume(
+        self,
+    ) -> Optional[HeifMasteringDisplayColourVolume]:
         return self._handle.mastering_display_colour_volume
 
     @property
@@ -386,7 +405,9 @@ class AsyncHeifEncoder:
     ) -> HeifImageHandle:
         """Asynchronously encode image."""
         ctx = context._ctx if isinstance(context, AsyncHeifContext) else context
-        return await asyncio.to_thread(self._encoder.encode_image, ctx, image, preset, options)
+        return await asyncio.to_thread(
+            self._encoder.encode_image, ctx, image, preset, options
+        )
 
     def set_lossy_quality(self, quality: int) -> None:
         self._encoder.set_lossy_quality(quality)
@@ -404,4 +425,3 @@ class AsyncHeifEncoder:
     @property
     def parameters(self) -> HeifEncoderParametersProxy:
         return self._encoder.parameters
-

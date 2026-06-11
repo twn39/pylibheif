@@ -2,7 +2,10 @@
 
 import enum
 import numpy
-from typing import overload
+from typing import overload, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pylibheif import HeifEncoderParametersProxy
 
 class HeifErrorCode(enum.Enum):
     Ok = 0
@@ -242,6 +245,30 @@ class HeifColorProfileNclx:
 class HeifError(Exception):
     pass
 
+class HeifInputDoesNotExistError(HeifError):
+    pass
+
+class HeifInvalidInputError(HeifError):
+    pass
+
+class HeifUnsupportedFiletypeError(HeifError):
+    pass
+
+class HeifUnsupportedFeatureError(HeifError):
+    pass
+
+class HeifUsageError(HeifError):
+    pass
+
+class HeifMemoryAllocationError(HeifError):
+    pass
+
+class HeifEncodingError(HeifError):
+    pass
+
+class HeifColorProfileDoesNotExistError(HeifError):
+    pass
+
 class HeifContentLightLevel:
     max_content_light_level: int
     max_pic_average_light_level: int
@@ -270,7 +297,9 @@ class HeifAmbientViewingEnvironment:
     ambient_illumination: float
     ambient_light: tuple[float, float]
     def __init__(
-        self, ambient_illumination: float = 0.0, ambient_light: tuple[float, float] = (0.0, 0.0)
+        self,
+        ambient_illumination: float = 0.0,
+        ambient_light: tuple[float, float] = (0.0, 0.0),
     ) -> None: ...
 
 class HeifDecodingOptions:
@@ -379,7 +408,9 @@ class HeifImageHandle:
     @property
     def content_light_level(self) -> HeifContentLightLevel | None: ...
     @property
-    def mastering_display_colour_volume(self) -> HeifMasteringDisplayColourVolume | None: ...
+    def mastering_display_colour_volume(
+        self,
+    ) -> HeifMasteringDisplayColourVolume | None: ...
     @property
     def ambient_viewing_environment(self) -> HeifAmbientViewingEnvironment | None: ...
 
@@ -406,7 +437,9 @@ class HeifImage:
     def get_raw_color_profile(self) -> bytes: ...
     def get_nclx_color_profile(self) -> HeifColorProfileNclx | None: ...
     def set_raw_color_profile(self, profile_type: str, data: bytes, /) -> None: ...
-    def set_nclx_color_profile(self, color_profile: HeifColorProfileNclx, /) -> None: ...
+    def set_nclx_color_profile(
+        self, color_profile: HeifColorProfileNclx, /
+    ) -> None: ...
     @property
     def has_content_light_level(self) -> bool: ...
     @property
@@ -418,13 +451,46 @@ class HeifImage:
     @content_light_level.setter
     def content_light_level(self, value: HeifContentLightLevel) -> None: ...
     @property
-    def mastering_display_colour_volume(self) -> HeifMasteringDisplayColourVolume | None: ...
+    def mastering_display_colour_volume(
+        self,
+    ) -> HeifMasteringDisplayColourVolume | None: ...
     @mastering_display_colour_volume.setter
-    def mastering_display_colour_volume(self, value: HeifMasteringDisplayColourVolume) -> None: ...
+    def mastering_display_colour_volume(
+        self, value: HeifMasteringDisplayColourVolume
+    ) -> None: ...
     @property
     def ambient_viewing_environment(self) -> HeifAmbientViewingEnvironment | None: ...
     @ambient_viewing_environment.setter
-    def ambient_viewing_environment(self, value: HeifAmbientViewingEnvironment) -> None: ...
+    def ambient_viewing_environment(
+        self, value: HeifAmbientViewingEnvironment
+    ) -> None: ...
+
+class HeifPlaneLayout:
+    channel: HeifChannel
+    width: int
+    height: int
+    stride_bytes: int
+    num_channels: int
+    bits_per_pixel: int
+    bytes_per_channel: int
+    is_big_endian: bool
+    def shape(self) -> list[int]: ...
+    def strides(self) -> list[int]: ...
+
+class HeifImageLayout:
+    @staticmethod
+    def from_image(img: HeifImage) -> HeifImageLayout: ...
+    def get_plane_layout(
+        self, channel: HeifChannel, stride_bytes: int, bits_per_pixel: int
+    ) -> HeifPlaneLayout: ...
+    @property
+    def colorspace(self) -> HeifColorspace: ...
+    @property
+    def chroma(self) -> HeifChroma: ...
+    @property
+    def width(self) -> int: ...
+    @property
+    def height(self) -> int: ...
 
 class HeifEncoderDescriptor:
     @property
@@ -463,6 +529,8 @@ class HeifEncoderParameter:
 class HeifEncoder:
     @overload
     def __init__(self, arg: HeifCompressionFormat, /) -> None: ...
+    @property
+    def parameters(self) -> HeifEncoderParametersProxy: ...
     @overload
     def __init__(self, arg: HeifEncoderDescriptor, /) -> None: ...
     @property
@@ -479,10 +547,12 @@ class HeifEncoder:
     def get_string_parameter(self, name: str, /) -> str: ...
     def _list_parameters(self) -> list[HeifEncoderParameter]: ...
     def encode_image(
-        self, ctx: HeifContext, image: HeifImage, preset: str = "", options: HeifEncodingOptions | None = None
+        self,
+        ctx: HeifContext,
+        image: HeifImage,
+        preset: str = "",
+        options: HeifEncodingOptions | None = None,
     ) -> HeifImageHandle: ...
-
 
 AUX_IMAGE_FILTER_OMIT_ALPHA: int
 AUX_IMAGE_FILTER_OMIT_DEPTH: int
-

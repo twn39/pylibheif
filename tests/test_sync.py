@@ -478,7 +478,9 @@ class TestEncoding:
 
         # 2. 验证元数据与默认值
         # 至少要包含 lossless 参数
-        lossless_param = next((p for p in params.values() if p.name == "lossless"), None)
+        lossless_param = next(
+            (p for p in params.values() if p.name == "lossless"), None
+        )
         assert lossless_param is not None
         assert lossless_param.type == pylibheif.HeifEncoderParameterType.Boolean
         assert lossless_param.has_default is True
@@ -496,7 +498,14 @@ class TestEncoding:
         assert params["lossless"] is False
 
         # 验证整数参数的约束校验
-        int_param = next((p for p in params.values() if p.type == pylibheif.HeifEncoderParameterType.Integer), None)
+        int_param = next(
+            (
+                p
+                for p in params.values()
+                if p.type == pylibheif.HeifEncoderParameterType.Integer
+            ),
+            None,
+        )
         if int_param:
             name = int_param.name
             original_val = params[name]
@@ -518,7 +527,9 @@ class TestEncoding:
 
         # 4. 验证前缀透传参数（当 x265 编码器可用时进行真实赋值路由测试，否则仅验证 contains 判定）
         assert "any_prefix:dummy" in params
-        descriptors = pylibheif.get_encoder_descriptors(pylibheif.HeifCompressionFormat.HEVC)
+        descriptors = pylibheif.get_encoder_descriptors(
+            pylibheif.HeifCompressionFormat.HEVC
+        )
         x265_desc = next((d for d in descriptors if "x265" in d.id_name.lower()), None)
         if x265_desc:
             if "x265" not in encoder.name.lower():
@@ -531,7 +542,6 @@ class TestEncoding:
 
 
 class TestRoundTrip:
-
     """测试编码-解码往返"""
 
     def create_test_image(self, width=100, height=100):
@@ -992,7 +1002,7 @@ class TestEncoderWeakrefAndCache:
         import pylibheif
 
         encoder = pylibheif.HeifEncoder(pylibheif.HeifCompressionFormat.HEVC)
-        
+
         # 第一次访问
         params1 = encoder.parameters
         # 第二次访问
@@ -1035,7 +1045,9 @@ class TestEncoderWeakrefAndCache:
             try:
                 for _ in range(50):
                     # 每个线程独立实例化编码器
-                    encoder = pylibheif.HeifEncoder(pylibheif.HeifCompressionFormat.HEVC)
+                    encoder = pylibheif.HeifEncoder(
+                        pylibheif.HeifCompressionFormat.HEVC
+                    )
                     params = encoder.parameters
                     # 读写属性，触发缓存提取与字典更新
                     assert "lossless" in params
@@ -1093,7 +1105,9 @@ class TestImageLayoutEngine:
         img.add_plane(pylibheif.HeifChannel.Interleaved, width, height, 8)
 
         layout = pylibheif.HeifImageLayout.from_image(img)
-        plane_layout = layout.get_plane_layout(pylibheif.HeifChannel.Interleaved, width * 3, 8)
+        plane_layout = layout.get_plane_layout(
+            pylibheif.HeifChannel.Interleaved, width * 3, 8
+        )
 
         assert isinstance(plane_layout, pylibheif.HeifPlaneLayout)
         assert plane_layout.channel == pylibheif.HeifChannel.Interleaved
@@ -1121,7 +1135,9 @@ class TestImageLayoutEngine:
 
         layout = pylibheif.HeifImageLayout.from_image(img)
         # stride is in bytes, 120 * 3 channels * 2 bytes/channel = 720
-        plane_layout = layout.get_plane_layout(pylibheif.HeifChannel.Interleaved, 720, 16)
+        plane_layout = layout.get_plane_layout(
+            pylibheif.HeifChannel.Interleaved, 720, 16
+        )
 
         assert plane_layout.num_channels == 3
         assert plane_layout.bits_per_pixel == 16

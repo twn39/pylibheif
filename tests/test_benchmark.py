@@ -69,7 +69,7 @@ class TestBenchmarks:
             return handle.decode(
                 pylibheif.HeifColorspace.RGB,
                 pylibheif.HeifChroma.InterleavedRGB,
-                options=opts
+                options=opts,
             )
 
         benchmark(_decode)
