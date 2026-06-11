@@ -354,4 +354,53 @@ void HeifImage::set_nclx_color_profile(const HeifColorProfileNclx& color_profile
     check_error(err);
 }
 
+HeifImageLayout HeifImageLayout::from_image(const heif_image* img) {
+    heif_colorspace colorspace = heif_image_get_colorspace(img);
+    heif_chroma chroma = heif_image_get_chroma_format(img);
+    int width = heif_image_get_primary_width(img);
+    int height = heif_image_get_primary_height(img);
+    return HeifImageLayout(colorspace, chroma, width, height);
+}
+
+HeifImageLayout HeifImageLayout::from_image(const HeifImage& img) {
+    return from_image(img.get());
+}
+
+HeifPlaneLayout HeifImageLayout::get_plane_layout(heif_channel channel, int stride_bytes, int bits_per_pixel) const {
+    HeifPlaneLayout layout;
+    layout.channel = channel;
+    layout.stride_bytes = stride_bytes;
+    layout.bits_per_pixel = bits_per_pixel;
+    layout.bytes_per_channel = (bits_per_pixel + 7) / 8;
+
+    layout.width = m_width;
+    layout.height = m_height;
+    if (channel == heif_channel_Cb || channel == heif_channel_Cr) {
+        if (m_chroma == heif_chroma_420) {
+            layout.width = (m_width + 1) / 2;
+            layout.height = (m_height + 1) / 2;
+        } else if (m_chroma == heif_chroma_422) {
+            layout.width = (m_width + 1) / 2;
+        }
+    }
+
+    layout.num_channels = 1;
+    if (channel == heif_channel_interleaved) {
+        if (m_chroma == heif_chroma_interleaved_RGB ||
+            m_chroma == heif_chroma_interleaved_RRGGBB_BE ||
+            m_chroma == heif_chroma_interleaved_RRGGBB_LE) {
+            layout.num_channels = 3;
+        } else if (m_chroma == heif_chroma_interleaved_RGBA ||
+                   m_chroma == heif_chroma_interleaved_RRGGBBAA_BE ||
+                   m_chroma == heif_chroma_interleaved_RRGGBBAA_LE) {
+            layout.num_channels = 4;
+        }
+    }
+
+    layout.is_big_endian = (m_chroma == heif_chroma_interleaved_RRGGBB_BE ||
+                            m_chroma == heif_chroma_interleaved_RRGGBBAA_BE);
+
+    return layout;
+}
+
 }  // namespace pylibheif

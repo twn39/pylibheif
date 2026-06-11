@@ -36,6 +36,8 @@ from ._pylibheif import (
     AUX_IMAGE_FILTER_OMIT_DEPTH,
     HeifEncoderParameter,
     HeifEncoderParameterType,
+    HeifPlaneLayout,
+    HeifImageLayout,
     __doc__,
 )
 
@@ -84,6 +86,8 @@ __all__ = [
     "AUX_IMAGE_FILTER_OMIT_DEPTH",
     "HeifEncoderParameter",
     "HeifEncoderParameterType",
+    "HeifPlaneLayout",
+    "HeifImageLayout",
     "HeifEncoderParametersProxy",
     "AsyncHeifContext",
     "AsyncHeifImageHandle",

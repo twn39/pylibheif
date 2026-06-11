@@ -1056,5 +1056,81 @@ class TestEncoderWeakrefAndCache:
         assert len(errors) == 0, f"Multithreading test failed with errors: {errors}"
 
 
+class TestImageLayoutEngine:
+    """测试解耦后的图像和通道物理平面布局引擎"""
+
+    def test_image_layout_from_image(self):
+        import pylibheif
+
+        width, height = 120, 80
+        img = pylibheif.HeifImage(
+            width,
+            height,
+            pylibheif.HeifColorspace.RGB,
+            pylibheif.HeifChroma.InterleavedRGB,
+        )
+        img.add_plane(pylibheif.HeifChannel.Interleaved, width, height, 8)
+
+        # 验证从 HeifImage 构建 layout
+        layout = pylibheif.HeifImageLayout.from_image(img)
+        assert layout is not None
+        assert isinstance(layout, pylibheif.HeifImageLayout)
+        assert layout.width == width
+        assert layout.height == height
+        assert layout.colorspace == pylibheif.HeifColorspace.RGB
+        assert layout.chroma == pylibheif.HeifChroma.InterleavedRGB
+
+    def test_plane_layout_properties_8bit(self):
+        import pylibheif
+
+        width, height = 120, 80
+        img = pylibheif.HeifImage(
+            width,
+            height,
+            pylibheif.HeifColorspace.RGB,
+            pylibheif.HeifChroma.InterleavedRGB,
+        )
+        img.add_plane(pylibheif.HeifChannel.Interleaved, width, height, 8)
+
+        layout = pylibheif.HeifImageLayout.from_image(img)
+        plane_layout = layout.get_plane_layout(pylibheif.HeifChannel.Interleaved, width * 3, 8)
+
+        assert isinstance(plane_layout, pylibheif.HeifPlaneLayout)
+        assert plane_layout.channel == pylibheif.HeifChannel.Interleaved
+        assert plane_layout.width == width
+        assert plane_layout.height == height
+        assert plane_layout.stride_bytes == width * 3
+        assert plane_layout.num_channels == 3
+        assert plane_layout.bits_per_pixel == 8
+        assert plane_layout.bytes_per_channel == 1
+        assert plane_layout.is_big_endian is False
+        assert plane_layout.shape() == [height, width, 3]
+        assert plane_layout.strides() == [width * 3, 3, 1]
+
+    def test_plane_layout_properties_16bit(self):
+        import pylibheif
+
+        width, height = 120, 80
+        img = pylibheif.HeifImage(
+            width,
+            height,
+            pylibheif.HeifColorspace.RGB,
+            pylibheif.HeifChroma.InterleavedRRGGBB_BE,
+        )
+        img.add_plane(pylibheif.HeifChannel.Interleaved, width, height, 16)
+
+        layout = pylibheif.HeifImageLayout.from_image(img)
+        # stride is in bytes, 120 * 3 channels * 2 bytes/channel = 720
+        plane_layout = layout.get_plane_layout(pylibheif.HeifChannel.Interleaved, 720, 16)
+
+        assert plane_layout.num_channels == 3
+        assert plane_layout.bits_per_pixel == 16
+        assert plane_layout.bytes_per_channel == 2
+        assert plane_layout.is_big_endian is True
+        assert plane_layout.shape() == [height, width, 3]
+        # stride element count = 720 / 2 = 360
+        assert plane_layout.strides() == [360, 3, 1]
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

@@ -150,7 +150,65 @@ class HeifEncodingOptions {
     }
 
    private:
-    heif_encoding_options* options = nullptr;
+     heif_encoding_options* options = nullptr;
+};
+
+struct HeifPlaneLayout {
+    heif_channel channel;
+    int width;
+    int height;
+    int stride_bytes;
+    int num_channels;
+    int bits_per_pixel;
+    size_t bytes_per_channel;
+    bool is_big_endian;
+
+    std::vector<size_t> shape() const {
+        if (num_channels > 1) {
+            return { static_cast<size_t>(height), static_cast<size_t>(width), static_cast<size_t>(num_channels) };
+        }
+        return { static_cast<size_t>(height), static_cast<size_t>(width) };
+    }
+
+    std::vector<int64_t> strides() const {
+        int64_t elem_stride = stride_bytes / bytes_per_channel;
+        if (num_channels > 1) {
+            return { elem_stride, num_channels, 1 };
+        }
+        return { elem_stride, 1 };
+    }
+
+    std::string numpy_dtype_suffix() const {
+        if (bytes_per_channel == 1) return "u1";
+        const union { uint32_t i; uint8_t c[4]; } endian_test = { 0x01020304 };
+        const bool host_is_little = (endian_test.c[0] == 4);
+        if (host_is_little == is_big_endian) {
+            return is_big_endian ? ">u2" : "<u2";
+        }
+        return "u2";
+    }
+};
+
+class HeifImageLayout {
+public:
+    static HeifImageLayout from_image(const heif_image* img);
+    static HeifImageLayout from_image(const HeifImage& img);
+
+    HeifImageLayout(heif_colorspace colorspace, heif_chroma chroma, int width, int height)
+        : m_colorspace(colorspace), m_chroma(chroma), m_width(width), m_height(height) {}
+
+    HeifPlaneLayout get_plane_layout(heif_channel channel, int stride_bytes, int bits_per_pixel) const;
+
+    heif_colorspace colorspace() const { return m_colorspace; }
+    heif_chroma chroma() const { return m_chroma; }
+    int width() const { return m_width; }
+    int height() const { return m_height; }
+
+private:
+    heif_colorspace m_colorspace;
+    heif_chroma m_chroma;
+    int m_width;
+    int m_height;
 };
 
 class HeifImageHandle {

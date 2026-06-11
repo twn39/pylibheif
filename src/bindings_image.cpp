@@ -115,7 +115,7 @@ HeifImage from_numpy_rgb_16_impl(nb::ndarray<uint16_t, nb::ndim<3>, nb::c_contig
 
 nb::object get_image_plane_array(nb::handle self, heif_channel channel, bool writeable) {
     auto& native_self = nb::cast<HeifImage&>(self);
-    int stride;
+    int stride = 0;
     uint8_t* data;
     if (writeable) {
         data = heif_image_get_plane(native_self.get(), channel, &stride);
@@ -127,66 +127,24 @@ nb::object get_image_plane_array(nb::handle self, heif_channel channel, bool wri
         throw std::runtime_error("Failed to get image plane data");
     }
 
-    int width = heif_image_get_width(native_self.get(), channel);
-    int height = heif_image_get_height(native_self.get(), channel);
     int bpp_per_channel = heif_image_get_bits_per_pixel_range(native_self.get(), channel);
 
-    // Determine number of channels for interleaved formats
-    int num_channels = 1;
-    heif_chroma chroma = heif_image_get_chroma_format(native_self.get());
-    if (chroma == heif_chroma_interleaved_RGB ||
-        chroma == heif_chroma_interleaved_RRGGBB_BE ||
-        chroma == heif_chroma_interleaved_RRGGBB_LE) {
-        num_channels = 3;
-    } else if (chroma == heif_chroma_interleaved_RGBA ||
-               chroma == heif_chroma_interleaved_RRGGBBAA_BE ||
-               chroma == heif_chroma_interleaved_RRGGBBAA_LE) {
-        num_channels = 4;
-    }
+    HeifImageLayout img_layout = HeifImageLayout::from_image(native_self.get());
+    HeifPlaneLayout plane_layout = img_layout.get_plane_layout(channel, stride, bpp_per_channel);
 
-    size_t bytes_per_channel = (bpp_per_channel + 7) / 8;
-    int64_t elem_stride = stride / bytes_per_channel;
-
-    size_t shape[3] = {(size_t)height, (size_t)width, (size_t)num_channels};
-    int64_t strides[3] = {elem_stride, num_channels, 1};
+    std::vector<size_t> shape = plane_layout.shape();
+    std::vector<int64_t> strides = plane_layout.strides();
+    size_t ndim = shape.size();
 
     nb::object arr_obj;
-    if (num_channels > 1) {
-        // Interleaved format: return 3D array (height, width, channels)
-        if (bytes_per_channel == 1) {
-            arr_obj = nb::cast(nb::ndarray<uint8_t, nb::numpy>(data, 3, shape, self, strides));
-        } else {
-            arr_obj = nb::cast(nb::ndarray<uint16_t, nb::numpy>(data, 3, shape, self, strides));
-        }
+    if (plane_layout.bytes_per_channel == 1) {
+        arr_obj = nb::cast(nb::ndarray<uint8_t, nb::numpy>(data, ndim, shape.data(), self, strides.data()));
     } else {
-        // Single channel: return 2D array (height, width)
-        if (bytes_per_channel == 1) {
-            arr_obj = nb::cast(nb::ndarray<uint8_t, nb::numpy>(data, 2, shape, self, strides));
-        } else {
-            arr_obj = nb::cast(nb::ndarray<uint16_t, nb::numpy>(data, 2, shape, self, strides));
-        }
-    }
-
-    if (bytes_per_channel > 1) {
-        bool is_be_format = (chroma == heif_chroma_interleaved_RRGGBB_BE ||
-                             chroma == heif_chroma_interleaved_RRGGBBAA_BE);
-        bool is_le_format = (chroma == heif_chroma_interleaved_RRGGBB_LE ||
-                             chroma == heif_chroma_interleaved_RRGGBBAA_LE);
-
-        const union {
-            uint32_t i;
-            uint8_t c[4];
-        } endian_test = {0x01020304};
-        const bool is_little_endian = (endian_test.c[0] == 4);
-
-        if (is_little_endian) {
-            if (is_be_format) {
-                arr_obj = arr_obj.attr("view")(">u2");
-            }
-        } else {
-            if (is_le_format) {
-                arr_obj = arr_obj.attr("view")("<u2");
-            }
+        arr_obj = nb::cast(nb::ndarray<uint16_t, nb::numpy>(data, ndim, shape.data(), self, strides.data()));
+        
+        std::string view_suffix = plane_layout.numpy_dtype_suffix();
+        if (view_suffix != "u2") {
+            arr_obj = arr_obj.attr("view")(view_suffix.c_str());
         }
     }
 
@@ -194,6 +152,34 @@ nb::object get_image_plane_array(nb::handle self, heif_channel channel, bool wri
 }
 
 void bind_image(nb::module_& m) {
+    nb::class_<HeifPlaneLayout>(m, "HeifPlaneLayout")
+        .def_ro("channel", &HeifPlaneLayout::channel)
+        .def_ro("width", &HeifPlaneLayout::width)
+        .def_ro("height", &HeifPlaneLayout::height)
+        .def_ro("stride_bytes", &HeifPlaneLayout::stride_bytes)
+        .def_ro("num_channels", &HeifPlaneLayout::num_channels)
+        .def_ro("bits_per_pixel", &HeifPlaneLayout::bits_per_pixel)
+        .def_ro("bytes_per_channel", &HeifPlaneLayout::bytes_per_channel)
+        .def_ro("is_big_endian", &HeifPlaneLayout::is_big_endian)
+        .def("shape", &HeifPlaneLayout::shape)
+        .def("strides", &HeifPlaneLayout::strides)
+        .def("__repr__", [](const HeifPlaneLayout& self) {
+            return "<pylibheif.HeifPlaneLayout width=" + std::to_string(self.width) +
+                   " height=" + std::to_string(self.height) +
+                   " channels=" + std::to_string(self.num_channels) + ">";
+        });
+
+    nb::class_<HeifImageLayout>(m, "HeifImageLayout")
+        .def_static("from_image", nb::overload_cast<const HeifImage&>(&HeifImageLayout::from_image))
+        .def("get_plane_layout", &HeifImageLayout::get_plane_layout)
+        .def_prop_ro("colorspace", &HeifImageLayout::colorspace)
+        .def_prop_ro("chroma", &HeifImageLayout::chroma)
+        .def_prop_ro("width", &HeifImageLayout::width)
+        .def_prop_ro("height", &HeifImageLayout::height)
+        .def("__repr__", [](const HeifImageLayout& self) {
+            return "<pylibheif.HeifImageLayout " + std::to_string(self.width()) + "x" + std::to_string(self.height()) + ">";
+        });
+
     nb::class_<HeifColorProfileNclx>(m, "HeifColorProfileNclx")
         .def(nb::init<heif_color_primaries, heif_transfer_characteristics, heif_matrix_coefficients, bool>(),
              nb::arg("color_primaries"), nb::arg("transfer_characteristics"), nb::arg("matrix_coefficients"), nb::arg("full_range_flag"))
