@@ -35,7 +35,7 @@ def test_large_image_memory_limits():
 
 
 def test_read_from_memory_repeated():
-    """Test 3: Repeated read_from_memory on same context"""
+    """Test 3: Repeated read_from_memory on same context (safe auto-reset)"""
     arr = np.zeros((10, 10, 3), dtype=np.uint8)
     img = pylibheif.HeifImage.from_numpy(arr)
     ctx_write = pylibheif.HeifContext()
@@ -45,10 +45,13 @@ def test_read_from_memory_repeated():
 
     ctx_read = pylibheif.HeifContext()
     ctx_read.read_from_memory(data)
+    h1 = ctx_read.get_primary_image_handle()
+    assert h1.width == 10
 
-    # Second read on the same context should raise a RuntimeError because of internal protection
-    with pytest.raises(RuntimeError, match="Context already initialized"):
-        ctx_read.read_from_memory(data)
+    # Second read on the same context safely auto-resets without error
+    ctx_read.read_from_memory(data)
+    h2 = ctx_read.get_primary_image_handle()
+    assert h2.width == 10
 
 
 def test_context_gc_discard():

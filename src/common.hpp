@@ -31,10 +31,42 @@ struct PyBufferHolder {
     size_t len() const { return view.len; }
 };
 
+inline const char* get_error_code_name(heif_error_code code) {
+    switch (code) {
+        case heif_error_Ok:
+            return "Ok";
+        case heif_error_Input_does_not_exist:
+            return "InputDoesNotExist";
+        case heif_error_Invalid_input:
+            return "InvalidInput";
+        case heif_error_Unsupported_filetype:
+            return "UnsupportedFiletype";
+        case heif_error_Unsupported_feature:
+            return "UnsupportedFeature";
+        case heif_error_Usage_error:
+            return "UsageError";
+        case heif_error_Memory_allocation_error:
+            return "MemoryAllocationError";
+        case heif_error_Decoder_plugin_error:
+            return "DecoderPluginError";
+        case heif_error_Encoder_plugin_error:
+            return "EncoderPluginError";
+        case heif_error_Encoding_error:
+            return "EncodingError";
+        case heif_error_Color_profile_does_not_exist:
+            return "ColorProfileDoesNotExist";
+        default:
+            return "UnknownError";
+    }
+}
+
 class HeifError : public std::runtime_error {
    public:
     HeifError(const heif_error& err)
-        : std::runtime_error(err.message), code(err.code), subcode(err.subcode) {}
+        : std::runtime_error(std::string("[HeifError: ") + get_error_code_name(err.code) + "] " +
+                             (err.message ? err.message : "")),
+          code(err.code),
+          subcode(err.subcode) {}
 
     heif_error_code code;
     heif_suberror_code subcode;

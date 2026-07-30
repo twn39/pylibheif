@@ -42,9 +42,10 @@ from ._pylibheif import (
 )
 
 import asyncio
+import concurrent.futures
 import weakref
 import threading
-from typing import Optional, Union, List
+from typing import Optional, Union, List, Any
 
 
 # Re-export all names from the C++ extension and async wrappers
@@ -94,6 +95,26 @@ __all__ = [
     "AsyncHeifEncoder",
     "__doc__",
 ]
+
+
+def _heif_error_str(self: HeifError) -> str:
+    code_name = getattr(self, "code_name", "Unknown")
+    code_val = getattr(self, "code", -1)
+    subcode_val = getattr(self, "subcode", -1)
+    msg = Exception.__str__(self)
+    return f"[{self.__class__.__name__}] {code_name} (code={code_val}, subcode={subcode_val}): {msg}"
+
+
+def _heif_error_repr(self: HeifError) -> str:
+    code_name = getattr(self, "code_name", "Unknown")
+    code_val = getattr(self, "code", -1)
+    subcode_val = getattr(self, "subcode", -1)
+    msg = Exception.__str__(self)
+    return f"<{self.__class__.__name__} code_name='{code_name}' code={code_val} subcode={subcode_val} message={msg!r}>"
+
+
+setattr(HeifError, "__str__", _heif_error_str)
+setattr(HeifError, "__repr__", _heif_error_repr)
 
 
 class HeifEncoderParametersProxy:
@@ -216,11 +237,25 @@ def _get_encoder_parameters(encoder: HeifEncoder) -> HeifEncoderParametersProxy:
 HeifEncoder.parameters = property(_get_encoder_parameters)  # type: ignore
 
 
+async def _run_in_executor(
+    executor: Optional[concurrent.futures.Executor], func, *args
+):
+    if executor is None:
+        return await asyncio.to_thread(func, *args)
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(executor, func, *args)
+
+
 class AsyncHeifImageHandle:
     """Async wrapper for HeifImageHandle."""
 
-    def __init__(self, handle: HeifImageHandle):
+    def __init__(
+        self,
+        handle: HeifImageHandle,
+        executor: Optional[concurrent.futures.Executor] = None,
+    ):
         self._handle = handle
+        self._executor = executor
 
     def __repr__(self) -> str:
         return repr(self._handle).replace("HeifImageHandle", "AsyncHeifImageHandle")
@@ -278,6 +313,11 @@ class AsyncHeifImageHandle:
     def get_raw_color_profile(self) -> bytes:
         return self._handle.get_raw_color_profile()
 
+    async def get_raw_color_profile_async(self) -> bytes:
+        return await _run_in_executor(
+            self._executor, self._handle.get_raw_color_profile
+        )
+
     def get_nclx_color_profile(self) -> Optional[HeifColorProfileNclx]:
         return self._handle.get_nclx_color_profile()
 
@@ -288,7 +328,9 @@ class AsyncHeifImageHandle:
         options: Optional[HeifDecodingOptions] = None,
     ) -> HeifImage:
         """Asynchronously decode the image."""
-        return await asyncio.to_thread(self._handle.decode, colorspace, chroma, options)
+        return await _run_in_executor(
+            self._executor, self._handle.decode, colorspace, chroma, options
+        )
 
     def get_metadata_block_ids(self, type_filter: str = "") -> List[int]:
         return self._handle.get_metadata_block_ids(type_filter)
@@ -299,6 +341,11 @@ class AsyncHeifImageHandle:
     def get_metadata_block(self, id: int) -> bytes:
         return self._handle.get_metadata_block(id)
 
+    async def get_metadata_block_async(self, id: int) -> bytes:
+        return await _run_in_executor(
+            self._executor, self._handle.get_metadata_block, id
+        )
+
     def get_auxiliary_image_ids(self, aux_key_mask: int = 0) -> List[int]:
         return self._handle.get_auxiliary_image_ids(aux_key_mask)
 
@@ -307,14 +354,47 @@ class AsyncHeifImageHandle:
 
     def get_auxiliary_image_handle(self, id: int) -> "AsyncHeifImageHandle":
         handle = self._handle.get_auxiliary_image_handle(id)
-        return AsyncHeifImageHandle(handle)
+        return AsyncHeifImageHandle(handle, executor=self._executor)
+
+    async def get_auxiliary_image_handle_async(self, id: int) -> "AsyncHeifImageHandle":
+        handle = await _run_in_executor(
+            self._executor, self._handle.get_auxiliary_image_handle, id
+        )
+        return AsyncHeifImageHandle(handle, executor=self._executor)
 
 
 class AsyncHeifContext:
-    """Async wrapper for HeifContext."""
+    """Async wrapper for HeifContext with custom executor and async factory support."""
 
-    def __init__(self, ctx: Optional[HeifContext] = None):
+    def __init__(
+        self,
+        ctx: Optional[HeifContext] = None,
+        executor: Optional[concurrent.futures.Executor] = None,
+    ):
         self._ctx = ctx or HeifContext()
+        self._executor = executor
+
+    @classmethod
+    async def from_file(
+        cls,
+        filename: str,
+        executor: Optional[concurrent.futures.Executor] = None,
+    ) -> "AsyncHeifContext":
+        """Async factory method to construct and read context from file."""
+        c = cls(executor=executor)
+        await c.read_from_file(filename)
+        return c
+
+    @classmethod
+    async def from_memory(
+        cls,
+        data: bytes,
+        executor: Optional[concurrent.futures.Executor] = None,
+    ) -> "AsyncHeifContext":
+        """Async factory method to construct and read context from memory bytes."""
+        c = cls(executor=executor)
+        await c.read_from_memory(data)
+        return c
 
     def __repr__(self) -> str:
         return repr(self._ctx).replace("HeifContext", "AsyncHeifContext")
@@ -329,6 +409,10 @@ class AsyncHeifContext:
         """Close the context and release resources."""
         self._ctx.close()
 
+    async def reset(self) -> None:
+        """Reset context and release buffer references."""
+        await _run_in_executor(self._executor, self._ctx.reset)
+
     async def __aenter__(self):
         return self
 
@@ -337,29 +421,29 @@ class AsyncHeifContext:
 
     async def read_from_file(self, filename: str) -> None:
         """Asynchronously read from file."""
-        await asyncio.to_thread(self._ctx.read_from_file, filename)
+        await _run_in_executor(self._executor, self._ctx.read_from_file, filename)
 
     async def read_from_memory(self, data: bytes) -> None:
         """Asynchronously read from memory."""
-        await asyncio.to_thread(self._ctx.read_from_memory, data)
+        await _run_in_executor(self._executor, self._ctx.read_from_memory, data)
 
     async def write_to_file(self, filename: str) -> None:
         """Asynchronously write to file."""
-        await asyncio.to_thread(self._ctx.write_to_file, filename)
+        await _run_in_executor(self._executor, self._ctx.write_to_file, filename)
 
     async def write_to_bytes(self) -> bytes:
         """Asynchronously write to bytes."""
-        return await asyncio.to_thread(self._ctx.write_to_bytes)
+        return await _run_in_executor(self._executor, self._ctx.write_to_bytes)
 
     def get_primary_image_handle(self) -> AsyncHeifImageHandle:
         """Get async wrapper for primary image handle."""
         handle = self._ctx.get_primary_image_handle()
-        return AsyncHeifImageHandle(handle)
+        return AsyncHeifImageHandle(handle, executor=self._executor)
 
     def get_image_handle(self, id: int) -> AsyncHeifImageHandle:
         """Get async wrapper for specific image ID."""
         handle = self._ctx.get_image_handle(id)
-        return AsyncHeifImageHandle(handle)
+        return AsyncHeifImageHandle(handle, executor=self._executor)
 
     def get_list_of_top_level_image_IDs(self) -> List[int]:
         return self._ctx.get_list_of_top_level_image_IDs()
@@ -370,11 +454,23 @@ class AsyncHeifContext:
         h = handle._handle if isinstance(handle, AsyncHeifImageHandle) else handle
         self._ctx.add_exif_metadata(h, data)
 
+    async def add_exif_metadata_async(
+        self, handle: Union[HeifImageHandle, AsyncHeifImageHandle], data: bytes
+    ) -> None:
+        h = handle._handle if isinstance(handle, AsyncHeifImageHandle) else handle
+        await _run_in_executor(self._executor, self._ctx.add_exif_metadata, h, data)
+
     def add_xmp_metadata(
         self, handle: Union[HeifImageHandle, AsyncHeifImageHandle], data: bytes
     ) -> None:
         h = handle._handle if isinstance(handle, AsyncHeifImageHandle) else handle
         self._ctx.add_xmp_metadata(h, data)
+
+    async def add_xmp_metadata_async(
+        self, handle: Union[HeifImageHandle, AsyncHeifImageHandle], data: bytes
+    ) -> None:
+        h = handle._handle if isinstance(handle, AsyncHeifImageHandle) else handle
+        await _run_in_executor(self._executor, self._ctx.add_xmp_metadata, h, data)
 
     def add_generic_metadata(
         self,
@@ -386,12 +482,34 @@ class AsyncHeifContext:
         h = handle._handle if isinstance(handle, AsyncHeifImageHandle) else handle
         self._ctx.add_generic_metadata(h, data, item_type, content_type)
 
+    async def add_generic_metadata_async(
+        self,
+        handle: Union[HeifImageHandle, AsyncHeifImageHandle],
+        data: bytes,
+        item_type: str,
+        content_type: str = "",
+    ) -> None:
+        h = handle._handle if isinstance(handle, AsyncHeifImageHandle) else handle
+        await _run_in_executor(
+            self._executor,
+            self._ctx.add_generic_metadata,
+            h,
+            data,
+            item_type,
+            content_type,
+        )
+
 
 class AsyncHeifEncoder:
     """Async wrapper for HeifEncoder."""
 
-    def __init__(self, format_or_descriptor):
+    def __init__(
+        self,
+        format_or_descriptor,
+        executor: Optional[concurrent.futures.Executor] = None,
+    ):
         self._encoder = HeifEncoder(format_or_descriptor)
+        self._executor = executor
 
     def __repr__(self) -> str:
         return repr(self._encoder).replace("HeifEncoder", "AsyncHeifEncoder")
@@ -405,8 +523,9 @@ class AsyncHeifEncoder:
     ) -> HeifImageHandle:
         """Asynchronously encode image."""
         ctx = context._ctx if isinstance(context, AsyncHeifContext) else context
-        return await asyncio.to_thread(
-            self._encoder.encode_image, ctx, image, preset, options
+        exec_pool = self._executor or getattr(context, "_executor", None)
+        return await _run_in_executor(
+            exec_pool, self._encoder.encode_image, ctx, image, preset, options
         )
 
     def set_lossy_quality(self, quality: int) -> None:
@@ -423,5 +542,5 @@ class AsyncHeifEncoder:
         return self._encoder.name
 
     @property
-    def parameters(self) -> HeifEncoderParametersProxy:
+    def parameters(self) -> Any:
         return self._encoder.parameters

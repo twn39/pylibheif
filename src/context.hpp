@@ -19,12 +19,9 @@ struct ContextState {
     ~ContextState() { close_buffer(); }
 
     void close_buffer() {
-        if (buffer_holder) {
+        if (buffer_holder || memory_reference.is_valid()) {
             nb::gil_scoped_acquire acquire;
             buffer_holder.reset();
-        }
-        if (memory_reference.is_valid()) {
-            nb::gil_scoped_acquire acquire;
             memory_reference = nb::object();
         }
     }
@@ -35,6 +32,7 @@ class HeifContext {
     HeifContext();
 
     void close();
+    void reset();
 
     void read_from_file(const std::string& filename);
     void read_from_memory(const nb::handle& data);

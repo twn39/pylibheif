@@ -1,0 +1,6 @@
+{
+  "include": ["src", "tests", "pylibheif"],
+  "exclude": ["third_party", "build", "dist", "docs"],
+  "output": ".codegraph",
+  "cache": true
+}

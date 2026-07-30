@@ -157,52 +157,49 @@ NB_MODULE(_pylibheif, m) {
         m, "HeifColorProfileDoesNotExistError", exc.ptr());
 
     nb::register_exception_translator([](const std::exception_ptr& p, void* /* payload */) {
+        auto set_attrs = [](nb::object& err, const HeifError& e) {
+            nb::setattr(err, "code", nb::cast(static_cast<int>(e.code)));
+            nb::setattr(err, "subcode", nb::cast(static_cast<int>(e.subcode)));
+            nb::setattr(err, "code_name", nb::cast(get_error_code_name(e.code)));
+            nb::setattr(err, "code_enum", nb::cast(e.code));
+        };
         try {
             std::rethrow_exception(p);
         } catch (const HeifInputDoesNotExistError& e) {
             nb::object err = input_not_found_exc(e.what());
-            nb::setattr(err, "code", nb::cast(static_cast<int>(e.code)));
-            nb::setattr(err, "subcode", nb::cast(static_cast<int>(e.subcode)));
+            set_attrs(err, e);
             PyErr_SetObject(input_not_found_exc.ptr(), err.ptr());
         } catch (const HeifInvalidInputError& e) {
             nb::object err = invalid_input_exc(e.what());
-            nb::setattr(err, "code", nb::cast(static_cast<int>(e.code)));
-            nb::setattr(err, "subcode", nb::cast(static_cast<int>(e.subcode)));
+            set_attrs(err, e);
             PyErr_SetObject(invalid_input_exc.ptr(), err.ptr());
         } catch (const HeifUnsupportedFiletypeError& e) {
             nb::object err = unsupported_filetype_exc(e.what());
-            nb::setattr(err, "code", nb::cast(static_cast<int>(e.code)));
-            nb::setattr(err, "subcode", nb::cast(static_cast<int>(e.subcode)));
+            set_attrs(err, e);
             PyErr_SetObject(unsupported_filetype_exc.ptr(), err.ptr());
         } catch (const HeifUnsupportedFeatureError& e) {
             nb::object err = unsupported_feature_exc(e.what());
-            nb::setattr(err, "code", nb::cast(static_cast<int>(e.code)));
-            nb::setattr(err, "subcode", nb::cast(static_cast<int>(e.subcode)));
+            set_attrs(err, e);
             PyErr_SetObject(unsupported_feature_exc.ptr(), err.ptr());
         } catch (const HeifUsageError& e) {
             nb::object err = usage_exc(e.what());
-            nb::setattr(err, "code", nb::cast(static_cast<int>(e.code)));
-            nb::setattr(err, "subcode", nb::cast(static_cast<int>(e.subcode)));
+            set_attrs(err, e);
             PyErr_SetObject(usage_exc.ptr(), err.ptr());
         } catch (const HeifMemoryAllocationError& e) {
             nb::object err = memory_exc(e.what());
-            nb::setattr(err, "code", nb::cast(static_cast<int>(e.code)));
-            nb::setattr(err, "subcode", nb::cast(static_cast<int>(e.subcode)));
+            set_attrs(err, e);
             PyErr_SetObject(memory_exc.ptr(), err.ptr());
         } catch (const HeifEncodingError& e) {
             nb::object err = encoding_exc(e.what());
-            nb::setattr(err, "code", nb::cast(static_cast<int>(e.code)));
-            nb::setattr(err, "subcode", nb::cast(static_cast<int>(e.subcode)));
+            set_attrs(err, e);
             PyErr_SetObject(encoding_exc.ptr(), err.ptr());
         } catch (const HeifColorProfileDoesNotExistError& e) {
             nb::object err = color_profile_exc(e.what());
-            nb::setattr(err, "code", nb::cast(static_cast<int>(e.code)));
-            nb::setattr(err, "subcode", nb::cast(static_cast<int>(e.subcode)));
+            set_attrs(err, e);
             PyErr_SetObject(color_profile_exc.ptr(), err.ptr());
         } catch (const HeifError& e) {
             nb::object err = exc(e.what());
-            nb::setattr(err, "code", nb::cast(static_cast<int>(e.code)));
-            nb::setattr(err, "subcode", nb::cast(static_cast<int>(e.subcode)));
+            set_attrs(err, e);
             PyErr_SetObject(exc.ptr(), err.ptr());
         }
     });
@@ -366,6 +363,8 @@ NB_MODULE(_pylibheif, m) {
     nb::class_<HeifContext>(m, "HeifContext")
         .def(nb::init<>())
         .def("close", &HeifContext::close)
+        .def("reset", &HeifContext::reset)
+        .def_prop_ro("is_closed", &HeifContext::is_closed)
         .def("read_from_file", &HeifContext::read_from_file,
              nb::call_guard<nb::gil_scoped_release>())
         .def("read_from_memory", &HeifContext::read_from_memory)

@@ -42,6 +42,7 @@ Issues = "https://github.com/twn39/pylibheif/issues"
 cmake.version = ">=3.15"
 ninja.version = ">=1.10"
 wheel.expand-macos-universal-tags = true
+wheel.packages = ["pylibheif"]
 
 [tool.scikit-build.sdist]
 exclude = [

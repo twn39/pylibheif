@@ -97,8 +97,14 @@ std::vector<uint8_t> HeifImageHandle::get_metadata_block(heif_item_id id) {
     size_t size = heif_image_handle_get_metadata_size(handle.get(), id);
     std::vector<uint8_t> result(size);
     if (size > 0) {
-        check_error(heif_image_handle_get_metadata(handle.get(), id,
-                                                   reinterpret_cast<char*>(result.data())));
+        heif_image_handle* h = handle.get();
+        char* dst = reinterpret_cast<char*>(result.data());
+        heif_error err;
+        {
+            nb::gil_scoped_release release;
+            err = heif_image_handle_get_metadata(h, id, dst);
+        }
+        check_error(err);
     }
     return result;
 }

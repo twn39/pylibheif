@@ -237,16 +237,19 @@ void bind_image(nb::module_& m) {
         .def_prop_ro("color_profile_type", &HeifImageHandle::get_color_profile_type)
         .def("get_raw_color_profile",
              [](HeifImageHandle& self) -> nb::object {
-                 size_t size = heif_image_handle_get_raw_color_profile_size(self.get());
-                 PyObject* py_bytes = PyBytes_FromStringAndSize(nullptr, size);
-                 if (!py_bytes) {
-                     throw std::bad_alloc();
+                 heif_image_handle* h = self.get();
+                 size_t size = heif_image_handle_get_raw_color_profile_size(h);
+                 if (size == 0) {
+                     return nb::bytes("", 0);
                  }
-                 if (size > 0) {
-                     char* buffer = PyBytes_AS_STRING(py_bytes);
-                     check_error(heif_image_handle_get_raw_color_profile(self.get(), buffer));
+                 std::vector<char> buffer(size);
+                 heif_error err;
+                 {
+                     nb::gil_scoped_release release;
+                     err = heif_image_handle_get_raw_color_profile(h, buffer.data());
                  }
-                 return nb::steal(py_bytes);
+                 check_error(err);
+                 return nb::bytes(buffer.data(), buffer.size());
              })
         .def("get_nclx_color_profile", &HeifImageHandle::get_nclx_color_profile)
         .def_prop_ro("has_content_light_level", &HeifImageHandle::has_content_light_level)

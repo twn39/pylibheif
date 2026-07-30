@@ -18,6 +18,15 @@ void HeifContext::close() {
     }
 }
 
+void HeifContext::reset() {
+    if (!state) {
+        state = std::make_shared<ContextState>();
+    }
+    state->close_buffer();
+    state->ctx.reset(heif_context_alloc());
+    state->is_closed = false;
+}
+
 void HeifContext::check_closed() const {
     if (!state || state->is_closed) {
         throw std::runtime_error("HeifContext has been closed");
@@ -25,14 +34,15 @@ void HeifContext::check_closed() const {
 }
 
 void HeifContext::read_from_file(const std::string& filename) {
-    check_closed();
+    if (is_closed() || state->buffer_holder || state->memory_reference.is_valid()) {
+        reset();
+    }
     check_error(heif_context_read_from_file(state->ctx.get(), filename.c_str(), nullptr));
 }
 
 void HeifContext::read_from_memory(const nb::handle& data) {
-    check_closed();
-    if (state->buffer_holder) {
-        throw std::runtime_error("Context already initialized with memory data");
+    if (is_closed() || state->buffer_holder || state->memory_reference.is_valid()) {
+        reset();
     }
 
     // Safely extract and lock buffer under the GIL
@@ -136,24 +146,48 @@ nb::bytes HeifContext::write_to_bytes() {
 
 void HeifContext::add_exif_metadata(const HeifImageHandle& handle, const nb::bytes& data) {
     check_closed();
-    check_error(heif_context_add_exif_metadata(state->ctx.get(), handle.get(), data.c_str(),
-                                               static_cast<int>(data.size())));
+    const char* ptr = data.c_str();
+    int size = static_cast<int>(data.size());
+    heif_context* ctx_ptr = state->ctx.get();
+    heif_image_handle* h_ptr = handle.get();
+    heif_error err;
+    {
+        nb::gil_scoped_release release;
+        err = heif_context_add_exif_metadata(ctx_ptr, h_ptr, ptr, size);
+    }
+    check_error(err);
 }
 
 void HeifContext::add_xmp_metadata(const HeifImageHandle& handle, const nb::bytes& data) {
     check_closed();
-    check_error(heif_context_add_XMP_metadata(state->ctx.get(), handle.get(), data.c_str(),
-                                              static_cast<int>(data.size())));
+    const char* ptr = data.c_str();
+    int size = static_cast<int>(data.size());
+    heif_context* ctx_ptr = state->ctx.get();
+    heif_image_handle* h_ptr = handle.get();
+    heif_error err;
+    {
+        nb::gil_scoped_release release;
+        err = heif_context_add_XMP_metadata(ctx_ptr, h_ptr, ptr, size);
+    }
+    check_error(err);
 }
 
 void HeifContext::add_generic_metadata(const HeifImageHandle& handle, const nb::bytes& data,
                                        const std::string& item_type,
                                        const std::string& content_type) {
     check_closed();
+    const char* ptr = data.c_str();
+    int size = static_cast<int>(data.size());
+    const char* type_str = item_type.c_str();
     const char* ct = content_type.empty() ? nullptr : content_type.c_str();
-    check_error(heif_context_add_generic_metadata(state->ctx.get(), handle.get(), data.c_str(),
-                                                  static_cast<int>(data.size()), item_type.c_str(),
-                                                  ct));
+    heif_context* ctx_ptr = state->ctx.get();
+    heif_image_handle* h_ptr = handle.get();
+    heif_error err;
+    {
+        nb::gil_scoped_release release;
+        err = heif_context_add_generic_metadata(ctx_ptr, h_ptr, ptr, size, type_str, ct);
+    }
+    check_error(err);
 }
 
 }  // namespace pylibheif

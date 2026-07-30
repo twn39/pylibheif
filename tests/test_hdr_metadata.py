@@ -190,6 +190,7 @@ def test_hdr_metadata_roundtrip():
     assert decoded_img.has_ambient_viewing_environment
 
     img_cll = decoded_img.content_light_level
+    assert img_cll is not None
     assert img_cll.max_content_light_level == 1200
     assert img_cll.max_pic_average_light_level == 600
 
