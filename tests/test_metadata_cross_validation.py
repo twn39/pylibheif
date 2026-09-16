@@ -103,17 +103,23 @@ def test_pylibheif_read_metadata_cross_validation(tmp_path):
     Cross-validate reading metadata with pylibheif from a file created by pillow-heif.
     """
     # 1. Create a HEIC file using pillow-heif with specific metadata
+    # Use an isolated subprocess to prevent dynamic symbol collision between host libx265 and pillow-heif wheel libx265
+    import subprocess
+    import sys
+
     output_path = tmp_path / "read_val.heic"
-    pil_img = Image.new("RGB", (64, 64), color="red")
-
-    exif = pil_img.getexif()
-    exif[0x0131] = "Created-By-Pillow-Heif"
-    exif[0x0110] = "Test-Model-X"
-
-    xmp_payload = b"<x:xmpmeta>Read Cross-validation</x:xmpmeta>"
-
-    # Save using pillow-heif
-    pil_img.save(output_path, format="HEIF", exif=exif, xmp=xmp_payload)
+    gen_script = f"""
+from PIL import Image
+import pillow_heif
+pillow_heif.register_heif_opener()
+pil_img = Image.new("RGB", (64, 64), color="red")
+exif = pil_img.getexif()
+exif[0x0131] = "Created-By-Pillow-Heif"
+exif[0x0110] = "Test-Model-X"
+xmp_payload = b"<x:xmpmeta>Read Cross-validation</x:xmpmeta>"
+pil_img.save(r"{output_path}", format="HEIF", exif=exif, xmp=xmp_payload)
+"""
+    subprocess.run([sys.executable, "-c", gen_script], check=True)
 
     # 2. Read back with pylibheif
     ctx = pylibheif.HeifContext()

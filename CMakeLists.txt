@@ -48,8 +48,9 @@ set(KVAZAAR_LIBRARIES $<BUILD_INTERFACE:kvazaar> CACHE STRING "Kvazaar libraries
 # Add libheif submodule
 add_subdirectory(third_party/libheif EXCLUDE_FROM_ALL)
 
-# Define the extension module
+# Define the extension module with isolated nanobind domain
 nanobind_add_module(_pylibheif
+    NB_DOMAIN pylibheif
     src/main.cpp
     src/bindings_image.cpp
     src/context.cpp
@@ -59,6 +60,16 @@ nanobind_add_module(_pylibheif
 
 # Link with libheif
 target_link_libraries(_pylibheif PRIVATE heif)
+
+# Symbol isolation: only export PyInit__pylibheif to prevent symbol leakage and conflicts
+if(APPLE)
+    target_link_options(_pylibheif PRIVATE -Wl,-exported_symbol,_PyInit__pylibheif)
+elseif(UNIX AND NOT APPLE)
+    target_link_options(_pylibheif PRIVATE
+        -Wl,--exclude-libs,ALL
+        -Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/src/module.sym
+    )
+endif()
 
 # Define macro for static kvazaar linking
 target_compile_definitions(_pylibheif PRIVATE KVZ_STATIC_LIB)
@@ -82,3 +93,4 @@ endif()
 
 # Install the module
 install(TARGETS _pylibheif DESTINATION pylibheif)
+
