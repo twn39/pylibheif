@@ -35,8 +35,9 @@ set(BUILD_KVAZAAR_BINARY OFF CACHE BOOL "Build kvazaar binary" FORCE)
 set(BUILD_TESTS OFF CACHE BOOL "Build tests" FORCE)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared libraries" FORCE)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+set(USE_RANGE_EXTENSION ON CACHE BOOL "Use range extension to enable 4:4:4 and 4:2:2 subsampling" FORCE)
 add_subdirectory(third_party/kvazaar EXCLUDE_FROM_ALL)
-target_compile_definitions(kvazaar PUBLIC KVZ_STATIC_LIB)
+target_compile_definitions(kvazaar PUBLIC KVZ_STATIC_LIB KVZ_RANGE_EXTENSION)
 
 # Help libheif find Kvazaar from submodule
 set(kvazaar_FOUND TRUE CACHE BOOLEAN "Kvazaar found" FORCE)
@@ -44,6 +45,29 @@ set(KVAZAAR_FOUND TRUE CACHE BOOLEAN "Kvazaar found" FORCE)
 set(KVAZAAR_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party/kvazaar/src" CACHE PATH "Kvazaar include dir" FORCE)
 set(KVAZAAR_LIBRARY kvazaar CACHE STRING "Kvazaar library" FORCE)
 set(KVAZAAR_LIBRARIES $<BUILD_INTERFACE:kvazaar> CACHE STRING "Kvazaar libraries" FORCE)
+
+# Apply patches to bundled libheif submodule if needed
+find_package(Git QUIET)
+if(GIT_FOUND AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/patches/libheif/0001-kvazaar-rext.patch")
+  execute_process(
+    COMMAND ${GIT_EXECUTABLE} apply --check "${CMAKE_CURRENT_SOURCE_DIR}/patches/libheif/0001-kvazaar-rext.patch"
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/third_party/libheif"
+    RESULT_VARIABLE _patch_check
+    OUTPUT_QUIET
+    ERROR_QUIET
+  )
+  if(_patch_check EQUAL 0)
+    message(STATUS "Applying Kvazaar RExt patch to third_party/libheif...")
+    execute_process(
+      COMMAND ${GIT_EXECUTABLE} apply "${CMAKE_CURRENT_SOURCE_DIR}/patches/libheif/0001-kvazaar-rext.patch"
+      WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/third_party/libheif"
+      RESULT_VARIABLE _patch_apply
+    )
+    if(NOT _patch_apply EQUAL 0)
+      message(WARNING "Failed to apply Kvazaar RExt patch to third_party/libheif")
+    endif()
+  endif()
+endif()
 
 # Add libheif submodule
 add_subdirectory(third_party/libheif EXCLUDE_FROM_ALL)

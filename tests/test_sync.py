@@ -375,6 +375,61 @@ class TestEncoding:
         finally:
             os.unlink(output_path)
 
+    def test_encode_hevc_kvazaar_range_extension(self):
+        """Verify Kvazaar encodes YCbCr 4:2:0, 4:2:2, and 4:4:4 via Range Extension (RExt)."""
+        import pylibheif
+        import numpy as np
+
+        descriptors = pylibheif.get_encoder_descriptors(
+            pylibheif.HeifCompressionFormat.HEVC
+        )
+        kvz_desc = next((d for d in descriptors if "kvazaar" in d.id_name), None)
+        if not kvz_desc:
+            pytest.skip("Kvazaar encoder not available")
+
+        width, height = 64, 64
+        for chroma in [
+            pylibheif.HeifChroma.C420,
+            pylibheif.HeifChroma.C422,
+            pylibheif.HeifChroma.C444,
+        ]:
+            img = pylibheif.HeifImage(
+                width, height, pylibheif.HeifColorspace.YCbCr, chroma
+            )
+            img.add_plane(pylibheif.HeifChannel.Y, width, height, 8)
+
+            if chroma == pylibheif.HeifChroma.C420:
+                cw, ch = width // 2, height // 2
+            elif chroma == pylibheif.HeifChroma.C422:
+                cw, ch = width // 2, height
+            else:
+                cw, ch = width, height
+
+            img.add_plane(pylibheif.HeifChannel.Cb, cw, ch, 8)
+            img.add_plane(pylibheif.HeifChannel.Cr, cw, ch, 8)
+
+            np.asarray(img.get_plane(pylibheif.HeifChannel.Y, True))[:] = 120
+            np.asarray(img.get_plane(pylibheif.HeifChannel.Cb, True))[:] = 130
+            np.asarray(img.get_plane(pylibheif.HeifChannel.Cr, True))[:] = 140
+
+            ctx = pylibheif.HeifContext()
+            encoder = pylibheif.HeifEncoder(kvz_desc)
+            encoder.set_lossy_quality(80)
+            handle = encoder.encode_image(ctx, img)
+            assert handle.width == width
+            assert handle.height == height
+
+            data = ctx.write_to_bytes()
+            assert len(data) > 0
+
+            # Read back and verify decoding
+            ctx_read = pylibheif.HeifContext()
+            ctx_read.read_from_memory(data)
+            h_read = ctx_read.get_primary_image_handle()
+            decoded = h_read.decode(pylibheif.HeifColorspace.YCbCr, chroma)
+            assert decoded.width == width
+            assert decoded.height == height
+
     def test_encode_av1(self):
         import pylibheif
 
