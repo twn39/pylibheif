@@ -93,6 +93,10 @@ __all__ = [
     "AsyncHeifContext",
     "AsyncHeifImageHandle",
     "AsyncHeifEncoder",
+    "to_pillow",
+    "from_pillow",
+    "register_pillow_opener",
+    "unregister_pillow_opener",
     "__doc__",
 ]
 
@@ -629,3 +633,42 @@ class AsyncHeifEncoder:
     @property
     def parameters(self) -> Any:
         return self._encoder.parameters
+
+
+# --- Pillow (PIL) Interoperability ---
+
+
+def to_pillow(source: Any, convert_hdr_to_8bit: bool = True) -> Any:
+    """Convert a HeifImage or HeifImageHandle into a Pillow Image."""
+    from .pillow.convert import to_pillow as _to_pillow
+
+    return _to_pillow(source, convert_hdr_to_8bit=convert_hdr_to_8bit)
+
+
+def from_pillow(pil_image: Any, bit_depth: int = 8) -> Any:
+    """Convert a Pillow Image into a pylibheif HeifImage."""
+    from .pillow.convert import from_pillow as _from_pillow
+
+    img, _ = _from_pillow(pil_image, bit_depth=bit_depth)
+    return img
+
+
+def register_pillow_opener() -> None:
+    """Register pylibheif as a HEIF/AVIF image opener in Pillow."""
+    from .pillow.plugin import register_heif_opener
+
+    register_heif_opener()
+
+
+def unregister_pillow_opener() -> None:
+    """Unregister pylibheif handler from Pillow."""
+    from .pillow.plugin import unregister_heif_opener
+
+    unregister_heif_opener()
+
+
+# Attach convenience methods to C++ classes
+setattr(HeifImageHandle, "to_pillow", to_pillow)
+setattr(HeifImage, "to_pillow", to_pillow)
+setattr(HeifImage, "from_pillow", staticmethod(from_pillow))
+

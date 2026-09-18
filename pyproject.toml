@@ -31,6 +31,9 @@ dependencies = [
     "numpy>=1.26.0",
 ]
 
+[project.optional-dependencies]
+pillow = ["pillow>=10.0.0"]
+
 [project.urls]
 Homepage = "https://github.com/twn39/pylibheif"
 Repository = "https://github.com/twn39/pylibheif"
@@ -97,3 +100,7 @@ dev = [
     "ty>=0.0.30",
     "ruff>=0.15.10",
 ]
+
+[tool.ruff]
+extend-exclude = ["third_party"]
+

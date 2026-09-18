@@ -328,6 +328,11 @@ dependencies = [
     { name = "numpy" },
 ]
 
+[package.optional-dependencies]
+pillow = [
+    { name = "pillow" },
+]
+
 [package.dev-dependencies]
 dev = [
     { name = "clang-tidy" },
@@ -342,7 +347,11 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "numpy", specifier = ">=1.26.0" }]
+requires-dist = [
+    { name = "numpy", specifier = ">=1.26.0" },
+    { name = "pillow", marker = "extra == 'pillow'", specifier = ">=10.0.0" },
+]
+provides-extras = ["pillow"]
 
 [package.metadata.requires-dev]
 dev = [
