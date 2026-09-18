@@ -1,9 +1,7 @@
 """Tests for in-place crop and tiling/grid APIs."""
 
-import pytest
 import numpy as np
 
-import pylibheif
 from pylibheif import (
     HeifChannel,
     HeifChroma,

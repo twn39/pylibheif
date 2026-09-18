@@ -35,7 +35,9 @@ _APPLE_P3_B64 = (
 DISPLAY_P3_ICC_BYTES = base64.b64decode(_APPLE_P3_B64)
 
 
-def normalize_exif_for_pillow(raw_block: bytes) -> Tuple[Optional[bytes], Optional[int]]:
+def normalize_exif_for_pillow(
+    raw_block: bytes,
+) -> Tuple[Optional[bytes], Optional[int]]:
     """Normalize raw HEIF EXIF block for Pillow.
 
     Strips the 4-byte big-endian offset prefix added by libheif.
@@ -82,7 +84,11 @@ def pack_exif_for_heif(exif_bytes: bytes) -> bytes:
     if len(exif_bytes) > 8:
         # Check if first 4 bytes look like a redundant offset followed by Exif or TIFF
         sub = exif_bytes[4:]
-        if sub.startswith(b"Exif\x00\x00") or sub.startswith(b"II*\x00") or sub.startswith(b"MM\x00*"):
+        if (
+            sub.startswith(b"Exif\x00\x00")
+            or sub.startswith(b"II*\x00")
+            or sub.startswith(b"MM\x00*")
+        ):
             return sub
     return exif_bytes
 
@@ -127,9 +133,17 @@ def extract_metadata_to_info(handle: Any) -> Dict[str, Any]:
         elif c_type == HeifColorProfileType.Nclx:
             nclx = handle.get_nclx_color_profile()
             if nclx:
-                primaries_val = getattr(nclx.color_primaries, "value", nclx.color_primaries)
-                transfer_val = getattr(nclx.transfer_characteristics, "value", nclx.transfer_characteristics)
-                matrix_val = getattr(nclx.matrix_coefficients, "value", nclx.matrix_coefficients)
+                primaries_val = getattr(
+                    nclx.color_primaries, "value", nclx.color_primaries
+                )
+                transfer_val = getattr(
+                    nclx.transfer_characteristics,
+                    "value",
+                    nclx.transfer_characteristics,
+                )
+                matrix_val = getattr(
+                    nclx.matrix_coefficients, "value", nclx.matrix_coefficients
+                )
                 info["nclx_profile"] = {
                     "color_primaries": primaries_val,
                     "transfer_characteristics": transfer_val,

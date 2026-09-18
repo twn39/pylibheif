@@ -1,7 +1,9 @@
+import pytest
 import pylibheif
 import numpy as np
 from PIL import Image
-import pillow_heif
+
+pillow_heif = pytest.importorskip("pillow_heif")
 
 
 def create_dummy_image(width=64, height=64):

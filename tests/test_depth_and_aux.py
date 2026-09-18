@@ -2,16 +2,13 @@
 
 import os
 import pytest
-import numpy as np
 
-import pylibheif
 from pylibheif import (
     HeifChannel,
     HeifChroma,
     HeifColorspace,
     HeifCompressionFormat,
     HeifContext,
-    HeifDepthRepresentationInfo,
     HeifEncoder,
     HeifImage,
 )

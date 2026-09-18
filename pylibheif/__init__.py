@@ -395,9 +395,7 @@ class AsyncHeifImageHandle:
         ids = self.get_thumbnail_ids()
         return [self.get_thumbnail(tid) for tid in ids]
 
-    def get_image_tiling(
-        self, process_transformations: bool = True
-    ) -> HeifImageTiling:
+    def get_image_tiling(self, process_transformations: bool = True) -> HeifImageTiling:
         return self._handle.get_image_tiling(process_transformations)
 
     async def decode_tile(
@@ -804,5 +802,3 @@ setattr(HeifImageHandle, "gain_map_ids", property(_handle_get_gain_map_ids))
 setattr(HeifImageHandle, "has_gain_map", property(_handle_has_gain_map))
 setattr(HeifImageHandle, "get_gain_map_handle", _handle_get_gain_map_handle)
 setattr(HeifImageHandle, "decode_depth", _handle_decode_depth)
-
-

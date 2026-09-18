@@ -1,8 +1,6 @@
 """Tests for streaming I/O (read_from_stream, write_to_stream, PyStreamReader with 64KB buffer)."""
 
 import io
-import os
-import tempfile
 import pytest
 import numpy as np
 from PIL import Image

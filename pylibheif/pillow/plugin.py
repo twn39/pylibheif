@@ -1,7 +1,7 @@
 """Pillow ImagePlugin implementation for HEIF/AVIF image formats."""
 
 import os
-from typing import IO, Union, cast
+from typing import IO, Union
 import numpy as np
 from PIL import Image, ImageFile
 
@@ -148,7 +148,9 @@ def _accept(prefix: bytes) -> bool:
     )
 
 
-def _save(im: Image.Image, fp: Union[IO[bytes], str], filename: Union[str, bytes] = "") -> None:
+def _save(
+    im: Image.Image, fp: Union[IO[bytes], str], filename: Union[str, bytes] = ""
+) -> None:
     """Save function for Pillow Image.register_save."""
     # Determine format: HEVC or AV1
     format_name = getattr(im, "format", "HEIF") or "HEIF"

@@ -10,6 +10,26 @@ on:
   workflow_dispatch:
 
 jobs:
+  lint:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Check formatting, lints, and types
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+          uv run ty check pylibheif
+
   build_wheels:
     name: Build wheels on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
@@ -90,10 +110,13 @@ jobs:
           CIBW_BUILD_FRONTEND: "build[uv]"
           CIBW_ENVIRONMENT: CI=true GITHUB_ACTIONS=true
 
+          # Enable Python 3.14 pre-release support
+          CIBW_ENABLE: "cpython-prerelease"
+
           # Build for Python 3.11-3.14
           CIBW_BUILD: cp311-* cp312-* cp313-* cp314-*
-          # Skip 32-bit builds and musllinux
-          CIBW_SKIP: "*-manylinux_i686 *musllinux* *-win32"
+          # Skip 32-bit builds, musllinux, and free-threaded builds
+          CIBW_SKIP: "*-manylinux_i686 *musllinux* *-win32 *t-*"
           
           # Install build dependencies
           CIBW_BEFORE_BUILD_LINUX: |
@@ -142,7 +165,8 @@ jobs:
           # Test the wheel
           # cibuildwheel automatically creates a test venv. We should use python -m pytest to guarantee
           # we run inside the cibuildwheel test venv rather than uv implicitly trying to run in the project root venv
-          CIBW_TEST_REQUIRES: pytest numpy pytest-benchmark pillow-heif psutil pytest-asyncio
+          CIBW_TEST_REQUIRES: pytest numpy pytest-benchmark pillow pillow-heif psutil pytest-asyncio
+          CIBW_TEST_PIP_ARGS: "--pre --prefer-binary"
           CIBW_TEST_COMMAND: python -m pytest {project}/tests -v
 
 
