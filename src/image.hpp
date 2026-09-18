@@ -218,6 +218,30 @@ class HeifImageLayout {
     int m_height;
 };
 
+struct HeifImageTiling {
+    uint32_t num_columns = 0;
+    uint32_t num_rows = 0;
+    uint32_t tile_width = 0;
+    uint32_t tile_height = 0;
+    uint32_t image_width = 0;
+    uint32_t image_height = 0;
+    uint32_t top_offset = 0;
+    uint32_t left_offset = 0;
+};
+
+struct HeifDepthRepresentationInfo {
+    bool has_z_near = false;
+    bool has_z_far = false;
+    bool has_d_min = false;
+    bool has_d_max = false;
+    double z_near = 0.0;
+    double z_far = 0.0;
+    double d_min = 0.0;
+    double d_max = 0.0;
+    int depth_representation_type = 0;
+    uint32_t disparity_reference_view = 0;
+};
+
 class HeifImageHandle {
    public:
     HeifImageHandle(heif_image_handle* h, std::shared_ptr<ContextState> state)
@@ -238,10 +262,26 @@ class HeifImageHandle {
     HeifImage decode(heif_colorspace colorspace, heif_chroma chroma,
                      const HeifDecodingOptions* options = nullptr);
 
+    // Tiling
+    HeifImageTiling get_image_tiling(bool process_transformations = true) const;
+    HeifImage decode_tile(uint32_t tile_x, uint32_t tile_y,
+                          heif_colorspace colorspace = heif_colorspace_RGB,
+                          heif_chroma chroma = heif_chroma_interleaved_RGB,
+                          const HeifDecodingOptions* options = nullptr);
+
     // Auxiliary Images
     std::vector<heif_item_id> get_list_of_auxiliary_image_IDs(int aux_key_mask = 0);
     std::string get_auxiliary_type() const;
     HeifImageHandle get_auxiliary_image_handle(heif_item_id id);
+
+    // Depth Images
+    bool has_depth_image() const;
+    int get_number_of_depth_images() const;
+    std::vector<heif_item_id> get_list_of_depth_image_IDs() const;
+    HeifImageHandle get_depth_image_handle(heif_item_id depth_image_id) const;
+    HeifImageHandle get_primary_depth_image_handle() const;
+    std::optional<HeifDepthRepresentationInfo> get_depth_representation_info(
+        heif_item_id depth_image_id = 0) const;
 
     // Thumbnails
     int get_number_of_thumbnails() const;
@@ -291,6 +331,7 @@ class HeifImage {
     int get_width(heif_channel channel) const;
     int get_height(heif_channel channel) const;
     void add_plane(heif_channel channel, int width, int height, int bit_depth);
+    void crop(int left, int right, int top, int bottom);
 
     // get_array moved to bindings
 

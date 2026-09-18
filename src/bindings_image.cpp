@@ -213,6 +213,41 @@ void bind_image(nb::module_& m) {
                    " full_range=" + (self.full_range_flag ? "True" : "False") + ">";
         });
 
+    nb::class_<HeifImageTiling>(m, "HeifImageTiling")
+        .def_ro("num_columns", &HeifImageTiling::num_columns)
+        .def_ro("num_rows", &HeifImageTiling::num_rows)
+        .def_ro("tile_width", &HeifImageTiling::tile_width)
+        .def_ro("tile_height", &HeifImageTiling::tile_height)
+        .def_ro("image_width", &HeifImageTiling::image_width)
+        .def_ro("image_height", &HeifImageTiling::image_height)
+        .def_ro("top_offset", &HeifImageTiling::top_offset)
+        .def_ro("left_offset", &HeifImageTiling::left_offset)
+        .def("__repr__", [](const HeifImageTiling& self) {
+            return "<pylibheif.HeifImageTiling cols=" + std::to_string(self.num_columns) +
+                   " rows=" + std::to_string(self.num_rows) +
+                   " tile_size=" + std::to_string(self.tile_width) + "x" +
+                   std::to_string(self.tile_height) +
+                   " image_size=" + std::to_string(self.image_width) + "x" +
+                   std::to_string(self.image_height) + ">";
+        });
+
+    nb::class_<HeifDepthRepresentationInfo>(m, "HeifDepthRepresentationInfo")
+        .def_ro("has_z_near", &HeifDepthRepresentationInfo::has_z_near)
+        .def_ro("has_z_far", &HeifDepthRepresentationInfo::has_z_far)
+        .def_ro("has_d_min", &HeifDepthRepresentationInfo::has_d_min)
+        .def_ro("has_d_max", &HeifDepthRepresentationInfo::has_d_max)
+        .def_ro("z_near", &HeifDepthRepresentationInfo::z_near)
+        .def_ro("z_far", &HeifDepthRepresentationInfo::z_far)
+        .def_ro("d_min", &HeifDepthRepresentationInfo::d_min)
+        .def_ro("d_max", &HeifDepthRepresentationInfo::d_max)
+        .def_ro("depth_representation_type",
+                &HeifDepthRepresentationInfo::depth_representation_type)
+        .def_ro("disparity_reference_view", &HeifDepthRepresentationInfo::disparity_reference_view)
+        .def("__repr__", [](const HeifDepthRepresentationInfo& self) {
+            return "<pylibheif.HeifDepthRepresentationInfo type=" +
+                   std::to_string(self.depth_representation_type) + ">";
+        });
+
     nb::class_<HeifImageHandle>(m, "HeifImageHandle")
         .def_prop_ro("width", &HeifImageHandle::get_width)
         .def_prop_ro("height", &HeifImageHandle::get_height)
@@ -222,10 +257,25 @@ void bind_image(nb::module_& m) {
         .def("decode", &HeifImageHandle::decode, nb::arg("colorspace") = heif_colorspace_RGB,
              nb::arg("chroma") = heif_chroma_interleaved_RGB, nb::arg("options") = nullptr,
              nb::call_guard<nb::gil_scoped_release>())
+        .def("get_image_tiling", &HeifImageHandle::get_image_tiling,
+             nb::arg("process_transformations") = true)
+        .def("decode_tile", &HeifImageHandle::decode_tile, nb::arg("tile_x"), nb::arg("tile_y"),
+             nb::arg("colorspace") = heif_colorspace_RGB,
+             nb::arg("chroma") = heif_chroma_interleaved_RGB, nb::arg("options") = nullptr,
+             nb::call_guard<nb::gil_scoped_release>())
         .def("get_auxiliary_image_ids", &HeifImageHandle::get_list_of_auxiliary_image_IDs,
              nb::arg("aux_key_mask") = 0)
         .def("get_auxiliary_type", &HeifImageHandle::get_auxiliary_type)
         .def("get_auxiliary_image_handle", &HeifImageHandle::get_auxiliary_image_handle)
+        .def_prop_ro("has_depth_image", &HeifImageHandle::has_depth_image)
+        .def("get_number_of_depth_images", &HeifImageHandle::get_number_of_depth_images)
+        .def("get_depth_image_ids", &HeifImageHandle::get_list_of_depth_image_IDs)
+        .def("get_depth_image_handle", &HeifImageHandle::get_depth_image_handle,
+             nb::arg("depth_image_id"), nb::keep_alive<0, 1>())
+        .def("get_primary_depth_image_handle", &HeifImageHandle::get_primary_depth_image_handle,
+             nb::keep_alive<0, 1>())
+        .def("get_depth_representation_info", &HeifImageHandle::get_depth_representation_info,
+             nb::arg("depth_image_id") = 0)
         .def_prop_ro("number_of_thumbnails", &HeifImageHandle::get_number_of_thumbnails)
         .def("get_number_of_thumbnails", &HeifImageHandle::get_number_of_thumbnails)
         .def("get_thumbnail_ids", &HeifImageHandle::get_list_of_thumbnail_IDs)
@@ -285,6 +335,8 @@ void bind_image(nb::module_& m) {
         .def("get_width", nb::overload_cast<heif_channel>(&HeifImage::get_width, nb::const_))
         .def("get_height", nb::overload_cast<heif_channel>(&HeifImage::get_height, nb::const_))
         .def("add_plane", &HeifImage::add_plane)
+        .def("crop", &HeifImage::crop, nb::arg("left"), nb::arg("right"), nb::arg("top"),
+             nb::arg("bottom"), "Crop the image in place by trimming margins from each edge.")
         .def("get_plane", &get_image_plane_array, nb::arg("channel"), nb::arg("writeable") = false,
              nb::sig("def get_plane(self, channel: HeifChannel, writeable: bool = False) -> "
                      "numpy.ndarray"))

@@ -368,12 +368,17 @@ NB_MODULE(_pylibheif, m) {
         .def("read_from_file", &HeifContext::read_from_file,
              nb::call_guard<nb::gil_scoped_release>())
         .def("read_from_memory", &HeifContext::read_from_memory)
+        .def("read_from_stream", &HeifContext::read_from_stream, nb::arg("stream"),
+             "Read HEIF data from a Python file-like stream object implementing read(), seek(), "
+             "tell().")
         .def("get_primary_image_handle", &HeifContext::get_primary_image_handle,
              nb::keep_alive<0, 1>())
         .def("get_list_of_top_level_image_IDs", &HeifContext::get_list_of_top_level_image_IDs)
         .def("get_image_handle", &HeifContext::get_image_handle, nb::keep_alive<0, 1>())
         .def("write_to_file", &HeifContext::write_to_file, nb::call_guard<nb::gil_scoped_release>())
         .def("write_to_bytes", &HeifContext::write_to_bytes)
+        .def("write_to_stream", &HeifContext::write_to_stream, nb::arg("stream"),
+             "Write HEIF data directly to a Python file-like stream object implementing write().")
         .def("add_exif_metadata", &HeifContext::add_exif_metadata, nb::arg("handle"),
              nb::arg("data"), "Add EXIF metadata to an image. The data should be raw EXIF bytes.")
         .def("add_xmp_metadata", &HeifContext::add_xmp_metadata, nb::arg("handle"), nb::arg("data"),

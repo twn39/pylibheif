@@ -77,6 +77,97 @@ HeifImageHandle HeifImageHandle::get_auxiliary_image_handle(heif_item_id id) {
     return HeifImageHandle(aux_handle, m_state);
 }
 
+HeifImageTiling HeifImageHandle::get_image_tiling(bool process_transformations) const {
+    check_valid();
+    heif_image_tiling tiling = {};
+    check_error(
+        heif_image_handle_get_image_tiling(handle.get(), process_transformations ? 1 : 0, &tiling));
+    HeifImageTiling res;
+    res.num_columns = tiling.num_columns;
+    res.num_rows = tiling.num_rows;
+    res.tile_width = tiling.tile_width;
+    res.tile_height = tiling.tile_height;
+    res.image_width = tiling.image_width;
+    res.image_height = tiling.image_height;
+    res.top_offset = tiling.top_offset;
+    res.left_offset = tiling.left_offset;
+    return res;
+}
+
+HeifImage HeifImageHandle::decode_tile(uint32_t tile_x, uint32_t tile_y, heif_colorspace colorspace,
+                                       heif_chroma chroma, const HeifDecodingOptions* options) {
+    check_valid();
+    heif_image* out_img = nullptr;
+    const heif_decoding_options* raw_opts = options ? options->get() : nullptr;
+    check_error(heif_image_handle_decode_image_tile(handle.get(), &out_img, colorspace, chroma,
+                                                    raw_opts, tile_x, tile_y));
+    return HeifImage(out_img);
+}
+
+bool HeifImageHandle::has_depth_image() const {
+    check_valid();
+    return heif_image_handle_has_depth_image(handle.get()) != 0;
+}
+
+int HeifImageHandle::get_number_of_depth_images() const {
+    check_valid();
+    return heif_image_handle_get_number_of_depth_images(handle.get());
+}
+
+std::vector<heif_item_id> HeifImageHandle::get_list_of_depth_image_IDs() const {
+    check_valid();
+    int count = heif_image_handle_get_number_of_depth_images(handle.get());
+    if (count <= 0) {
+        return {};
+    }
+    std::vector<heif_item_id> ids(count);
+    count = heif_image_handle_get_list_of_depth_image_IDs(handle.get(), ids.data(), count);
+    ids.resize(count);
+    return ids;
+}
+
+HeifImageHandle HeifImageHandle::get_depth_image_handle(heif_item_id depth_image_id) const {
+    check_valid();
+    heif_image_handle* out_depth_handle = nullptr;
+    check_error(
+        heif_image_handle_get_depth_image_handle(handle.get(), depth_image_id, &out_depth_handle));
+    return HeifImageHandle(out_depth_handle, m_state);
+}
+
+HeifImageHandle HeifImageHandle::get_primary_depth_image_handle() const {
+    auto ids = get_list_of_depth_image_IDs();
+    if (ids.empty()) {
+        throw std::runtime_error("Image handle does not contain any depth images");
+    }
+    return get_depth_image_handle(ids[0]);
+}
+
+std::optional<HeifDepthRepresentationInfo> HeifImageHandle::get_depth_representation_info(
+    heif_item_id depth_image_id) const {
+    check_valid();
+    const heif_depth_representation_info* info = nullptr;
+    int has_info =
+        heif_image_handle_get_depth_image_representation_info(handle.get(), depth_image_id, &info);
+    if (!has_info || !info) {
+        return std::nullopt;
+    }
+
+    HeifDepthRepresentationInfo res;
+    res.has_z_near = info->has_z_near != 0;
+    res.has_z_far = info->has_z_far != 0;
+    res.has_d_min = info->has_d_min != 0;
+    res.has_d_max = info->has_d_max != 0;
+    res.z_near = info->z_near;
+    res.z_far = info->z_far;
+    res.d_min = info->d_min;
+    res.d_max = info->d_max;
+    res.depth_representation_type = static_cast<int>(info->depth_representation_type);
+    res.disparity_reference_view = info->disparity_reference_view;
+
+    heif_depth_representation_info_free(info);
+    return res;
+}
+
 int HeifImageHandle::get_number_of_thumbnails() const {
     check_valid();
     return heif_image_handle_get_number_of_thumbnails(handle.get());
@@ -183,6 +274,13 @@ int HeifImage::get_height(heif_channel channel) const {
 
 void HeifImage::add_plane(heif_channel channel, int width, int height, int bit_depth) {
     check_error(heif_image_add_plane(image.get(), channel, width, height, bit_depth));
+}
+
+void HeifImage::crop(int left, int right, int top, int bottom) {
+    if (!image) {
+        throw std::runtime_error("HeifImage is invalid");
+    }
+    check_error(heif_image_crop(image.get(), left, right, top, bottom));
 }
 
 // get_array moved to bindings_image.cpp

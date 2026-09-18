@@ -38,6 +38,8 @@ from ._pylibheif import (
     HeifEncoderParameterType,
     HeifPlaneLayout,
     HeifImageLayout,
+    HeifImageTiling,
+    HeifDepthRepresentationInfo,
     __doc__,
 )
 
@@ -89,6 +91,8 @@ __all__ = [
     "HeifEncoderParameterType",
     "HeifPlaneLayout",
     "HeifImageLayout",
+    "HeifImageTiling",
+    "HeifDepthRepresentationInfo",
     "HeifEncoderParametersProxy",
     "AsyncHeifContext",
     "AsyncHeifImageHandle",
@@ -391,6 +395,75 @@ class AsyncHeifImageHandle:
         ids = self.get_thumbnail_ids()
         return [self.get_thumbnail(tid) for tid in ids]
 
+    def get_image_tiling(
+        self, process_transformations: bool = True
+    ) -> HeifImageTiling:
+        return self._handle.get_image_tiling(process_transformations)
+
+    async def decode_tile(
+        self,
+        tile_x: int,
+        tile_y: int,
+        colorspace: HeifColorspace = HeifColorspace.RGB,
+        chroma: HeifChroma = HeifChroma.InterleavedRGB,
+        options: Optional[HeifDecodingOptions] = None,
+    ) -> HeifImage:
+        return await _run_in_executor(
+            self._executor,
+            self._handle.decode_tile,
+            tile_x,
+            tile_y,
+            colorspace,
+            chroma,
+            options,
+        )
+
+    @property
+    def has_depth_image(self) -> bool:
+        return self._handle.has_depth_image
+
+    def get_number_of_depth_images(self) -> int:
+        return self._handle.get_number_of_depth_images()
+
+    def get_depth_image_ids(self) -> List[int]:
+        return self._handle.get_depth_image_ids()
+
+    def get_depth_image_handle(self, id: int) -> "AsyncHeifImageHandle":
+        handle = self._handle.get_depth_image_handle(id)
+        return AsyncHeifImageHandle(handle, executor=self._executor)
+
+    async def get_depth_image_handle_async(self, id: int) -> "AsyncHeifImageHandle":
+        handle = await _run_in_executor(
+            self._executor, self._handle.get_depth_image_handle, id
+        )
+        return AsyncHeifImageHandle(handle, executor=self._executor)
+
+    def get_primary_depth_image_handle(self) -> "AsyncHeifImageHandle":
+        handle = self._handle.get_primary_depth_image_handle()
+        return AsyncHeifImageHandle(handle, executor=self._executor)
+
+    def get_depth_representation_info(
+        self, id: int = 0
+    ) -> Optional[HeifDepthRepresentationInfo]:
+        return self._handle.get_depth_representation_info(id)
+
+    @property
+    def has_gain_map(self) -> bool:
+        return getattr(self._handle, "has_gain_map", False)
+
+    def get_gain_map_handle(self) -> "AsyncHeifImageHandle":
+        handle = self._handle.get_gain_map_handle()
+        return AsyncHeifImageHandle(handle, executor=self._executor)
+
+    async def get_gain_map_handle_async(self) -> "AsyncHeifImageHandle":
+        handle = await _run_in_executor(
+            self._executor, self._handle.get_gain_map_handle
+        )
+        return AsyncHeifImageHandle(handle, executor=self._executor)
+
+    async def decode_depth(self) -> Any:
+        return await _run_in_executor(self._executor, self._handle.decode_depth)
+
 
 class AsyncHeifContext:
     """Async wrapper for HeifContext with custom executor and async factory support."""
@@ -425,6 +498,17 @@ class AsyncHeifContext:
         await c.read_from_memory(data)
         return c
 
+    @classmethod
+    async def from_stream(
+        cls,
+        stream: Any,
+        executor: Optional[concurrent.futures.Executor] = None,
+    ) -> "AsyncHeifContext":
+        """Async factory method to construct and read context from a Python stream."""
+        c = cls(executor=executor)
+        await c.read_from_stream(stream)
+        return c
+
     def __repr__(self) -> str:
         return repr(self._ctx).replace("HeifContext", "AsyncHeifContext")
 
@@ -456,6 +540,10 @@ class AsyncHeifContext:
         """Asynchronously read from memory."""
         await _run_in_executor(self._executor, self._ctx.read_from_memory, data)
 
+    async def read_from_stream(self, stream: Any) -> None:
+        """Asynchronously read from a Python file-like stream object."""
+        await _run_in_executor(self._executor, self._ctx.read_from_stream, stream)
+
     async def write_to_file(self, filename: str) -> None:
         """Asynchronously write to file."""
         await _run_in_executor(self._executor, self._ctx.write_to_file, filename)
@@ -463,6 +551,10 @@ class AsyncHeifContext:
     async def write_to_bytes(self) -> bytes:
         """Asynchronously write to bytes."""
         return await _run_in_executor(self._executor, self._ctx.write_to_bytes)
+
+    async def write_to_stream(self, stream: Any) -> None:
+        """Asynchronously write to a Python file-like stream object."""
+        await _run_in_executor(self._executor, self._ctx.write_to_stream, stream)
 
     def get_primary_image_handle(self) -> AsyncHeifImageHandle:
         """Get async wrapper for primary image handle."""
@@ -671,4 +763,46 @@ def unregister_pillow_opener() -> None:
 setattr(HeifImageHandle, "to_pillow", to_pillow)
 setattr(HeifImage, "to_pillow", to_pillow)
 setattr(HeifImage, "from_pillow", staticmethod(from_pillow))
+
+
+def _handle_get_gain_map_ids(self: HeifImageHandle) -> List[int]:
+    """Find all auxiliary image IDs corresponding to HDR Gain Maps."""
+    gain_ids = []
+    for aid in self.get_auxiliary_image_ids():
+        try:
+            aux_handle = self.get_auxiliary_image_handle(aid)
+            atype = aux_handle.get_auxiliary_type()
+            if "gainmap" in atype.lower() or "21496" in atype:
+                gain_ids.append(aid)
+        except Exception:
+            pass
+    return gain_ids
+
+
+def _handle_has_gain_map(self: HeifImageHandle) -> bool:
+    return len(_handle_get_gain_map_ids(self)) > 0
+
+
+def _handle_get_gain_map_handle(self: HeifImageHandle) -> HeifImageHandle:
+    ids = _handle_get_gain_map_ids(self)
+    if not ids:
+        raise ValueError("Image handle does not contain a Gain Map")
+    return self.get_auxiliary_image_handle(ids[0])
+
+
+def _handle_decode_depth(self: HeifImageHandle) -> Any:
+    """Decode primary depth image and return as a 2D numpy array."""
+    depth_handle = self.get_primary_depth_image_handle()
+    decoded = depth_handle.decode(HeifColorspace.Monochrome, HeifChroma.Monochrome)
+    plane = decoded.get_plane(HeifChannel.Y)
+    import numpy as np
+
+    return np.asarray(plane)
+
+
+setattr(HeifImageHandle, "gain_map_ids", property(_handle_get_gain_map_ids))
+setattr(HeifImageHandle, "has_gain_map", property(_handle_has_gain_map))
+setattr(HeifImageHandle, "get_gain_map_handle", _handle_get_gain_map_handle)
+setattr(HeifImageHandle, "decode_depth", _handle_decode_depth)
+
 

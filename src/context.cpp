@@ -57,6 +57,32 @@ void HeifContext::read_from_memory(const nb::handle& data) {
         heif_context_read_from_memory_without_copy(state->ctx.get(), data_ptr, data_size, nullptr));
 }
 
+void HeifContext::read_from_stream(const nb::object& stream) {
+    if (is_closed() || state->buffer_holder || state->memory_reference.is_valid() ||
+        state->stream_reader) {
+        reset();
+    }
+
+    if (!nb::hasattr(stream, "read")) {
+        throw std::invalid_argument("Stream object must have a 'read' method");
+    }
+
+    // Set up PyStreamReader and anchor in ContextState for persistent lifetime
+    state->stream_holder = stream;
+    state->stream_reader = std::make_unique<PyStreamReader>(stream);
+
+    state->reader_vtable = {};
+    state->reader_vtable.reader_api_version = 1;
+    state->reader_vtable.get_position = PyStreamReader::trampoline_get_position;
+    state->reader_vtable.read = PyStreamReader::trampoline_read;
+    state->reader_vtable.seek = PyStreamReader::trampoline_seek;
+    state->reader_vtable.wait_for_file_size = PyStreamReader::trampoline_wait_for_file_size;
+
+    nb::gil_scoped_release release;
+    check_error(heif_context_read_from_reader(state->ctx.get(), &state->reader_vtable,
+                                              state->stream_reader.get(), nullptr));
+}
+
 HeifImageHandle HeifContext::get_primary_image_handle() {
     check_closed();
     heif_image_handle* handle;
@@ -142,6 +168,21 @@ nb::bytes HeifContext::write_to_bytes() {
     }
 
     return nb::bytes((char*)wd.data.data(), wd.data.size());
+}
+
+void HeifContext::write_to_stream(const nb::object& stream) {
+    check_closed();
+    if (!nb::hasattr(stream, "write")) {
+        throw std::invalid_argument("Stream object must have a 'write' method");
+    }
+
+    PyStreamWriter sw(stream);
+    struct heif_writer writer = {};
+    writer.writer_api_version = 1;
+    writer.write = PyStreamWriter::trampoline_write;
+
+    nb::gil_scoped_release release;
+    check_error(heif_context_write(state->ctx.get(), &writer, &sw));
 }
 
 void HeifContext::add_exif_metadata(const HeifImageHandle& handle, const nb::bytes& data) {

@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "common.hpp"
+#include "io_bridge.hpp"
 
 namespace pylibheif {
 
@@ -16,13 +17,21 @@ struct ContextState {
     bool is_closed = false;
     std::unique_ptr<PyBufferHolder> buffer_holder;
 
+    // Stream reader and holder
+    std::unique_ptr<PyStreamReader> stream_reader;
+    struct heif_reader reader_vtable{};
+    nb::object stream_holder;
+
     ~ContextState() { close_buffer(); }
 
     void close_buffer() {
-        if (buffer_holder || memory_reference.is_valid()) {
+        if (buffer_holder || memory_reference.is_valid() || stream_holder.is_valid() ||
+            stream_reader) {
             nb::gil_scoped_acquire acquire;
             buffer_holder.reset();
             memory_reference = nb::object();
+            stream_reader.reset();
+            stream_holder = nb::object();
         }
     }
 };
@@ -36,6 +45,7 @@ class HeifContext {
 
     void read_from_file(const std::string& filename);
     void read_from_memory(const nb::handle& data);
+    void read_from_stream(const nb::object& stream);
 
     HeifImageHandle get_primary_image_handle();
     std::vector<heif_item_id> get_list_of_top_level_image_IDs();
@@ -43,6 +53,7 @@ class HeifContext {
 
     void write_to_file(const std::string& filename);
     nb::bytes write_to_bytes();
+    void write_to_stream(const nb::object& stream);
 
     // Metadata writing
     void add_exif_metadata(const HeifImageHandle& handle, const nb::bytes& data);

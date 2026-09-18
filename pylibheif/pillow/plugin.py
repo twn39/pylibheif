@@ -40,19 +40,14 @@ class HeifImageFile(ImageFile.ImageFile):
 
         if isinstance(self.fp, (str, bytes, os.PathLike)):
             ctx.read_from_file(str(os.fspath(self.fp)))
+        elif hasattr(self.fp, "read") and hasattr(self.fp, "seek"):
+            try:
+                self.fp.seek(0)
+            except Exception:
+                pass
+            ctx.read_from_stream(self.fp)
         elif hasattr(self.fp, "read"):
-            # File-like object (BytesIO, BufferedReader, etc.)
-            if hasattr(self.fp, "seek"):
-                try:
-                    self.fp.seek(0)
-                except Exception:
-                    pass
-
-            getbuffer_fn = getattr(self.fp, "getbuffer", None)
-            if callable(getbuffer_fn):
-                data = getbuffer_fn()
-            else:
-                data = self.fp.read()
+            data = self.fp.read()
             ctx.read_from_memory(data)
         else:
             raise ValueError(f"Unsupported fp type: {type(self.fp)}")
@@ -200,15 +195,13 @@ def _save(im: Image.Image, fp: Union[IO[bytes], str], filename: Union[str, bytes
         except Exception:
             pass
 
-    output_bytes = ctx.write_to_bytes()
-    if isinstance(fp, str):
-        with open(fp, "wb") as f:
-            f.write(output_bytes)
-    elif hasattr(fp, "write"):
-        cast(IO[bytes], fp).write(output_bytes)
+    if hasattr(fp, "write"):
+        ctx.write_to_stream(fp)
+    elif isinstance(fp, (str, bytes, os.PathLike)):
+        ctx.write_to_file(str(os.fspath(fp)))
     else:
         with open(str(fp), "wb") as f:
-            f.write(output_bytes)
+            ctx.write_to_stream(f)
 
 
 def register_heif_opener() -> None:
