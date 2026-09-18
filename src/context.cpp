@@ -190,4 +190,21 @@ void HeifContext::add_generic_metadata(const HeifImageHandle& handle, const nb::
     check_error(err);
 }
 
+void HeifContext::assign_thumbnail(const HeifImageHandle& master_image,
+                                   const HeifImageHandle& thumbnail_image) {
+    check_closed();
+    heif_context* ctx_ptr = state->ctx.get();
+    heif_image_handle* master_ptr = master_image.get();
+    heif_image_handle* thumb_ptr = thumbnail_image.get();
+    heif_error err;
+    {
+        nb::gil_scoped_release release;
+        // libheif's C API heif_context_assign_thumbnail inverts master/thumbnail when calling
+        // internal HeifContext::assign_thumbnail. Passing (thumb_ptr, master_ptr) creates the
+        // correct iref 'thmb' reference from thumbnail to master.
+        err = heif_context_assign_thumbnail(ctx_ptr, thumb_ptr, master_ptr);
+    }
+    check_error(err);
+}
+
 }  // namespace pylibheif

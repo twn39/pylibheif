@@ -50,6 +50,9 @@ class HeifContext {
     void add_generic_metadata(const HeifImageHandle& handle, const nb::bytes& data,
                               const std::string& item_type, const std::string& content_type = "");
 
+    void assign_thumbnail(const HeifImageHandle& master_image,
+                          const HeifImageHandle& thumbnail_image);
+
     heif_context* get() const { return state ? state->ctx.get() : nullptr; }
     bool is_closed() const { return !state || state->is_closed; }
     std::shared_ptr<ContextState> get_state() const { return state; }

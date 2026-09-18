@@ -77,6 +77,30 @@ HeifImageHandle HeifImageHandle::get_auxiliary_image_handle(heif_item_id id) {
     return HeifImageHandle(aux_handle, m_state);
 }
 
+int HeifImageHandle::get_number_of_thumbnails() const {
+    check_valid();
+    return heif_image_handle_get_number_of_thumbnails(handle.get());
+}
+
+std::vector<heif_item_id> HeifImageHandle::get_list_of_thumbnail_IDs() const {
+    check_valid();
+    int count = heif_image_handle_get_number_of_thumbnails(handle.get());
+    if (count <= 0) {
+        return {};
+    }
+    std::vector<heif_item_id> ids(count);
+    count = heif_image_handle_get_list_of_thumbnail_IDs(handle.get(), ids.data(), count);
+    ids.resize(count);
+    return ids;
+}
+
+HeifImageHandle HeifImageHandle::get_thumbnail(heif_item_id id) const {
+    check_valid();
+    heif_image_handle* thumb_handle = nullptr;
+    check_error(heif_image_handle_get_thumbnail(handle.get(), id, &thumb_handle));
+    return HeifImageHandle(thumb_handle, m_state);
+}
+
 std::vector<heif_item_id> HeifImageHandle::get_list_of_metadata_block_IDs(
     const std::string& type_filter) {
     check_valid();

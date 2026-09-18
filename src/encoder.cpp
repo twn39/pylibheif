@@ -162,6 +162,31 @@ HeifImageHandle HeifEncoder::encode_image(HeifContext& ctx, const HeifImage& ima
     return HeifImageHandle(handle, ctx.get_state());
 }
 
+std::optional<HeifImageHandle> HeifEncoder::encode_thumbnail(
+    HeifContext& ctx, const HeifImage& image, const HeifImageHandle& master_image_handle,
+    int bbox_size, const HeifEncodingOptions* options) {
+    heif_encoding_options* alloc_options = nullptr;
+    const heif_encoding_options* opts_ptr = nullptr;
+    if (options) {
+        opts_ptr = options->get();
+    } else {
+        alloc_options = heif_encoding_options_alloc();
+        opts_ptr = alloc_options;
+    }
+    heif_image_handle* thumb_handle = nullptr;
+    heif_error err =
+        heif_context_encode_thumbnail(ctx.get(), image.get(), master_image_handle.get(),
+                                      encoder.get(), opts_ptr, bbox_size, &thumb_handle);
+    if (alloc_options) {
+        heif_encoding_options_free(alloc_options);
+    }
+    check_error(err);
+    if (!thumb_handle) {
+        return std::nullopt;
+    }
+    return HeifImageHandle(thumb_handle, ctx.get_state());
+}
+
 // HeifEncoderDescriptor
 HeifEncoderDescriptor::HeifEncoderDescriptor(const heif_encoder_descriptor* descriptor)
     : m_id_name(heif_encoder_descriptor_get_id_name(descriptor)),

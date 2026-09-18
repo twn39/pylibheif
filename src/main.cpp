@@ -382,6 +382,8 @@ NB_MODULE(_pylibheif, m) {
              nb::arg("data"), nb::arg("item_type"), nb::arg("content_type") = "",
              "Add generic metadata to an image with specified item type and "
              "optional content type.")
+        .def("assign_thumbnail", &HeifContext::assign_thumbnail, nb::arg("master_image"),
+             nb::arg("thumbnail_image"), "Assign a thumbnail image to a master image.")
         .def("__enter__", [](HeifContext& self) { return &self; })
         .def("__exit__", [](HeifContext& self, nb::args) { self.close(); })
         .def("__repr__", [](const HeifContext& self) {
@@ -509,6 +511,9 @@ NB_MODULE(_pylibheif, m) {
         .def("_list_parameters", &HeifEncoder::list_parameters)
         .def("encode_image", &HeifEncoder::encode_image, nb::arg("ctx"), nb::arg("image"),
              nb::arg("preset") = "", nb::arg("options") = nb::none(),
+             nb::call_guard<nb::gil_scoped_release>(), nb::keep_alive<0, 2>())
+        .def("encode_thumbnail", &HeifEncoder::encode_thumbnail, nb::arg("ctx"), nb::arg("image"),
+             nb::arg("master_image"), nb::arg("bbox_size"), nb::arg("options") = nb::none(),
              nb::call_guard<nb::gil_scoped_release>(), nb::keep_alive<0, 2>())
         .def("__repr__", [](const HeifEncoder& self) {
             return "<pylibheif.HeifEncoder name='" + self.name() + "'>";

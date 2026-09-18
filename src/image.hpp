@@ -243,6 +243,11 @@ class HeifImageHandle {
     std::string get_auxiliary_type() const;
     HeifImageHandle get_auxiliary_image_handle(heif_item_id id);
 
+    // Thumbnails
+    int get_number_of_thumbnails() const;
+    std::vector<heif_item_id> get_list_of_thumbnail_IDs() const;
+    HeifImageHandle get_thumbnail(heif_item_id id) const;
+
     // Metadata
     std::vector<heif_item_id> get_list_of_metadata_block_IDs(const std::string& type_filter = "");
     std::string get_metadata_block_type(heif_item_id id);

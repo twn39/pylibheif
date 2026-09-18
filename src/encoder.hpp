@@ -95,6 +95,11 @@ class HeifEncoder {
                                  const std::string& preset = "",
                                  const HeifEncodingOptions* options = nullptr);
 
+    std::optional<HeifImageHandle> encode_thumbnail(HeifContext& ctx, const HeifImage& image,
+                                                    const HeifImageHandle& master_image_handle,
+                                                    int bbox_size,
+                                                    const HeifEncodingOptions* options = nullptr);
+
     heif_encoder* get() const { return encoder.get(); }
 
    private:

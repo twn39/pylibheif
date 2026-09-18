@@ -226,6 +226,11 @@ void bind_image(nb::module_& m) {
              nb::arg("aux_key_mask") = 0)
         .def("get_auxiliary_type", &HeifImageHandle::get_auxiliary_type)
         .def("get_auxiliary_image_handle", &HeifImageHandle::get_auxiliary_image_handle)
+        .def_prop_ro("number_of_thumbnails", &HeifImageHandle::get_number_of_thumbnails)
+        .def("get_number_of_thumbnails", &HeifImageHandle::get_number_of_thumbnails)
+        .def("get_thumbnail_ids", &HeifImageHandle::get_list_of_thumbnail_IDs)
+        .def("get_thumbnail", &HeifImageHandle::get_thumbnail, nb::arg("thumbnail_id"),
+             nb::keep_alive<0, 1>())
         .def("get_metadata_block_ids", &HeifImageHandle::get_list_of_metadata_block_IDs,
              nb::arg("type_filter") = "")
         .def("get_metadata_block_type", &HeifImageHandle::get_metadata_block_type)

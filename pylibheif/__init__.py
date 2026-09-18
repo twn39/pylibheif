@@ -235,6 +235,9 @@ def _get_encoder_parameters(encoder: HeifEncoder) -> HeifEncoderParametersProxy:
 
 
 HeifEncoder.parameters = property(_get_encoder_parameters)  # type: ignore
+HeifImageHandle.thumbnails = property(  # type: ignore
+    lambda self: [self.get_thumbnail(tid) for tid in self.get_thumbnail_ids()]
+)
 
 
 async def _run_in_executor(
@@ -361,6 +364,28 @@ class AsyncHeifImageHandle:
             self._executor, self._handle.get_auxiliary_image_handle, id
         )
         return AsyncHeifImageHandle(handle, executor=self._executor)
+
+    @property
+    def number_of_thumbnails(self) -> int:
+        return self._handle.number_of_thumbnails
+
+    def get_number_of_thumbnails(self) -> int:
+        return self._handle.get_number_of_thumbnails()
+
+    def get_thumbnail_ids(self) -> List[int]:
+        return self._handle.get_thumbnail_ids()
+
+    def get_thumbnail(self, id: int) -> "AsyncHeifImageHandle":
+        thumb = self._handle.get_thumbnail(id)
+        return AsyncHeifImageHandle(thumb, executor=self._executor)
+
+    async def get_thumbnail_async(self, id: int) -> "AsyncHeifImageHandle":
+        thumb = await _run_in_executor(self._executor, self._handle.get_thumbnail, id)
+        return AsyncHeifImageHandle(thumb, executor=self._executor)
+
+    async def get_thumbnails(self) -> List["AsyncHeifImageHandle"]:
+        ids = self.get_thumbnail_ids()
+        return [self.get_thumbnail(tid) for tid in ids]
 
 
 class AsyncHeifContext:
@@ -499,6 +524,40 @@ class AsyncHeifContext:
             content_type,
         )
 
+    def assign_thumbnail(
+        self,
+        master_image: Union[HeifImageHandle, AsyncHeifImageHandle],
+        thumbnail_image: Union[HeifImageHandle, AsyncHeifImageHandle],
+    ) -> None:
+        m = (
+            master_image._handle
+            if isinstance(master_image, AsyncHeifImageHandle)
+            else master_image
+        )
+        t = (
+            thumbnail_image._handle
+            if isinstance(thumbnail_image, AsyncHeifImageHandle)
+            else thumbnail_image
+        )
+        self._ctx.assign_thumbnail(m, t)
+
+    async def assign_thumbnail_async(
+        self,
+        master_image: Union[HeifImageHandle, AsyncHeifImageHandle],
+        thumbnail_image: Union[HeifImageHandle, AsyncHeifImageHandle],
+    ) -> None:
+        m = (
+            master_image._handle
+            if isinstance(master_image, AsyncHeifImageHandle)
+            else master_image
+        )
+        t = (
+            thumbnail_image._handle
+            if isinstance(thumbnail_image, AsyncHeifImageHandle)
+            else thumbnail_image
+        )
+        await _run_in_executor(self._executor, self._ctx.assign_thumbnail, m, t)
+
 
 class AsyncHeifEncoder:
     """Async wrapper for HeifEncoder."""
@@ -526,6 +585,32 @@ class AsyncHeifEncoder:
         exec_pool = self._executor or getattr(context, "_executor", None)
         return await _run_in_executor(
             exec_pool, self._encoder.encode_image, ctx, image, preset, options
+        )
+
+    async def encode_thumbnail(
+        self,
+        context: Union[HeifContext, AsyncHeifContext],
+        image: HeifImage,
+        master_image: Union[HeifImageHandle, AsyncHeifImageHandle],
+        bbox_size: int,
+        options: Optional[HeifEncodingOptions] = None,
+    ) -> Optional[HeifImageHandle]:
+        """Asynchronously encode thumbnail image."""
+        ctx = context._ctx if isinstance(context, AsyncHeifContext) else context
+        m = (
+            master_image._handle
+            if isinstance(master_image, AsyncHeifImageHandle)
+            else master_image
+        )
+        exec_pool = self._executor or getattr(context, "_executor", None)
+        return await _run_in_executor(
+            exec_pool,
+            self._encoder.encode_thumbnail,
+            ctx,
+            image,
+            m,
+            bbox_size,
+            options,
         )
 
     def set_lossy_quality(self, quality: int) -> None:
