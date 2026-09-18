@@ -46,37 +46,50 @@ class TestThumbnailsSync:
             assert os.path.getsize(tmp_path) > 0
 
             # Read back and verify thumbnail
-            read_ctx = pylibheif.HeifContext()
-            read_ctx.read_from_file(tmp_path)
+            with pylibheif.HeifContext() as read_ctx:
+                read_ctx.read_from_file(tmp_path)
 
-            primary = read_ctx.get_primary_image_handle()
-            assert primary.number_of_thumbnails == 1
-            assert primary.get_number_of_thumbnails() == 1
+                primary = read_ctx.get_primary_image_handle()
+                assert primary.number_of_thumbnails == 1
+                assert primary.get_number_of_thumbnails() == 1
 
-            thumb_ids = primary.get_thumbnail_ids()
-            assert len(thumb_ids) == 1
-            thumb_id = thumb_ids[0]
+                thumb_ids = primary.get_thumbnail_ids()
+                assert len(thumb_ids) == 1
+                thumb_id = thumb_ids[0]
 
-            th = primary.get_thumbnail(thumb_id)
-            assert max(th.width, th.height) <= 50
+                th = primary.get_thumbnail(thumb_id)
+                assert max(th.width, th.height) <= 50
 
-            # Test convenient property .thumbnails
-            assert len(primary.thumbnails) == 1
-            assert primary.thumbnails[0].width == th.width
+                # Test convenient property .thumbnails
+                assert len(primary.thumbnails) == 1
+                assert primary.thumbnails[0].width == th.width
 
-            # Decode thumbnail image
-            decoded_th = th.decode(
-                pylibheif.HeifColorspace.RGB, pylibheif.HeifChroma.InterleavedRGB
-            )
-            assert decoded_th.width == th.width
-            assert decoded_th.height == th.height
+                # Decode thumbnail image
+                decoded_th = th.decode(
+                    pylibheif.HeifColorspace.RGB, pylibheif.HeifChroma.InterleavedRGB
+                )
+                assert decoded_th.width == th.width
+                assert decoded_th.height == th.height
 
-            th_arr = np.asarray(decoded_th.get_plane(pylibheif.HeifChannel.Interleaved))
-            assert th_arr.shape == (th.height, th.width, 3)
-            assert th_arr.dtype == np.uint8
+                th_arr = np.asarray(
+                    decoded_th.get_plane(pylibheif.HeifChannel.Interleaved)
+                )
+                assert th_arr.shape == (th.height, th.width, 3)
+                assert th_arr.dtype == np.uint8
+
+                del decoded_th, th, primary
         finally:
             if os.path.exists(tmp_path):
-                os.unlink(tmp_path)
+                try:
+                    os.unlink(tmp_path)
+                except PermissionError:
+                    import gc
+
+                    gc.collect()
+                    try:
+                        os.unlink(tmp_path)
+                    except OSError:
+                        pass
 
     def test_thumbnail_bbox_larger_than_image_returns_none(self):
         img = create_gradient_image(100, 100)
@@ -109,17 +122,28 @@ class TestThumbnailsSync:
         try:
             ctx.write_to_file(tmp_path)
 
-            read_ctx = pylibheif.HeifContext()
-            read_ctx.read_from_file(tmp_path)
+            with pylibheif.HeifContext() as read_ctx:
+                read_ctx.read_from_file(tmp_path)
 
-            primary = read_ctx.get_primary_image_handle()
-            assert primary.number_of_thumbnails == 1
-            th = primary.thumbnails[0]
-            assert th.width == 40
-            assert th.height == 40
+                primary = read_ctx.get_primary_image_handle()
+                assert primary.number_of_thumbnails == 1
+                th = primary.thumbnails[0]
+                assert th.width == 40
+                assert th.height == 40
+
+                del th, primary
         finally:
             if os.path.exists(tmp_path):
-                os.unlink(tmp_path)
+                try:
+                    os.unlink(tmp_path)
+                except PermissionError:
+                    import gc
+
+                    gc.collect()
+                    try:
+                        os.unlink(tmp_path)
+                    except OSError:
+                        pass
 
 
 class TestThumbnailsAsync:
@@ -148,25 +172,37 @@ class TestThumbnailsAsync:
             assert os.path.getsize(tmp_path) > 0
 
             read_ctx = await pylibheif.AsyncHeifContext.from_file(tmp_path)
-            primary = read_ctx.get_primary_image_handle()
-            assert primary.number_of_thumbnails == 1
+            async with read_ctx:
+                primary = read_ctx.get_primary_image_handle()
+                assert primary.number_of_thumbnails == 1
 
-            thumb_ids = primary.get_thumbnail_ids()
-            assert len(thumb_ids) == 1
+                thumb_ids = primary.get_thumbnail_ids()
+                assert len(thumb_ids) == 1
 
-            th = await primary.get_thumbnail_async(thumb_ids[0])
-            assert max(th.width, th.height) <= 40
+                th = await primary.get_thumbnail_async(thumb_ids[0])
+                assert max(th.width, th.height) <= 40
 
-            all_thumbs = await primary.get_thumbnails()
-            assert len(all_thumbs) == 1
-            assert all_thumbs[0].width == th.width
+                all_thumbs = await primary.get_thumbnails()
+                assert len(all_thumbs) == 1
+                assert all_thumbs[0].width == th.width
 
-            decoded_th = await th.decode()
-            assert decoded_th.width == th.width
-            assert decoded_th.height == th.height
+                decoded_th = await th.decode()
+                assert decoded_th.width == th.width
+                assert decoded_th.height == th.height
+
+                del decoded_th, all_thumbs, th, primary
         finally:
             if os.path.exists(tmp_path):
-                os.unlink(tmp_path)
+                try:
+                    os.unlink(tmp_path)
+                except PermissionError:
+                    import gc
+
+                    gc.collect()
+                    try:
+                        os.unlink(tmp_path)
+                    except OSError:
+                        pass
 
     @pytest.mark.asyncio
     async def test_async_assign_thumbnail(self):
@@ -188,11 +224,23 @@ class TestThumbnailsAsync:
             await async_ctx.write_to_file(tmp_path)
 
             read_ctx = await pylibheif.AsyncHeifContext.from_file(tmp_path)
-            primary = read_ctx.get_primary_image_handle()
-            assert primary.number_of_thumbnails == 1
-            thumbs = await primary.get_thumbnails()
-            assert thumbs[0].width == 30
-            assert thumbs[0].height == 30
+            async with read_ctx:
+                primary = read_ctx.get_primary_image_handle()
+                assert primary.number_of_thumbnails == 1
+                thumbs = await primary.get_thumbnails()
+                assert thumbs[0].width == 30
+                assert thumbs[0].height == 30
+
+                del thumbs, primary
         finally:
             if os.path.exists(tmp_path):
-                os.unlink(tmp_path)
+                try:
+                    os.unlink(tmp_path)
+                except PermissionError:
+                    import gc
+
+                    gc.collect()
+                    try:
+                        os.unlink(tmp_path)
+                    except OSError:
+                        pass
