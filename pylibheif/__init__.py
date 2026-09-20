@@ -49,7 +49,7 @@ from ._pylibheif import (
     __doc__,
 )
 
-__version__ = "1.23.1"
+__version__ = "1.23.2"
 
 import atexit
 import asyncio
