@@ -5,6 +5,9 @@ import os
 import tempfile
 from pathlib import Path
 import pytest
+
+typer = pytest.importorskip("typer")
+pytest.importorskip("rich")
 from typer.testing import CliRunner
 
 from pylibheif.cli import app
