@@ -3,6 +3,7 @@
 #include <nanobind/stl/optional.h>
 #include <nanobind/stl/pair.h>
 #include <nanobind/stl/string.h>
+#include <nanobind/stl/unordered_map.h>
 #include <nanobind/stl/vector.h>
 
 #include "context.hpp"
@@ -383,7 +384,10 @@ NB_MODULE(_pylibheif, m) {
         .def("get_list_of_top_level_image_IDs", &HeifContext::get_list_of_top_level_image_IDs)
         .def("get_image_handle", &HeifContext::get_image_handle, nb::keep_alive<0, 1>())
         .def("write_to_file", &HeifContext::write_to_file, nb::call_guard<nb::gil_scoped_release>())
-        .def("write_to_bytes", &HeifContext::write_to_bytes)
+        .def("write_to_bytes", &HeifContext::write_to_bytes, nb::arg("copy") = true,
+             "Export context to Python bytes (copy=True) or zero-copy memoryview (copy=False).")
+        .def("write_to_memoryview", &HeifContext::write_to_memoryview,
+             "Export context directly to a zero-copy Python memoryview.")
         .def("write_to_stream", &HeifContext::write_to_stream, nb::arg("stream"),
              "Write HEIF data directly to a Python file-like stream object implementing write().")
         .def("add_exif_metadata", &HeifContext::add_exif_metadata, nb::arg("handle"),
@@ -507,13 +511,20 @@ NB_MODULE(_pylibheif, m) {
         });
 
     nb::class_<HeifEncoder>(m, "HeifEncoder", nb::is_weak_referenceable())
-        .def(nb::init<heif_compression_format>(), nb::call_guard<nb::gil_scoped_release>())
-        .def(nb::init<HeifEncoderDescriptor>(), nb::call_guard<nb::gil_scoped_release>())
+        .def(nb::init<heif_compression_format, const std::string&>(),
+             nb::arg("format"), nb::arg("preset") = "",
+             nb::call_guard<nb::gil_scoped_release>())
+        .def(nb::init<HeifEncoderDescriptor, const std::string&>(),
+             nb::arg("descriptor"), nb::arg("preset") = "",
+             nb::call_guard<nb::gil_scoped_release>())
         .def_prop_ro("name", &HeifEncoder::name)
         .def("set_lossy_quality", &HeifEncoder::set_lossy_quality)
         .def("set_lossless", &HeifEncoder::set_lossless)
         .def("set_parameter", &HeifEncoder::set_parameter)
         .def("get_parameter", &HeifEncoder::get_parameter)
+        .def("has_parameter", &HeifEncoder::has_parameter, nb::arg("name"))
+        .def("apply_preset", &HeifEncoder::apply_preset, nb::arg("preset"))
+        .def("set_parameters", &HeifEncoder::set_parameters, nb::arg("params"))
         .def("set_integer_parameter", &HeifEncoder::set_integer_parameter)
         .def("get_integer_parameter", &HeifEncoder::get_integer_parameter)
         .def("set_boolean_parameter", &HeifEncoder::set_boolean_parameter)
@@ -540,4 +551,9 @@ NB_MODULE(_pylibheif, m) {
     m.def("set_default_num_threads", &set_default_num_codec_threads, nb::arg("threads"),
           "Set the global default number of threads used for decoding codecs (0 resets to adaptive "
           "default).");
+
+    m.def("get_default_encoder_preset", &get_default_encoder_preset,
+          "Get the global default encoder preset ('ultrafast', 'fast', 'balanced', 'quality').");
+    m.def("set_default_encoder_preset", &set_default_encoder_preset, nb::arg("preset"),
+          "Set the global default encoder preset (empty string resets to balanced or env default).");
 }

@@ -52,7 +52,8 @@ class HeifContext {
     HeifImageHandle get_image_handle(heif_item_id id);
 
     void write_to_file(const std::string& filename);
-    nb::bytes write_to_bytes();
+    nb::object write_to_bytes(bool copy = true);
+    nb::object write_to_memoryview();
     void write_to_stream(const nb::object& stream);
 
     // Metadata writing

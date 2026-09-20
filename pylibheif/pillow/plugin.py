@@ -170,15 +170,39 @@ def _save(
     encoderinfo = getattr(im, "encoderinfo", {})
     quality = encoderinfo.get("quality", 80)
     lossless = encoderinfo.get("lossless", False)
+    if quality == -1:
+        lossless = True
+
+    preset = encoderinfo.get("preset", "")
+    speed = encoderinfo.get("speed", None)
+    threads = encoderinfo.get("threads", None)
+    tune = encoderinfo.get("tune", None)
+    chroma = encoderinfo.get("chroma", None)
+    enc_params = encoderinfo.get("enc_params", None)
 
     heif_image, info = from_pillow(im)
 
     ctx = HeifContext()
-    encoder = HeifEncoder(compression)
+    encoder = HeifEncoder(compression, preset=str(preset) if preset else "")
     if lossless:
         encoder.set_lossless(True)
     else:
-        encoder.set_lossy_quality(quality)
+        encoder.set_lossy_quality(int(quality))
+
+    # Apply specific parameters if provided
+    if speed is not None and encoder.has_parameter("speed"):
+        encoder.set_integer_parameter("speed", int(speed))
+    if threads is not None and encoder.has_parameter("threads"):
+        encoder.set_integer_parameter("threads", int(threads))
+    if tune is not None and encoder.has_parameter("tune"):
+        encoder.set_string_parameter("tune", str(tune))
+    if chroma is not None and encoder.has_parameter("chroma"):
+        encoder.set_string_parameter("chroma", str(chroma))
+
+    # Apply arbitrary extra encoder parameters dictionary
+    if enc_params and isinstance(enc_params, dict):
+        for k, v in enc_params.items():
+            encoder.set_parameter(str(k), str(v))
 
     handle = encoder.encode_image(ctx, heif_image)
 

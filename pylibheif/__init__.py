@@ -42,6 +42,8 @@ from ._pylibheif import (
     HeifDepthRepresentationInfo,
     get_default_num_threads,
     set_default_num_threads,
+    get_default_encoder_preset,
+    set_default_encoder_preset,
     __doc__,
 )
 
@@ -104,6 +106,8 @@ __all__ = [
     "AsyncHeifEncoder",
     "get_default_num_threads",
     "set_default_num_threads",
+    "get_default_encoder_preset",
+    "set_default_encoder_preset",
     "get_default_codec_executor",
     "set_default_codec_executor",
     "shutdown_default_codec_executor",
@@ -654,9 +658,13 @@ class AsyncHeifContext:
         """Asynchronously write to file."""
         await _run_in_executor(self._executor, self._ctx.write_to_file, filename)
 
-    async def write_to_bytes(self) -> bytes:
-        """Asynchronously write to bytes."""
-        return await _run_in_executor(self._executor, self._ctx.write_to_bytes)
+    async def write_to_bytes(self, copy: bool = True) -> Union[bytes, memoryview]:
+        """Asynchronously export context to Python bytes (copy=True) or zero-copy memoryview (copy=False)."""
+        return await _run_in_executor(self._executor, self._ctx.write_to_bytes, copy)
+
+    async def write_to_memoryview(self) -> memoryview:
+        """Asynchronously export context directly to a zero-copy Python memoryview."""
+        return await _run_in_executor(self._executor, self._ctx.write_to_memoryview)
 
     async def write_to_stream(self, stream: Any) -> None:
         """Asynchronously write to a Python file-like stream object."""
@@ -767,13 +775,23 @@ class AsyncHeifEncoder:
     def __init__(
         self,
         format_or_descriptor,
+        preset: str = "",
         executor: Optional[concurrent.futures.Executor] = None,
     ):
-        self._encoder = HeifEncoder(format_or_descriptor)
+        self._encoder = HeifEncoder(format_or_descriptor, preset=preset)
         self._executor = executor
 
     def __repr__(self) -> str:
         return repr(self._encoder).replace("HeifEncoder", "AsyncHeifEncoder")
+
+    def apply_preset(self, preset: str) -> None:
+        self._encoder.apply_preset(preset)
+
+    def has_parameter(self, name: str) -> bool:
+        return self._encoder.has_parameter(name)
+
+    def set_parameters(self, params: dict) -> None:
+        self._encoder.set_parameters(params)
 
     async def encode_image(
         self,
@@ -823,6 +841,27 @@ class AsyncHeifEncoder:
 
     def set_parameter(self, name: str, value: str) -> None:
         self._encoder.set_parameter(name, value)
+
+    def get_parameter(self, name: str) -> str:
+        return self._encoder.get_parameter(name)
+
+    def set_integer_parameter(self, name: str, value: int) -> None:
+        self._encoder.set_integer_parameter(name, value)
+
+    def get_integer_parameter(self, name: str) -> int:
+        return self._encoder.get_integer_parameter(name)
+
+    def set_boolean_parameter(self, name: str, value: bool) -> None:
+        self._encoder.set_boolean_parameter(name, value)
+
+    def get_boolean_parameter(self, name: str) -> bool:
+        return self._encoder.get_boolean_parameter(name)
+
+    def set_string_parameter(self, name: str, value: str) -> None:
+        self._encoder.set_string_parameter(name, value)
+
+    def get_string_parameter(self, name: str) -> str:
+        return self._encoder.get_string_parameter(name)
 
     @property
     def name(self) -> str:

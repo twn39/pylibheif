@@ -2,6 +2,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -34,6 +35,9 @@ std::vector<HeifEncoderDescriptor> get_encoder_descriptors(
     heif_compression_format format_filter = heif_compression_undefined,
     const std::string& name_filter = "");
 
+std::string get_default_encoder_preset();
+void set_default_encoder_preset(const std::string& preset);
+
 class HeifEncoderParameter {
    public:
     HeifEncoderParameter(const heif_encoder_parameter* param, heif_encoder* encoder);
@@ -64,8 +68,8 @@ class HeifEncoderParameter {
 
 class HeifEncoder {
    public:
-    HeifEncoder(heif_compression_format format);
-    HeifEncoder(const HeifEncoderDescriptor& descriptor);
+    HeifEncoder(heif_compression_format format, const std::string& preset = "");
+    HeifEncoder(const HeifEncoderDescriptor& descriptor, const std::string& preset = "");
 
     // Rule of Five (Move-only wrapper)
     HeifEncoder(const HeifEncoder&) = delete;
@@ -79,6 +83,9 @@ class HeifEncoder {
     void set_lossless(bool lossless);
     void set_parameter(const std::string& name, const std::string& value);
     std::string get_parameter(const std::string& name) const;
+    bool has_parameter(const std::string& name) const;
+    void apply_preset(const std::string& preset);
+    void set_parameters(const std::unordered_map<std::string, std::string>& params);
 
     void set_integer_parameter(const std::string& name, int value);
     int get_integer_parameter(const std::string& name) const;

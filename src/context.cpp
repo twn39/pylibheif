@@ -1,6 +1,7 @@
 #include "context.hpp"
 
 #include <nanobind/nanobind.h>  // Ensure nanobind is included for gil_scoped_release
+#include <nanobind/ndarray.h>
 
 #include "image.hpp"
 
@@ -116,6 +117,7 @@ struct WriterData {
 
 static struct heif_error writer_write(struct heif_context* ctx, const void* data, size_t size,
                                       void* userdata) {
+    (void)ctx;
     try {
         WriterData* wd = (WriterData*)userdata;
         const uint8_t* bytes = (const uint8_t*)data;
@@ -130,8 +132,7 @@ static struct heif_error writer_write(struct heif_context* ctx, const void* data
     return err;
 }
 
-nb::bytes HeifContext::write_to_bytes() {
-    check_closed();
+static std::vector<uint8_t> encode_context_to_vector(heif_context* ctx) {
     WriterData wd;
 
     struct heif_writer writer = {};  // Zero-initialize all fields
@@ -144,7 +145,7 @@ nb::bytes HeifContext::write_to_bytes() {
         // Estimate required size based on primary image dimensions to minimize reallocations
         ImageHandlePtr handle_guard;
         heif_image_handle* raw_handle = nullptr;
-        heif_error err = heif_context_get_primary_image_handle(state->ctx.get(), &raw_handle);
+        heif_error err = heif_context_get_primary_image_handle(ctx, &raw_handle);
         if (err.code == heif_error_Ok && raw_handle) {
             handle_guard.reset(raw_handle);
             int width = heif_image_handle_get_width(handle_guard.get());
@@ -164,10 +165,45 @@ nb::bytes HeifContext::write_to_bytes() {
             wd.data.reserve(1024 * 1024);  // Fallback to 1MB
         }
 
-        check_error(heif_context_write(state->ctx.get(), &writer, &wd));
+        check_error(heif_context_write(ctx, &writer, &wd));
     }
 
-    return nb::bytes((char*)wd.data.data(), wd.data.size());
+    return wd.data;
+}
+
+nb::object HeifContext::write_to_memoryview() {
+    check_closed();
+    std::vector<uint8_t> data = encode_context_to_vector(state->ctx.get());
+
+    if (data.empty()) {
+        PyObject* empty_mv = PyMemoryView_FromMemory(nullptr, 0, PyBUF_READ);
+        if (!empty_mv) {
+            throw nb::python_error();
+        }
+        return nb::steal<nb::object>(empty_mv);
+    }
+
+    auto* vec = new std::vector<uint8_t>(std::move(data));
+    nb::capsule owner(vec, [](void* p) noexcept {
+        delete static_cast<std::vector<uint8_t>*>(p);
+    });
+
+    nb::ndarray<nb::memview, const uint8_t, nb::shape<-1>, nb::c_contig> arr(
+        vec->data(),
+        { vec->size() },
+        owner
+    );
+
+    return nb::cast(arr);
+}
+
+nb::object HeifContext::write_to_bytes(bool copy) {
+    if (!copy) {
+        return write_to_memoryview();
+    }
+    check_closed();
+    std::vector<uint8_t> data = encode_context_to_vector(state->ctx.get());
+    return nb::bytes((const char*)data.data(), data.size());
 }
 
 void HeifContext::write_to_stream(const nb::object& stream) {

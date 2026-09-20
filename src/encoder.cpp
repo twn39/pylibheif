@@ -1,17 +1,57 @@
 #include "encoder.hpp"
 
+#include <algorithm>
+#include <cctype>
+#include <cstdlib>
+#include <mutex>
+#include <thread>
+
 #include "context.hpp"
 #include "image.hpp"
 
 namespace pylibheif {
 
-HeifEncoder::HeifEncoder(heif_compression_format format) {
+static std::mutex s_preset_mutex;
+static std::string s_default_preset;
+static bool s_preset_initialized = false;
+
+std::string get_default_encoder_preset() {
+    std::lock_guard<std::mutex> lock(s_preset_mutex);
+    if (!s_preset_initialized) {
+        const char* env = std::getenv("PYLIBHEIF_ENCODER_PRESET");
+        if (env && *env) {
+            s_default_preset = env;
+        } else {
+            s_default_preset = "balanced";
+        }
+        s_preset_initialized = true;
+    }
+    return s_default_preset;
+}
+
+void set_default_encoder_preset(const std::string& preset) {
+    std::lock_guard<std::mutex> lock(s_preset_mutex);
+    if (preset.empty()) {
+        const char* env = std::getenv("PYLIBHEIF_ENCODER_PRESET");
+        s_default_preset = (env && *env) ? env : "balanced";
+    } else {
+        s_default_preset = preset;
+    }
+    s_preset_initialized = true;
+}
+
+HeifEncoder::HeifEncoder(heif_compression_format format, const std::string& preset) {
     heif_encoder* enc = nullptr;
     check_error(heif_context_get_encoder_for_format(nullptr, format, &enc));
     encoder.reset(enc);
+    if (!preset.empty()) {
+        apply_preset(preset);
+    } else {
+        apply_preset(get_default_encoder_preset());
+    }
 }
 
-HeifEncoder::HeifEncoder(const HeifEncoderDescriptor& descriptor) {
+HeifEncoder::HeifEncoder(const HeifEncoderDescriptor& descriptor, const std::string& preset) {
     if (!descriptor.raw()) {
         throw std::invalid_argument("Invalid encoder descriptor.");
     }
@@ -19,9 +59,92 @@ HeifEncoder::HeifEncoder(const HeifEncoderDescriptor& descriptor) {
     heif_encoder* enc = nullptr;
     check_error(heif_context_get_encoder(nullptr, descriptor.raw(), &enc));
     encoder.reset(enc);
+    if (!preset.empty()) {
+        apply_preset(preset);
+    } else {
+        apply_preset(get_default_encoder_preset());
+    }
 }
 
 std::string HeifEncoder::name() const { return heif_encoder_get_name(encoder.get()); }
+
+bool HeifEncoder::has_parameter(const std::string& name) const {
+    if (!encoder) return false;
+    const heif_encoder_parameter* const* params = heif_encoder_list_parameters(encoder.get());
+    if (!params) return false;
+    for (int i = 0; params[i]; ++i) {
+        const char* p_name = heif_encoder_parameter_get_name(params[i]);
+        if (p_name && name == p_name) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void HeifEncoder::apply_preset(const std::string& preset) {
+    if (!encoder || preset.empty()) {
+        return;
+    }
+    std::string p = preset;
+    std::transform(p.begin(), p.end(), p.begin(), [](unsigned char c) { return std::tolower(c); });
+
+    // 1. Check if encoder has "preset" parameter (e.g. x265)
+    if (has_parameter("preset")) {
+        std::string mapped_preset = p;
+        if (p == "ultrafast") {
+            mapped_preset = "ultrafast";
+        } else if (p == "fast") {
+            mapped_preset = "fast";
+        } else if (p == "balanced") {
+            mapped_preset = "medium";
+        } else if (p == "quality") {
+            mapped_preset = "slow";
+        }
+        set_parameter("preset", mapped_preset);
+    }
+
+    // 2. Check if encoder has "speed" parameter (e.g. aom)
+    if (has_parameter("speed")) {
+        int speed_val = 6;
+        if (p == "ultrafast") {
+            speed_val = 8;
+        } else if (p == "fast") {
+            speed_val = 6;
+        } else if (p == "balanced") {
+            speed_val = 6;
+        } else if (p == "quality") {
+            speed_val = 4;
+        } else {
+            try {
+                speed_val = std::stoi(p);
+            } catch (...) {
+                speed_val = 6;
+            }
+        }
+        set_integer_parameter("speed", speed_val);
+    }
+
+    // 3. Multithreading & auto-tiles concurrency optimizations for encoders that support them (e.g. AOM)
+    if (has_parameter("threads")) {
+        int threads = get_default_num_codec_threads();
+        if (threads <= 0) {
+            threads = static_cast<int>(std::thread::hardware_concurrency());
+            if (threads <= 0) threads = 4;
+            if (threads > 8) threads = 8;
+        }
+        set_integer_parameter("threads", threads);
+    }
+
+    if (has_parameter("auto-tiles")) {
+        set_boolean_parameter("auto-tiles", true);
+    }
+}
+
+void HeifEncoder::set_parameters(const std::unordered_map<std::string, std::string>& params) {
+    for (const auto& [k, v] : params) {
+        set_parameter(k, v);
+    }
+}
 
 void HeifEncoder::set_lossy_quality(int quality) {
     check_error(heif_encoder_set_lossy_quality(encoder.get(), quality));
@@ -142,7 +265,7 @@ HeifImageHandle HeifEncoder::encode_image(HeifContext& ctx, const HeifImage& ima
                                           const std::string& preset,
                                           const HeifEncodingOptions* options) {
     if (!preset.empty()) {
-        set_parameter("preset", preset);
+        apply_preset(preset);
     }
     heif_encoding_options* alloc_options = nullptr;
     const heif_encoding_options* opts_ptr = nullptr;
