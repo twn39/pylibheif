@@ -211,29 +211,66 @@ with pylibheif.HeifContext() as ctx:
 
 ### Pillow (PIL) First-Class Integration
 
-`pylibheif` integrates seamlessly into Pillow with zero-copy decoding pipelines and parameter forwarding:
+`pylibheif` provides native, first-class Pillow integration with zero-copy decoding pipelines, transparent metadata forwarding, and high-performance saving capabilities.
+
+#### 1. Quick Registration & Opening
+
+Enable `pylibheif` as Pillow's default codec for HEIC, HEIF, and AVIF formats with a single call:
 
 ```python
 from PIL import Image
 import pylibheif
 
-# Register pylibheif as Pillow's HEIF / AVIF handler
+# Register pylibheif as Pillow's HEIF / AVIF opener and saver
 pylibheif.register_pillow_opener()
 
 # Open HEIC / AVIF using standard Pillow API (zero-copy decoder)
-im = Image.open('image.heic')
-print(im.format, im.size, im.mode)
+im = Image.open('photo.heic')
+print(f"Format: {im.format}, Size: {im.size}, Mode: {im.mode}")
 
-# Save with advanced presets and codec controls
-im.save('fast_output.heic', preset='fast', quality=85)
-im.save('avif_output.avif', speed=8, threads=4)
-im.save('lossless.heic', quality=-1)  # quality=-1 triggers lossless encoding
+# Transparent access to EXIF, XMP, and ICC Profile
+raw_exif = im.info.get('exif')         # Raw EXIF bytes (ready for Pillow Exif or Piexif)
+xmp_bytes = im.info.get('xmp')         # Raw XMP XML bytes
+icc_prof = im.info.get('icc_profile')  # Color profile bytes
+
+# Auxiliary image access (Depth Maps & HDR Gain Maps)
+depth_img = im.info.get('depth_image')  # PIL.Image.Image of the depth map (if present)
+gain_map = im.info.get('gain_map')      # PIL.Image.Image of the HDR gain map (if present)
+```
+
+#### 2. Advanced Saving with Speed Presets & Codec Controls
+
+Save images directly using `im.save()` with fine-grained control over encoder performance:
+
+```python
+# Fast encoding with cross-codec presets ('ultrafast', 'fast', 'balanced', 'quality')
+im.save('output_fast.heic', preset='fast', quality=85)
+
+# High-speed AVIF encoding with multithreading
+im.save('output.avif', speed=8, threads=4, quality=80)
+
+# Mathematically lossless HEIC/AVIF encoding
+im.save('lossless.heic', lossless=True)  # or quality=-1
+
+# Forward custom raw encoder parameters (e.g. x265 or AOM options)
 im.save('custom.heic', enc_params={'tune': 'ssim'})
 
-# Bidirectional zero-copy conversions between Pillow and pylibheif
-heif_image, info = pylibheif.from_pillow(im)
+# Preserve or modify metadata upon save
+im.save('with_meta.heic', exif=raw_exif, xmp=xmp_bytes)
+```
+
+#### 3. Zero-Copy Bidirectional Conversions
+
+Convert back and forth between Pillow `Image` and `pylibheif.HeifImage` without intermediate disk I/O:
+
+```python
+# Convert Pillow Image -> HeifImage (zero-copy numpy buffer protocol)
+heif_image, metadata_dict = pylibheif.from_pillow(im, bit_depth=8)
+
+# Convert HeifImage or HeifImageHandle -> Pillow Image
 pil_img = pylibheif.to_pillow(heif_image)
 ```
+
 
 ### Writing JPEG Images
 
@@ -531,54 +568,94 @@ All query commands support `--json` (`-j`) for pure, machine-readable JSON outpu
 
 ### 1. Inspect Image Properties (`info`)
 
-Inspect dimensions, color channels, bit depth, color profile, HDR tags, and metadata:
+Inspect dimensions, color channels, bit depth, color profile, HDR tags, shooting metadata, and embedded blocks:
 
 ```bash
-# Pretty terminal output with tables
+# Pretty terminal output with tables (automatically parses Camera, Lens, Exposure, and GPS)
 heif info photo.heic
+# or intuitively:
+heic info photo.heic
 
-# Machine-readable JSON output (ideal for AI agents and scripts)
-heif info photo.heic --json
+# Full inspection: expands complete EXIF tags table and syntax-highlighted XMP/MIME XML panel
+heic info photo.heic --detail
 
-# Detailed inspection (including NCLX and raw metadata blocks)
-heif info photo.heic --detail --json
+# Machine-readable JSON output (ideal for AI agents and automated scripts)
+heic info photo.heic --json
 ```
 
 <details>
-<summary><b>Sample JSON Output (<code>heif info --json</code>)</b></summary>
+<summary><b>Sample Terminal Output (<code>heic info photo.heic</code>)</b></summary>
+
+```text
+                     Image Information: photo.heic                     
+┏━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Property        ┃ Value                                                ┃
+┡━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ Resolution      │ 5992 x 3994                                          │
+│ Bit Depth       │ 8-bit (chroma: 8-bit)                                │
+│ Alpha Channel   │ No                                                   │
+│ File Size       │ 2.4 MB (2584969 bytes)                               │
+│ Images in File  │ 1 (primary id: 43)                                   │
+│ Thumbnails      │ 0                                                    │
+│ Depth Map       │ No                                                   │
+│ Gain Map (HDR)  │ No                                                   │
+│ Color Profile   │ Prof                                                 │
+│ Camera / Device │ Apple iPhone 16 (iPhone 16 back camera 5.96mm f/1.6) │
+│ Date Taken      │ 2026:09:13 19:44:46 +08:00                           │
+│ Exposure        │ 35mm · f/1.6 · 1/17s · ISO 400                       │
+│ GPS Location    │ (31.0, 7.0, 16.17) N, (121.0, 32.0, 30.52) E         │
+│ Metadata        │ EXIF: Yes | XMP: Yes | Blocks: 2                     │
+│ HDR Metadata    │ CLLI (Max: 203 nits)                                 │
+└─────────────────┴──────────────────────────────────────────────────────┘
+```
+</details>
+
+<details>
+<summary><b>Sample JSON Output (<code>heic info photo.heic --json</code>)</b></summary>
 
 ```json
 {
   "file": "/path/to/photo.heic",
-  "size_bytes": 293608,
-  "width": 1440,
-  "height": 960,
+  "size_bytes": 2584969,
+  "width": 5992,
+  "height": 3994,
   "has_alpha": false,
   "bit_depth": 8,
   "chroma_bits_per_pixel": 8,
   "total_images": 1,
-  "primary_image_id": 1002,
-  "thumbnails_count": 1,
+  "primary_image_id": 43,
+  "thumbnails_count": 0,
   "has_depth_image": false,
   "has_gain_map": false,
   "color_profile": {
-    "type": "NotPresent",
-    "has_icc": false,
+    "type": "Prof",
+    "has_icc": true,
     "has_nclx": false
   },
   "metadata_summary": {
-    "has_exif": false,
-    "has_xmp": false,
-    "total_blocks": 0
+    "has_exif": true,
+    "has_xmp": true,
+    "total_blocks": 2
   },
-  "hdr": null
+  "shooting_info": {
+    "Camera": "Apple iPhone 16 (iPhone 16 back camera 5.96mm f/1.6)",
+    "Date Taken": "2026:09:13 19:44:46 +08:00",
+    "Exposure": "35mm · f/1.6 · 1/17s · ISO 400",
+    "GPS Location": "(31.0, 7.0, 16.17) N, (121.0, 32.0, 30.52) E (Alt: 4.2m)"
+  },
+  "hdr": {
+    "clli": {
+      "max_content_light_level": 203,
+      "max_pic_average_light_level": 50
+    }
+  }
 }
 ```
 </details>
 
 ### 2. Format Conversion & Transcoding (`convert`)
 
-Convert seamlessly between HEIC, AVIF, JPEG, and PNG formats:
+Convert seamlessly between HEIC, AVIF, JPEG, and PNG formats with quality and speed controls:
 
 ```bash
 # Convert HEIC to AVIF with speed preset and quality
@@ -606,15 +683,18 @@ heif doctor
 heif doctor --json
 ```
 
-### 4. Metadata Inspection & Extraction (`metadata`)
+### 4. Metadata Inspection & Direct Preview (`metadata`)
 
-Dump or extract binary EXIF / XMP / ICC data blocks:
+Directly preview EXIF tags, GPS coordinates, and XMP XML text in your terminal, or extract raw binaries:
 
 ```bash
-# List all metadata blocks in JSON
-heif metadata dump photo.heic --json
+# In-place preview: prints metadata blocks summary, EXIF tags table, GPS table, and syntax-highlighted XMP XML
+heic metadata dump photo.heic
 
-# Extract raw EXIF binary to a file
+# Machine-readable JSON tree with parsed EXIF tags and decoded UTF-8 XMP content
+heic metadata dump photo.heic --json
+
+# Extract raw EXIF or XMP binary to a separate file
 heif metadata extract photo.heic --type exif --out photo_exif.bin -y
 ```
 
