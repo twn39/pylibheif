@@ -1,5 +1,13 @@
 """Pillow (PIL) integration for pylibheif."""
 
+try:
+    import PIL
+except ImportError as e:
+    raise ImportError(
+        "Using the 'pylibheif.pillow' submodule requires the 'Pillow' package. "
+        "Please install it via: pip install 'pylibheif[pillow]' or pip install pillow"
+    ) from e
+
 from .convert import from_pillow, to_pillow
 from .metadata import (
     DISPLAY_P3_ICC_BYTES,

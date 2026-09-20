@@ -889,7 +889,13 @@ def to_pillow(
     num_threads: Optional[int] = None,
 ) -> Any:
     """Convert a HeifImage or HeifImageHandle into a Pillow Image."""
-    from .pillow.convert import to_pillow as _to_pillow
+    try:
+        from .pillow.convert import to_pillow as _to_pillow
+    except ImportError as e:
+        raise ImportError(
+            "pylibheif.to_pillow() requires 'Pillow'. "
+            "Please install it via: pip install 'pylibheif[pillow]' or pip install pillow"
+        ) from e
 
     return _to_pillow(
         source,
@@ -901,7 +907,13 @@ def to_pillow(
 
 def from_pillow(pil_image: Any, bit_depth: int = 8) -> Any:
     """Convert a Pillow Image into a pylibheif HeifImage."""
-    from .pillow.convert import from_pillow as _from_pillow
+    try:
+        from .pillow.convert import from_pillow as _from_pillow
+    except ImportError as e:
+        raise ImportError(
+            "pylibheif.from_pillow() requires 'Pillow'. "
+            "Please install it via: pip install 'pylibheif[pillow]' or pip install pillow"
+        ) from e
 
     img, _ = _from_pillow(pil_image, bit_depth=bit_depth)
     return img
@@ -909,14 +921,26 @@ def from_pillow(pil_image: Any, bit_depth: int = 8) -> Any:
 
 def register_pillow_opener() -> None:
     """Register pylibheif as a HEIF/AVIF image opener in Pillow."""
-    from .pillow.plugin import register_heif_opener
+    try:
+        from .pillow.plugin import register_heif_opener
+    except ImportError as e:
+        raise ImportError(
+            "pylibheif.register_pillow_opener() requires 'Pillow'. "
+            "Please install it via: pip install 'pylibheif[pillow]' or pip install pillow"
+        ) from e
 
     register_heif_opener()
 
 
 def unregister_pillow_opener() -> None:
     """Unregister pylibheif handler from Pillow."""
-    from .pillow.plugin import unregister_heif_opener
+    try:
+        from .pillow.plugin import unregister_heif_opener
+    except ImportError as e:
+        raise ImportError(
+            "pylibheif.unregister_pillow_opener() requires 'Pillow'. "
+            "Please install it via: pip install 'pylibheif[pillow]' or pip install pillow"
+        ) from e
 
     unregister_heif_opener()
 
