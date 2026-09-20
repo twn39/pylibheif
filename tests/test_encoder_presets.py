@@ -1,11 +1,8 @@
 import io
-import os
-import pytest
 from PIL import Image
 import pylibheif
 from pylibheif import (
     HeifCompressionFormat,
-    HeifContext,
     HeifEncoder,
     AsyncHeifEncoder,
     get_default_encoder_preset,

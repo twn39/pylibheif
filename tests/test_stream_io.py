@@ -147,6 +147,7 @@ def test_pillow_stream_io_integration():
         # Force load
         loaded.load()
         px = loaded.getpixel((0, 0))
+        assert isinstance(px, tuple)
         assert abs(px[0] - 255) <= 2
         assert abs(px[1] - 128) <= 2
         assert abs(px[2] - 64) <= 2

@@ -1,16 +1,14 @@
 """Tests for pylibheif CLI (heif / heic / pylibheif)."""
 
 import json
-import os
-import tempfile
 from pathlib import Path
 import pytest
 
 typer = pytest.importorskip("typer")
 pytest.importorskip("rich")
-from typer.testing import CliRunner
+from typer.testing import CliRunner  # noqa: E402
 
-from pylibheif.cli import app
+from pylibheif.cli import app  # noqa: E402
 
 runner = CliRunner()
 TEST_HEIC = Path(__file__).parent.parent / "images" / "test.heic"
@@ -55,7 +53,7 @@ def test_cli_info_json():
     assert data["total_images"] >= 1
 
 
-def test_cli_info_detail():
+def test_cli_info_detail_json():
     result = runner.invoke(app, ["info", str(TEST_HEIC), "--detail", "--json"])
     assert result.exit_code == 0
     data = json.loads(result.stdout)

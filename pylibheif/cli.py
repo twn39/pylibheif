@@ -7,6 +7,7 @@ and environment diagnostics.
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import sys
@@ -15,7 +16,6 @@ from typing import Any, Dict, List, Optional
 
 try:
     import typer
-    from rich import print as rprint
     from rich.console import Console
     from rich.panel import Panel
     from rich.syntax import Syntax
@@ -520,11 +520,9 @@ def info_cmd(
         ctx = pylibheif.HeifContext()
         ctx.read_from_file(str(file))
         handle = ctx.get_primary_image_handle()
-    except Exception as heif_err:
+    except Exception:
         # Fallback to Pillow for non-HEIF formats (JPEG, PNG, etc.)
-        try:
-            from PIL import Image
-        except ImportError:
+        if importlib.util.find_spec("PIL") is None:
             typer.echo(
                 f"Error: '{file.name}' is not a HEIF/AVIF image. "
                 f"Inspecting non-HEIF formats (JPEG, PNG, etc.) requires 'Pillow'.\n"
@@ -575,9 +573,9 @@ def info_cmd(
         nclx = handle.get_nclx_color_profile()
         if nclx:
             nclx_details = {
-                "color_primaries": int(nclx.color_primaries),
-                "transfer_characteristics": int(nclx.transfer_characteristics),
-                "matrix_coefficients": int(nclx.matrix_coefficients),
+                "color_primaries": int(nclx.color_primaries.value),
+                "transfer_characteristics": int(nclx.transfer_characteristics.value),
+                "matrix_coefficients": int(nclx.matrix_coefficients.value),
                 "full_range_flag": bool(nclx.full_range_flag),
             }
 
@@ -586,8 +584,10 @@ def info_cmd(
     if getattr(handle, "has_content_light_level", False):
         try:
             clli = getattr(handle, "content_light_level", None)
-            if clli is None and hasattr(handle, "get_content_light_level"):
-                clli = handle.get_content_light_level()
+            if clli is None:
+                getter = getattr(handle, "get_content_light_level", None)
+                if callable(getter):
+                    clli = getter()
             if clli:
                 hdr_info["clli"] = {
                     "max_content_light_level": clli.max_content_light_level,
@@ -599,8 +599,10 @@ def info_cmd(
     if getattr(handle, "has_mastering_display_colour_volume", False):
         try:
             mdcv = getattr(handle, "mastering_display_colour_volume", None)
-            if mdcv is None and hasattr(handle, "get_mastering_display_colour_volume"):
-                mdcv = handle.get_mastering_display_colour_volume()
+            if mdcv is None:
+                getter = getattr(handle, "get_mastering_display_colour_volume", None)
+                if callable(getter):
+                    mdcv = getter()
             if mdcv:
                 hdr_info["mdcv"] = {
                     "red_primary": mdcv.red_primary,
@@ -616,8 +618,10 @@ def info_cmd(
     if getattr(handle, "has_ambient_viewing_environment", False):
         try:
             amve = getattr(handle, "ambient_viewing_environment", None)
-            if amve is None and hasattr(handle, "get_ambient_viewing_environment"):
-                amve = handle.get_ambient_viewing_environment()
+            if amve is None:
+                getter = getattr(handle, "get_ambient_viewing_environment", None)
+                if callable(getter):
+                    amve = getter()
             if amve:
                 hdr_info["amve"] = {
                     "ambient_illumination": amve.ambient_illumination,
@@ -956,9 +960,10 @@ def convert_cmd(
     if _is_json_mode(json_output):
         print(json.dumps(result_data, indent=2))
     else:
+        target_size = float(str(result_data["target_size_bytes"]))
         typer.echo(
             f"Successfully converted '{source.name}' -> '{target.name}' "
-            f"({result_data['target_size_bytes'] / 1024:.1f} KB, format={target_fmt})"
+            f"({target_size / 1024:.1f} KB, format={target_fmt})"
         )
 
 
@@ -983,10 +988,8 @@ def metadata_dump(
         ctx = pylibheif.HeifContext()
         ctx.read_from_file(str(file))
         handle = ctx.get_primary_image_handle()
-    except Exception as heif_err:
-        try:
-            from PIL import Image
-        except ImportError:
+    except Exception:
+        if importlib.util.find_spec("PIL") is None:
             typer.echo(
                 f"Error: '{file.name}' is not a HEIF/AVIF image. "
                 f"Dumping metadata for non-HEIF formats (JPEG, PNG, etc.) requires 'Pillow'.\n"
@@ -1111,10 +1114,8 @@ def metadata_extract(
         ctx = pylibheif.HeifContext()
         ctx.read_from_file(str(file))
         handle = ctx.get_primary_image_handle()
-    except Exception as heif_err:
-        try:
-            from PIL import Image
-        except ImportError:
+    except Exception:
+        if importlib.util.find_spec("PIL") is None:
             typer.echo(
                 f"Error: '{file.name}' is not a HEIF/AVIF image. "
                 f"Extracting metadata from non-HEIF formats (JPEG, PNG, etc.) requires 'Pillow'.\n"
@@ -1205,8 +1206,8 @@ def doctor_cmd(
     table.add_column("Component", style="yellow")
     table.add_column("Status / Value", style="green")
 
-    table.add_row("pylibheif Version", doc_data["pylibheif_version"])
-    table.add_row("libheif Version", doc_data["libheif_version"])
+    table.add_row("pylibheif Version", str(doc_data["pylibheif_version"]))
+    table.add_row("libheif Version", str(doc_data["libheif_version"]))
     table.add_row("Encoders Available", ", ".join(encoders) or "None")
     table.add_row(
         "Supported Formats",
@@ -1216,7 +1217,7 @@ def doctor_cmd(
     )
     table.add_row("Hardware Threads", str(concurrency_info["hardware_threads"]))
     table.add_row("Default Codec Threads", str(concurrency_info["default_codec_threads"]))
-    table.add_row("Default Encoder Preset", concurrency_info["default_encoder_preset"])
+    table.add_row("Default Encoder Preset", str(concurrency_info["default_encoder_preset"]))
     table.add_row(
         "Pillow Integration",
         f"{'Installed (v' + str(pillow_version) + ')' if pillow_installed else 'Not installed'}",

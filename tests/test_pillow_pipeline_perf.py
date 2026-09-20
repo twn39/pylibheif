@@ -155,6 +155,7 @@ def test_pillow_save_load_parallel_roundtrip():
         # Force load triggers parallel decode
         loaded.load()
         px = loaded.getpixel((0, 0))
+        assert isinstance(px, tuple)
         assert abs(px[0] - 255) <= 5
         assert abs(px[1] - 0) <= 5
         assert abs(px[2] - 128) <= 5

@@ -58,7 +58,7 @@ import math
 import os
 import weakref
 import threading
-from typing import Optional, Union, List, Any
+from typing import Optional, Union, List, Any, Literal, overload
 
 
 # Re-export all names from the C++ extension and async wrappers
@@ -248,7 +248,7 @@ class HeifEncoderParametersProxy:
         return f"HeifEncoderParameters({{{items_repr}}})"
 
 
-_encoder_parameters_cache = weakref.WeakKeyDictionary()
+_encoder_parameters_cache: weakref.WeakKeyDictionary = weakref.WeakKeyDictionary()
 _encoder_parameters_lock = threading.Lock()
 
 
@@ -607,7 +607,7 @@ class AsyncHeifContext:
     @classmethod
     async def from_memory(
         cls,
-        data: bytes,
+        data: Union[bytes, bytearray, memoryview],
         executor: Optional[concurrent.futures.Executor] = None,
     ) -> "AsyncHeifContext":
         """Async factory method to construct and read context from memory bytes."""
@@ -653,7 +653,9 @@ class AsyncHeifContext:
         """Asynchronously read from file."""
         await _run_in_executor(self._executor, self._ctx.read_from_file, filename)
 
-    async def read_from_memory(self, data: bytes) -> None:
+    async def read_from_memory(
+        self, data: Union[bytes, bytearray, memoryview]
+    ) -> None:
         """Asynchronously read from memory."""
         await _run_in_executor(self._executor, self._ctx.read_from_memory, data)
 
@@ -665,6 +667,12 @@ class AsyncHeifContext:
         """Asynchronously write to file."""
         await _run_in_executor(self._executor, self._ctx.write_to_file, filename)
 
+    @overload
+    async def write_to_bytes(self, copy: Literal[True] = ...) -> bytes: ...
+    @overload
+    async def write_to_bytes(self, copy: Literal[False]) -> memoryview: ...
+    @overload
+    async def write_to_bytes(self, copy: bool = ...) -> Union[bytes, memoryview]: ...
     async def write_to_bytes(self, copy: bool = True) -> Union[bytes, memoryview]:
         """Asynchronously export context to Python bytes (copy=True) or zero-copy memoryview (copy=False)."""
         return await _run_in_executor(self._executor, self._ctx.write_to_bytes, copy)

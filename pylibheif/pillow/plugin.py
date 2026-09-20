@@ -1,7 +1,7 @@
 """Pillow ImagePlugin implementation for HEIF/AVIF image formats."""
 
 import os
-from typing import IO, Union
+from typing import IO, Union, Optional, List
 import numpy as np
 from PIL import Image, ImageFile
 
@@ -12,6 +12,7 @@ from .._pylibheif import (
     HeifCompressionFormat,
     HeifContext,
     HeifEncoder,
+    HeifImageHandle,
 )
 from .convert import from_pillow
 from .metadata import extract_metadata_to_info, pack_exif_for_heif
@@ -29,8 +30,8 @@ class HeifImageFile(ImageFile.ImageFile):
         filename: Union[str, bytes, None] = None,
     ):
         self._ctx: Union[HeifContext, None] = None
-        self._handle = None
-        self._top_level_ids = []
+        self._handle: Optional[HeifImageHandle] = None
+        self._top_level_ids: List[int] = []
         self._frame_idx = 0
         self._n_frames = 1
         super().__init__(fp if fp is not None else "", filename)
@@ -38,7 +39,9 @@ class HeifImageFile(ImageFile.ImageFile):
     def _open(self) -> None:
         ctx = HeifContext()
 
-        if isinstance(self.fp, (str, bytes, os.PathLike)):
+        if self.fp is None:
+            raise ValueError("fp cannot be None")
+        elif isinstance(self.fp, (str, bytes, os.PathLike)):
             ctx.read_from_file(str(os.fspath(self.fp)))
         elif hasattr(self.fp, "read") and hasattr(self.fp, "seek"):
             try:

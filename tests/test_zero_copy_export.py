@@ -3,7 +3,6 @@ import hashlib
 import io
 import pytest
 import numpy as np
-from PIL import Image
 
 import pylibheif
 from pylibheif import (
@@ -14,7 +13,6 @@ from pylibheif import (
     HeifContext,
     HeifEncoder,
     AsyncHeifContext,
-    from_pillow,
 )
 
 

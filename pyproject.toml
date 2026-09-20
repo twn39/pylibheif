@@ -112,3 +112,7 @@ dev = [
 [tool.ruff]
 extend-exclude = ["third_party"]
 
+[tool.ty.src]
+exclude = ["third_party/**"]
+
+

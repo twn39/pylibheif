@@ -1,12 +1,12 @@
 """Pillow (PIL) integration for pylibheif."""
 
-try:
-    import PIL
-except ImportError as e:
+import importlib.util
+
+if importlib.util.find_spec("PIL") is None:
     raise ImportError(
         "Using the 'pylibheif.pillow' submodule requires the 'Pillow' package. "
         "Please install it via: pip install 'pylibheif[pillow]' or pip install pillow"
-    ) from e
+    )
 
 from .convert import from_pillow, to_pillow
 from .metadata import (

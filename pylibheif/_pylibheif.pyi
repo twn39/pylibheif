@@ -2,11 +2,8 @@
 
 import concurrent.futures
 import enum
-from typing import Any, Iterator, List, Literal, Optional, Union, overload, TYPE_CHECKING
+from typing import Any, Iterator, List, Literal, Optional, Union, overload
 import numpy
-
-if TYPE_CHECKING:
-    from pylibheif import HeifEncoderParametersProxy
 
 class HeifErrorCode(enum.Enum):
     Ok = 0
@@ -654,11 +651,11 @@ class HeifEncoderParameter:
 
 class HeifEncoder:
     @overload
-    def __init__(self, arg: HeifCompressionFormat, preset: str = "", /) -> None: ...
+    def __init__(self, arg: HeifCompressionFormat, preset: str = "") -> None: ...
+    @overload
+    def __init__(self, arg: HeifEncoderDescriptor, preset: str = "") -> None: ...
     @property
     def parameters(self) -> HeifEncoderParametersProxy: ...
-    @overload
-    def __init__(self, arg: HeifEncoderDescriptor, preset: str = "", /) -> None: ...
     @property
     def name(self) -> str: ...
     def set_lossy_quality(self, arg: int, /) -> None: ...
