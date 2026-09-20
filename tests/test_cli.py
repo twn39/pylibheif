@@ -164,8 +164,19 @@ def test_cli_convert_overwrite_protection(tmp_path):
 
 
 def test_cli_metadata_dump():
-    result = runner.invoke(app, ["metadata", "dump", str(TEST_HEIC), "--json"])
+    result = runner.invoke(app, ["metadata", "dump", str(TEST_HEIC)])
     assert result.exit_code == 0
-    data = json.loads(result.stdout)
+    assert "Metadata Blocks" in result.stdout
+
+    result_json = runner.invoke(app, ["metadata", "dump", str(TEST_HEIC), "--json"])
+    assert result_json.exit_code == 0
+    data = json.loads(result_json.stdout)
     assert "total_blocks" in data
     assert "blocks" in data
+
+
+def test_cli_info_detail():
+    result = runner.invoke(app, ["info", str(TEST_HEIC), "--detail"])
+    assert result.exit_code == 0
+    assert "Image Information" in result.stdout
+

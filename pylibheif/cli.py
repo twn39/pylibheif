@@ -18,6 +18,7 @@ try:
     from rich import print as rprint
     from rich.console import Console
     from rich.panel import Panel
+    from rich.syntax import Syntax
     from rich.table import Table
 except ImportError:
     print(
@@ -47,6 +48,130 @@ app.add_typer(metadata_app, name="metadata")
 def _is_json_mode(json_flag: bool) -> bool:
     """Return True if explicit --json requested or if stdout is redirected in non-interactive pipeline."""
     return json_flag
+
+
+def _parse_exif_block(raw_bytes: bytes) -> Dict[str, Any]:
+    """Parse raw EXIF bytes from libheif into a structured dictionary of human-readable tags."""
+    try:
+        from PIL import Image
+        from PIL.ExifTags import GPSTAGS, TAGS
+        from pylibheif.pillow.metadata import normalize_exif_for_pillow
+
+        norm_exif, _ = normalize_exif_for_pillow(raw_bytes)
+        if not norm_exif:
+            return {}
+
+        exif = Image.Exif()
+        exif.load(norm_exif)
+
+        result: Dict[str, Any] = {}
+        # 1. Main tags
+        for k, v in exif.items():
+            name = TAGS.get(k, f"Tag_{k}")
+            if not isinstance(v, bytes):
+                result[name] = str(v)
+
+        # 2. Exif Sub-IFD (0x8769)
+        try:
+            sub_ifd = exif.get_ifd(0x8769)
+            for k, v in sub_ifd.items():
+                name = TAGS.get(k, f"Tag_{k}")
+                if not isinstance(v, bytes):
+                    result[name] = str(v)
+        except Exception:
+            pass
+
+        # 3. GPS IFD (0x8825)
+        try:
+            gps_ifd = exif.get_ifd(0x8825)
+            gps_dict = {}
+            for k, v in gps_ifd.items():
+                name = GPSTAGS.get(k, f"GPS_{k}")
+                if not isinstance(v, bytes):
+                    gps_dict[name] = str(v)
+            if gps_dict:
+                result["GPS"] = gps_dict
+        except Exception:
+            pass
+
+        return result
+    except Exception:
+        return {}
+
+
+def _get_shooting_summary(exif_data: Dict[str, Any]) -> Dict[str, str]:
+    """Extract key camera shooting parameters from parsed EXIF."""
+    summary: Dict[str, str] = {}
+    if not exif_data:
+        return summary
+
+    make = exif_data.get("Make", "")
+    model = exif_data.get("Model", "")
+    lens = exif_data.get("LensModel", "")
+    if model:
+        dev_str = f"{make} {model}".strip() if (make and make not in model) else model
+        if lens and lens != model:
+            dev_str += f" ({lens})"
+        summary["Camera"] = dev_str
+
+    dt = exif_data.get("DateTimeOriginal") or exif_data.get("DateTime")
+    offset = exif_data.get("OffsetTimeOriginal") or exif_data.get("OffsetTime")
+    if dt:
+        summary["Date Taken"] = f"{dt} {offset}".strip() if offset else dt
+
+    exposure_parts = []
+    fl_35 = exif_data.get("FocalLengthIn35mmFilm")
+    if fl_35:
+        exposure_parts.append(f"{fl_35}mm")
+    elif exif_data.get("FocalLength"):
+        try:
+            exposure_parts.append(f"{float(exif_data['FocalLength']):.1f}mm")
+        except Exception:
+            pass
+
+    fnum = exif_data.get("FNumber")
+    if fnum:
+        try:
+            exposure_parts.append(f"f/{float(fnum):.1f}")
+        except Exception:
+            exposure_parts.append(f"f/{fnum}")
+
+    exp_time = exif_data.get("ExposureTime")
+    if exp_time:
+        try:
+            val = float(exp_time)
+            if 0 < val < 1.0:
+                reciprocal = round(1.0 / val)
+                exposure_parts.append(f"1/{reciprocal}s")
+            else:
+                exposure_parts.append(f"{val:.2f}s")
+        except Exception:
+            exposure_parts.append(f"{exp_time}s")
+
+    iso = exif_data.get("ISOSpeedRatings")
+    if iso:
+        exposure_parts.append(f"ISO {iso}")
+
+    if exposure_parts:
+        summary["Exposure"] = " · ".join(exposure_parts)
+
+    gps = exif_data.get("GPS")
+    if isinstance(gps, dict):
+        lat_ref = gps.get("GPS_GPSLatitudeRef", "")
+        lat_val = gps.get("GPS_GPSLatitude", "")
+        lon_ref = gps.get("GPS_GPSLongitudeRef", "")
+        lon_val = gps.get("GPS_GPSLongitude", "")
+        alt = gps.get("GPS_GPSAltitude")
+        if lat_val and lon_val:
+            alt_suffix = ""
+            if alt:
+                try:
+                    alt_suffix = f" (Alt: {float(alt):.1f}m)"
+                except Exception:
+                    pass
+            summary["GPS Location"] = f"{lat_val} {lat_ref}, {lon_val} {lon_ref}{alt_suffix}"
+
+    return summary
 
 
 # =====================================================================
@@ -80,18 +205,32 @@ def info_cmd(
     image_ids = ctx.get_list_of_top_level_image_IDs()
     primary_id = image_ids[0] if image_ids else 0
 
-    # Collect metadata blocks
+    # Collect metadata blocks and parsed previews
     meta_blocks: List[Dict[str, Any]] = []
     has_exif = False
     has_xmp = False
+    parsed_exif: Dict[str, Any] = {}
+    xmp_text: Optional[str] = None
+
     for mid in handle.get_metadata_block_ids():
         mtype = handle.get_metadata_block_type(mid)
         mdata = handle.get_metadata_block(mid)
+        b_info: Dict[str, Any] = {"id": mid, "type": mtype, "size_bytes": len(mdata)}
         if mtype.lower() == "exif":
             has_exif = True
-        elif mtype.lower() == "mime" or "xml" in mtype.lower() or "xmp" in mtype.lower():
+            if not parsed_exif:
+                parsed_exif = _parse_exif_block(mdata)
+            b_info["parsed_exif"] = parsed_exif
+        elif mtype.lower() in ("mime", "xmp") or "xml" in mtype.lower():
             has_xmp = True
-        meta_blocks.append({"id": mid, "type": mtype, "size_bytes": len(mdata)})
+            try:
+                xmp_text = mdata.decode("utf-8", errors="replace")
+                b_info["content_utf8"] = xmp_text
+            except Exception:
+                pass
+        meta_blocks.append(b_info)
+
+    shooting_summary = _get_shooting_summary(parsed_exif)
 
     # Color profile
     color_profile_type = str(handle.color_profile_type).split(".")[-1]
@@ -180,6 +319,13 @@ def info_cmd(
         "hdr": hdr_info or None,
     }
 
+    if shooting_summary:
+        data["shooting_info"] = shooting_summary
+    if parsed_exif:
+        data["exif"] = parsed_exif
+    if xmp_text:
+        data["xmp_preview"] = xmp_text
+
     if detail:
         data["metadata_blocks"] = meta_blocks
         data["image_ids"] = image_ids
@@ -203,6 +349,17 @@ def info_cmd(
     table.add_row("Depth Map", "Yes" if handle.has_depth_image else "No")
     table.add_row("Gain Map (HDR)", "Yes" if handle.has_gain_map else "No")
     table.add_row("Color Profile", color_profile_type)
+
+    if shooting_summary:
+        if "Camera" in shooting_summary:
+            table.add_row("Camera / Device", shooting_summary["Camera"])
+        if "Date Taken" in shooting_summary:
+            table.add_row("Date Taken", shooting_summary["Date Taken"])
+        if "Exposure" in shooting_summary:
+            table.add_row("Exposure", shooting_summary["Exposure"])
+        if "GPS Location" in shooting_summary:
+            table.add_row("GPS Location", shooting_summary["GPS Location"])
+
     table.add_row(
         "Metadata",
         f"EXIF: {'Yes' if has_exif else 'No'} | XMP: {'Yes' if has_xmp else 'No'} | Blocks: {len(meta_blocks)}",
@@ -218,6 +375,30 @@ def info_cmd(
         table.add_row("HDR Metadata", ", ".join(hdr_desc))
 
     console.print(table)
+
+    if detail:
+        if parsed_exif:
+            exif_table = Table(title=f"EXIF Tags: [bold cyan]{file.name}[/bold cyan]")
+            exif_table.add_column("Tag Name", style="cyan")
+            exif_table.add_column("Value", style="green")
+            for k, v in sorted(parsed_exif.items()):
+                if k != "GPS":
+                    exif_table.add_row(str(k), str(v))
+            console.print(exif_table)
+
+        if xmp_text:
+            console.print(
+                Panel(
+                    Syntax(
+                        xmp_text.strip(),
+                        "xml",
+                        theme="monokai",
+                        line_numbers=True,
+                        word_wrap=True,
+                    ),
+                    title=f"XMP / MIME Metadata: [bold cyan]{file.name}[/bold cyan]",
+                )
+            )
 
 
 # =====================================================================
@@ -481,10 +662,13 @@ def metadata_dump(
             "type": mtype,
             "size_bytes": len(mdata),
         }
-        # If text-based (XMP), attempt utf-8 decode preview
-        if mtype.lower() in ("xmp", "mime") or "xml" in mtype.lower():
+        if mtype.lower() == "exif":
+            parsed_exif = _parse_exif_block(mdata)
+            block_entry["parsed_exif"] = parsed_exif
+        elif mtype.lower() in ("xmp", "mime") or "xml" in mtype.lower():
             try:
-                block_entry["preview_utf8"] = mdata[:500].decode("utf-8", errors="replace")
+                xmp_text = mdata.decode("utf-8", errors="replace")
+                block_entry["content_utf8"] = xmp_text
             except Exception:
                 pass
         blocks.append(block_entry)
@@ -509,6 +693,40 @@ def metadata_dump(
         table.add_row(str(b["id"]), b["type"], str(b["size_bytes"]))
 
     console.print(table)
+
+    # Directly display full content previews for each block
+    for b in blocks:
+        mtype = b["type"].lower()
+        if mtype == "exif" and b.get("parsed_exif"):
+            exif_table = Table(title=f"EXIF Tags: [bold cyan]{file.name}[/bold cyan] (Block {b['id']})")
+            exif_table.add_column("Tag Name", style="cyan")
+            exif_table.add_column("Value", style="green")
+            for k, v in sorted(b["parsed_exif"].items()):
+                if k != "GPS":
+                    exif_table.add_row(str(k), str(v))
+            console.print(exif_table)
+
+            if "GPS" in b["parsed_exif"] and isinstance(b["parsed_exif"]["GPS"], dict):
+                gps_table = Table(title=f"GPS Information (Block {b['id']})")
+                gps_table.add_column("GPS Tag", style="cyan")
+                gps_table.add_column("Value", style="green")
+                for k, v in sorted(b["parsed_exif"]["GPS"].items()):
+                    gps_table.add_row(str(k), str(v))
+                console.print(gps_table)
+
+        elif (mtype in ("mime", "xmp") or "xml" in mtype) and b.get("content_utf8"):
+            console.print(
+                Panel(
+                    Syntax(
+                        b["content_utf8"].strip(),
+                        "xml",
+                        theme="monokai",
+                        line_numbers=True,
+                        word_wrap=True,
+                    ),
+                    title=f"XMP / MIME Metadata: [bold cyan]{file.name}[/bold cyan] (Block {b['id']})",
+                )
+            )
 
 
 @metadata_app.command("extract", help="Extract raw metadata binary (e.g. EXIF or XMP) to a file.")
