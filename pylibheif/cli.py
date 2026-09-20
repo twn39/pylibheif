@@ -174,6 +174,328 @@ def _get_shooting_summary(exif_data: Dict[str, Any]) -> Dict[str, str]:
     return summary
 
 
+def _parse_pillow_exif(im: Any) -> Dict[str, Any]:
+    """Parse EXIF tags from a Pillow Image object into a structured dictionary."""
+    try:
+        from PIL.ExifTags import GPSTAGS, TAGS
+
+        exif = im.getexif()
+        if not exif:
+            return {}
+
+        result: Dict[str, Any] = {}
+        for k, v in exif.items():
+            name = TAGS.get(k, f"Tag_{k}")
+            if not isinstance(v, bytes):
+                result[name] = str(v)
+
+        try:
+            sub_ifd = exif.get_ifd(0x8769)
+            for k, v in sub_ifd.items():
+                name = TAGS.get(k, f"Tag_{k}")
+                if not isinstance(v, bytes):
+                    result[name] = str(v)
+        except Exception:
+            pass
+
+        try:
+            gps_ifd = exif.get_ifd(0x8825)
+            gps_dict = {}
+            for k, v in gps_ifd.items():
+                name = GPSTAGS.get(k, f"GPS_{k}")
+                if not isinstance(v, bytes):
+                    gps_dict[name] = str(v)
+            if gps_dict:
+                result["GPS"] = gps_dict
+        except Exception:
+            pass
+
+        return result
+    except Exception:
+        return {}
+
+
+def _info_cmd_pillow(file: Path, json_output: bool, detail: bool) -> None:
+    """Inspect standard non-HEIF images (JPEG, PNG, etc.) via Pillow fallback."""
+    from PIL import Image
+
+    try:
+        im = Image.open(str(file))
+    except Exception as e:
+        typer.echo(f"Error opening image '{file}': {e}", err=True)
+        raise typer.Exit(code=1)
+
+    width, height = im.size
+    mode = im.mode
+    fmt = (im.format or file.suffix.lstrip(".")).upper()
+    file_size = file.stat().st_size
+    has_alpha = mode in ("RGBA", "LA", "PA") or "transparency" in im.info
+    bit_depth = 16 if "16" in mode else 8
+    has_icc = "icc_profile" in im.info
+    color_profile_type = "ICC" if has_icc else "NotPresent"
+
+    # EXIF and XMP
+    parsed_exif = _parse_pillow_exif(im)
+    has_exif = bool(parsed_exif)
+
+    xmp_text: Optional[str] = None
+    if "xmp" in im.info:
+        raw = im.info["xmp"]
+        xmp_text = raw.decode("utf-8", errors="replace") if isinstance(raw, bytes) else str(raw)
+    elif "XML:com.adobe.xmp" in im.info:
+        raw = im.info["XML:com.adobe.xmp"]
+        xmp_text = raw.decode("utf-8", errors="replace") if isinstance(raw, bytes) else str(raw)
+    has_xmp = bool(xmp_text)
+
+    shooting_summary = _get_shooting_summary(parsed_exif)
+
+    meta_blocks: List[Dict[str, Any]] = []
+    if parsed_exif:
+        meta_blocks.append({
+            "id": 1,
+            "type": "Exif",
+            "size_bytes": len(im.info.get("exif", b"")),
+            "parsed_exif": parsed_exif,
+        })
+    if xmp_text:
+        meta_blocks.append({
+            "id": 2,
+            "type": "mime",
+            "size_bytes": len(xmp_text.encode("utf-8")),
+            "content_utf8": xmp_text,
+        })
+    if has_icc:
+        meta_blocks.append({
+            "id": 3,
+            "type": "icc",
+            "size_bytes": len(im.info["icc_profile"]),
+        })
+
+    data: Dict[str, Any] = {
+        "file": str(file.resolve()),
+        "format": fmt,
+        "size_bytes": file_size,
+        "width": width,
+        "height": height,
+        "has_alpha": has_alpha,
+        "bit_depth": bit_depth,
+        "color_mode": mode,
+        "total_images": 1,
+        "color_profile": {
+            "type": color_profile_type,
+            "has_icc": has_icc,
+            "has_nclx": False,
+        },
+        "metadata_summary": {
+            "has_exif": has_exif,
+            "has_xmp": has_xmp,
+            "total_blocks": len(meta_blocks),
+        },
+        "hdr": None,
+    }
+
+    if shooting_summary:
+        data["shooting_info"] = shooting_summary
+    if parsed_exif:
+        data["exif"] = parsed_exif
+    if xmp_text:
+        data["xmp_preview"] = xmp_text
+
+    if detail:
+        data["metadata_blocks"] = meta_blocks
+
+    if _is_json_mode(json_output):
+        print(json.dumps(data, indent=2, ensure_ascii=False))
+        return
+
+    console = Console()
+    table = Table(title=f"Image Information: [bold cyan]{file.name}[/bold cyan] ({fmt})")
+    table.add_column("Property", style="bold yellow")
+    table.add_column("Value", style="green")
+
+    table.add_row("Format", fmt)
+    table.add_row("Resolution", f"{width} x {height}")
+    table.add_row("Color Mode", f"{mode} ({bit_depth}-bit)")
+    table.add_row("Alpha Channel", "Yes" if has_alpha else "No")
+    table.add_row("File Size", f"{file_size / 1024:.1f} KB ({file_size} bytes)")
+    table.add_row("Color Profile", color_profile_type)
+
+    if shooting_summary:
+        if "Camera" in shooting_summary:
+            table.add_row("Camera / Device", shooting_summary["Camera"])
+        if "Date Taken" in shooting_summary:
+            table.add_row("Date Taken", shooting_summary["Date Taken"])
+        if "Exposure" in shooting_summary:
+            table.add_row("Exposure", shooting_summary["Exposure"])
+        if "GPS Location" in shooting_summary:
+            table.add_row("GPS Location", shooting_summary["GPS Location"])
+
+    table.add_row(
+        "Metadata",
+        f"EXIF: {'Yes' if has_exif else 'No'} | XMP: {'Yes' if has_xmp else 'No'} | Blocks: {len(meta_blocks)}",
+    )
+    console.print(table)
+
+    if detail:
+        if parsed_exif:
+            exif_table = Table(title=f"EXIF Tags: [bold cyan]{file.name}[/bold cyan]")
+            exif_table.add_column("Tag Name", style="cyan")
+            exif_table.add_column("Value", style="green")
+            for k, v in sorted(parsed_exif.items()):
+                if k != "GPS":
+                    exif_table.add_row(str(k), str(v))
+            console.print(exif_table)
+
+        if xmp_text:
+            console.print(
+                Panel(
+                    Syntax(
+                        xmp_text.strip(),
+                        "xml",
+                        theme="monokai",
+                        line_numbers=True,
+                        word_wrap=True,
+                    ),
+                    title=f"XMP / MIME Metadata: [bold cyan]{file.name}[/bold cyan]",
+                )
+            )
+
+
+def _metadata_dump_pillow(file: Path, json_output: bool) -> None:
+    """Dump metadata from standard non-HEIF images (JPEG, PNG, etc.) via Pillow fallback."""
+    from PIL import Image
+
+    try:
+        im = Image.open(str(file))
+    except Exception as e:
+        typer.echo(f"Error reading file '{file}': {e}", err=True)
+        raise typer.Exit(code=1)
+
+    parsed_exif = _parse_pillow_exif(im)
+    xmp_text: Optional[str] = None
+    if "xmp" in im.info:
+        raw = im.info["xmp"]
+        xmp_text = raw.decode("utf-8", errors="replace") if isinstance(raw, bytes) else str(raw)
+    elif "XML:com.adobe.xmp" in im.info:
+        raw = im.info["XML:com.adobe.xmp"]
+        xmp_text = raw.decode("utf-8", errors="replace") if isinstance(raw, bytes) else str(raw)
+
+    blocks: List[Dict[str, Any]] = []
+    block_id = 1
+    if parsed_exif:
+        blocks.append({
+            "id": block_id,
+            "type": "Exif",
+            "size_bytes": len(im.info.get("exif", b"")),
+            "parsed_exif": parsed_exif,
+        })
+        block_id += 1
+    if xmp_text:
+        blocks.append({
+            "id": block_id,
+            "type": "mime",
+            "size_bytes": len(xmp_text.encode("utf-8")),
+            "content_utf8": xmp_text,
+        })
+        block_id += 1
+    if "icc_profile" in im.info:
+        blocks.append({
+            "id": block_id,
+            "type": "icc",
+            "size_bytes": len(im.info["icc_profile"]),
+        })
+        block_id += 1
+
+    out_data = {
+        "file": str(file.resolve()),
+        "total_blocks": len(blocks),
+        "blocks": blocks,
+    }
+
+    if _is_json_mode(json_output):
+        print(json.dumps(out_data, indent=2, ensure_ascii=False))
+        return
+
+    console = Console()
+    table = Table(title=f"Metadata Blocks: [bold cyan]{file.name}[/bold cyan]")
+    table.add_column("Block ID", justify="right", style="cyan")
+    table.add_column("Type", style="yellow")
+    table.add_column("Size (Bytes)", justify="right", style="green")
+
+    for b in blocks:
+        table.add_row(str(b["id"]), b["type"], str(b["size_bytes"]))
+
+    if not blocks:
+        console.print(f"[dim]No metadata blocks found in '{file.name}'.[/dim]")
+        return
+
+    console.print(table)
+
+    for b in blocks:
+        mtype = b["type"].lower()
+        if mtype == "exif" and b.get("parsed_exif"):
+            exif_table = Table(title=f"EXIF Tags: [bold cyan]{file.name}[/bold cyan] (Block {b['id']})")
+            exif_table.add_column("Tag Name", style="cyan")
+            exif_table.add_column("Value", style="green")
+            for k, v in sorted(b["parsed_exif"].items()):
+                if k != "GPS":
+                    exif_table.add_row(str(k), str(v))
+            console.print(exif_table)
+
+            if "GPS" in b["parsed_exif"] and isinstance(b["parsed_exif"]["GPS"], dict):
+                gps_table = Table(title=f"GPS Information (Block {b['id']})")
+                gps_table.add_column("GPS Tag", style="cyan")
+                gps_table.add_column("Value", style="green")
+                for k, v in sorted(b["parsed_exif"]["GPS"].items()):
+                    gps_table.add_row(str(k), str(v))
+                console.print(gps_table)
+
+        elif (mtype in ("mime", "xmp") or "xml" in mtype) and b.get("content_utf8"):
+            console.print(
+                Panel(
+                    Syntax(
+                        b["content_utf8"].strip(),
+                        "xml",
+                        theme="monokai",
+                        line_numbers=True,
+                        word_wrap=True,
+                    ),
+                    title=f"XMP / MIME Metadata: [bold cyan]{file.name}[/bold cyan] (Block {b['id']})",
+                )
+            )
+
+
+def _metadata_extract_pillow(file: Path, out_file: Path, meta_type: str) -> None:
+    """Extract metadata binary from non-HEIF image via Pillow."""
+    from PIL import Image
+
+    try:
+        im = Image.open(str(file))
+    except Exception as e:
+        typer.echo(f"Error opening image '{file}': {e}", err=True)
+        raise typer.Exit(code=1)
+
+    raw_data = b""
+    meta_type_lower = meta_type.lower()
+    if "exif" in meta_type_lower:
+        raw_data = im.info.get("exif", b"")
+    elif "xmp" in meta_type_lower or "mime" in meta_type_lower:
+        xmp = im.info.get("xmp") or im.info.get("XML:com.adobe.xmp")
+        if isinstance(xmp, str):
+            raw_data = xmp.encode("utf-8")
+        elif isinstance(xmp, bytes):
+            raw_data = xmp
+    elif "icc" in meta_type_lower:
+        raw_data = im.info.get("icc_profile", b"")
+
+    if not raw_data:
+        typer.echo(f"Error: No metadata of type '{meta_type}' found in '{file.name}'.", err=True)
+        raise typer.Exit(code=1)
+
+    out_file.write_bytes(raw_data)
+    typer.echo(f"Successfully extracted {len(raw_data)} bytes of '{meta_type}' metadata to '{out_file}'.")
+
+
 # =====================================================================
 # 1. info command
 # =====================================================================
@@ -181,7 +503,7 @@ def _get_shooting_summary(exif_data: Dict[str, Any]) -> Dict[str, str]:
 def info_cmd(
     file: Path = typer.Argument(
         ...,
-        help="Path to HEIF/AVIF/HEIC image file",
+        help="Path to HEIF/AVIF/HEIC/JPEG/PNG image file",
         exists=True,
         dir_okay=False,
         readable=True,
@@ -198,9 +520,21 @@ def info_cmd(
         ctx = pylibheif.HeifContext()
         ctx.read_from_file(str(file))
         handle = ctx.get_primary_image_handle()
-    except Exception as e:
-        typer.echo(f"Error opening image '{file}': {e}", err=True)
-        raise typer.Exit(code=1)
+    except Exception as heif_err:
+        # Fallback to Pillow for non-HEIF formats (JPEG, PNG, etc.)
+        try:
+            from PIL import Image
+        except ImportError:
+            typer.echo(
+                f"Error: '{file.name}' is not a HEIF/AVIF image. "
+                f"Inspecting non-HEIF formats (JPEG, PNG, etc.) requires 'Pillow'.\n"
+                f"Please install it via: pip install 'pylibheif[pillow]' or pip install pillow",
+                err=True,
+            )
+            raise typer.Exit(code=1)
+
+        _info_cmd_pillow(file, json_output, detail)
+        return
 
     image_ids = ctx.get_list_of_top_level_image_IDs()
     primary_id = image_ids[0] if image_ids else 0
@@ -649,9 +983,20 @@ def metadata_dump(
         ctx = pylibheif.HeifContext()
         ctx.read_from_file(str(file))
         handle = ctx.get_primary_image_handle()
-    except Exception as e:
-        typer.echo(f"Error reading file '{file}': {e}", err=True)
-        raise typer.Exit(code=1)
+    except Exception as heif_err:
+        try:
+            from PIL import Image
+        except ImportError:
+            typer.echo(
+                f"Error: '{file.name}' is not a HEIF/AVIF image. "
+                f"Dumping metadata for non-HEIF formats (JPEG, PNG, etc.) requires 'Pillow'.\n"
+                f"Please install it via: pip install 'pylibheif[pillow]' or pip install pillow",
+                err=True,
+            )
+            raise typer.Exit(code=1)
+
+        _metadata_dump_pillow(file, json_output)
+        return
 
     blocks: List[Dict[str, Any]] = []
     for mid in handle.get_metadata_block_ids():
@@ -766,9 +1111,20 @@ def metadata_extract(
         ctx = pylibheif.HeifContext()
         ctx.read_from_file(str(file))
         handle = ctx.get_primary_image_handle()
-    except Exception as e:
-        typer.echo(f"Error reading file '{file}': {e}", err=True)
-        raise typer.Exit(code=1)
+    except Exception as heif_err:
+        try:
+            from PIL import Image
+        except ImportError:
+            typer.echo(
+                f"Error: '{file.name}' is not a HEIF/AVIF image. "
+                f"Extracting metadata from non-HEIF formats (JPEG, PNG, etc.) requires 'Pillow'.\n"
+                f"Please install it via: pip install 'pylibheif[pillow]' or pip install pillow",
+                err=True,
+            )
+            raise typer.Exit(code=1)
+
+        _metadata_extract_pillow(file, out_file, meta_type)
+        return
 
     block_data: Optional[bytes] = None
     target_type = meta_type.lower()

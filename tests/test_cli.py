@@ -180,3 +180,47 @@ def test_cli_info_detail():
     assert result.exit_code == 0
     assert "Image Information" in result.stdout
 
+
+def test_cli_info_jpeg_pillow_fallback(tmp_path):
+    from PIL import Image, ExifTags
+
+    img_path = tmp_path / "sample.jpg"
+    im = Image.new("RGB", (320, 240), color="blue")
+    exif = im.getexif()
+    exif[ExifTags.Base.Make] = "Nikon"
+    exif[ExifTags.Base.Model] = "Z8"
+    im.save(str(img_path), format="JPEG", exif=exif)
+
+    # 1. Standard info
+    result = runner.invoke(app, ["info", str(img_path)])
+    assert result.exit_code == 0
+    assert "JPEG" in result.stdout
+    assert "Nikon Z8" in result.stdout
+
+    # 2. JSON info
+    result_json = runner.invoke(app, ["info", str(img_path), "--json"])
+    assert result_json.exit_code == 0
+    data = json.loads(result_json.stdout)
+    assert data["format"] == "JPEG"
+    assert data["width"] == 320
+    assert data["height"] == 240
+    assert data["shooting_info"]["Camera"] == "Nikon Z8"
+
+    # 3. Metadata dump
+    res_dump = runner.invoke(app, ["metadata", "dump", str(img_path)])
+    assert res_dump.exit_code == 0
+    assert "Metadata Blocks" in res_dump.stdout
+
+
+def test_cli_info_jpeg_without_pillow(tmp_path):
+    import unittest.mock
+
+    img_path = tmp_path / "sample.jpg"
+    img_path.write_bytes(b"\xff\xd8\xff\xe0\x00\x10JFIFdummy")
+
+    with unittest.mock.patch.dict("sys.modules", {"PIL": None, "PIL.Image": None}):
+        result = runner.invoke(app, ["info", str(img_path)])
+        assert result.exit_code == 1
+        assert "requires 'Pillow'" in result.stderr or "requires 'Pillow'" in result.stdout
+
+
