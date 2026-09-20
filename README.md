@@ -43,16 +43,16 @@ Python bindings for [libheif](https://github.com/strukturag/libheif) using nanob
 ## Installation
 
 ```bash
-# Core package
+# Core package (includes full CLI: heif, heic, pylibheif)
 pip install pylibheif
 
-# With CLI and Pillow tools (recommended)
-pip install "pylibheif[all]"
+# With optional Pillow integration
+pip install "pylibheif[pillow]"
 ```
 
 Or with uv:
 ```bash
-uv pip install "pylibheif[all]"
+uv pip install "pylibheif[pillow]"
 ```
 
 ### Building from Source

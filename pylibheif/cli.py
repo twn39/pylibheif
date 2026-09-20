@@ -22,8 +22,8 @@ try:
     from rich.table import Table
 except ImportError:
     print(
-        "Error: 'typer' and 'rich' are required for the CLI. "
-        "Install them via: pip install 'pylibheif[cli]'",
+        "Error: 'typer' and 'rich' are required core dependencies for pylibheif CLI. "
+        "Please reinstall via: pip install pylibheif or pip install typer rich",
         file=sys.stderr,
     )
     sys.exit(1)

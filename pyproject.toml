@@ -29,12 +29,13 @@ classifiers = [
 ]
 dependencies = [
     "numpy>=1.26.0",
+    "typer>=0.9.0",
+    "rich>=13.0.0",
 ]
 
 [project.optional-dependencies]
 pillow = ["pillow>=10.0.0"]
-cli = ["typer>=0.9.0", "rich>=13.0.0"]
-all = ["pillow>=10.0.0", "typer>=0.9.0", "rich>=13.0.0"]
+all = ["pillow>=10.0.0"]
 
 [project.scripts]
 heif = "pylibheif.cli:main"
