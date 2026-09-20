@@ -110,20 +110,48 @@ def info_cmd(
 
     # HDR Metadata
     hdr_info: Dict[str, Any] = {}
-    if handle.has_content_light_level:
-        clli = handle.get_content_light_level()
-        hdr_info["clli"] = {
-            "max_content_light_level": clli.max_content_light_level,
-            "max_pic_average_light_level": clli.max_pic_average_light_level,
-        }
-    if handle.has_mastering_display_colour_volume:
-        mdcv = handle.get_mastering_display_colour_volume()
-        hdr_info["mdcv"] = {
-            "display_primaries_rgb": mdcv.display_primaries,
-            "white_point": mdcv.white_point,
-            "max_luminance": mdcv.max_display_mastering_luminance,
-            "min_luminance": mdcv.min_display_mastering_luminance,
-        }
+    if getattr(handle, "has_content_light_level", False):
+        try:
+            clli = getattr(handle, "content_light_level", None)
+            if clli is None and hasattr(handle, "get_content_light_level"):
+                clli = handle.get_content_light_level()
+            if clli:
+                hdr_info["clli"] = {
+                    "max_content_light_level": clli.max_content_light_level,
+                    "max_pic_average_light_level": clli.max_pic_average_light_level,
+                }
+        except Exception:
+            pass
+
+    if getattr(handle, "has_mastering_display_colour_volume", False):
+        try:
+            mdcv = getattr(handle, "mastering_display_colour_volume", None)
+            if mdcv is None and hasattr(handle, "get_mastering_display_colour_volume"):
+                mdcv = handle.get_mastering_display_colour_volume()
+            if mdcv:
+                hdr_info["mdcv"] = {
+                    "red_primary": mdcv.red_primary,
+                    "green_primary": mdcv.green_primary,
+                    "blue_primary": mdcv.blue_primary,
+                    "white_point": mdcv.white_point,
+                    "max_luminance": mdcv.max_luminance,
+                    "min_luminance": mdcv.min_luminance,
+                }
+        except Exception:
+            pass
+
+    if getattr(handle, "has_ambient_viewing_environment", False):
+        try:
+            amve = getattr(handle, "ambient_viewing_environment", None)
+            if amve is None and hasattr(handle, "get_ambient_viewing_environment"):
+                amve = handle.get_ambient_viewing_environment()
+            if amve:
+                hdr_info["amve"] = {
+                    "ambient_illumination": amve.ambient_illumination,
+                    "ambient_light": amve.ambient_light,
+                }
+        except Exception:
+            pass
 
     data: Dict[str, Any] = {
         "file": str(file.resolve()),
@@ -184,7 +212,9 @@ def info_cmd(
         if "clli" in hdr_info:
             hdr_desc.append(f"CLLI (Max: {hdr_info['clli']['max_content_light_level']} nits)")
         if "mdcv" in hdr_info:
-            hdr_desc.append("MDCV (Mastering Display)")
+            hdr_desc.append(f"MDCV (Max: {hdr_info['mdcv']['max_luminance']} nits)")
+        if "amve" in hdr_info:
+            hdr_desc.append(f"AMVE ({hdr_info['amve']['ambient_illumination']} lux)")
         table.add_row("HDR Metadata", ", ".join(hdr_desc))
 
     console.print(table)

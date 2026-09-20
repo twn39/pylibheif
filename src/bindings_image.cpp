@@ -461,10 +461,15 @@ void bind_image(nb::module_& m) {
         .def_prop_ro("has_ambient_viewing_environment",
                      &HeifImageHandle::has_ambient_viewing_environment)
         .def_prop_ro("content_light_level", &HeifImageHandle::get_content_light_level)
+        .def("get_content_light_level", &HeifImageHandle::get_content_light_level)
         .def_prop_ro("mastering_display_colour_volume",
                      &HeifImageHandle::get_mastering_display_colour_volume)
+        .def("get_mastering_display_colour_volume",
+             &HeifImageHandle::get_mastering_display_colour_volume)
         .def_prop_ro("ambient_viewing_environment",
                      &HeifImageHandle::get_ambient_viewing_environment)
+        .def("get_ambient_viewing_environment",
+             &HeifImageHandle::get_ambient_viewing_environment)
         .def("__repr__", [](const HeifImageHandle& self) {
             return "<pylibheif.HeifImageHandle " + std::to_string(self.get_width()) + "x" +
                    std::to_string(self.get_height()) +
