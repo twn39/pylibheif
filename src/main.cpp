@@ -556,4 +556,9 @@ NB_MODULE(_pylibheif, m) {
           "Get the global default encoder preset ('ultrafast', 'fast', 'balanced', 'quality').");
     m.def("set_default_encoder_preset", &set_default_encoder_preset, nb::arg("preset"),
           "Set the global default encoder preset (empty string resets to balanced or env default).");
+
+    m.def("get_libheif_version", []() { return std::string(heif_get_version()); },
+          "Get the underlying libheif library version string.");
+    m.def("get_libheif_version_number", []() { return heif_get_version_number(); },
+          "Get the underlying libheif library version number integer.");
 }

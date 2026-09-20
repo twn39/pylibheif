@@ -44,8 +44,12 @@ from ._pylibheif import (
     set_default_num_threads,
     get_default_encoder_preset,
     set_default_encoder_preset,
+    get_libheif_version,
+    get_libheif_version_number,
     __doc__,
 )
+
+__version__ = "1.23.1"
 
 import atexit
 import asyncio
@@ -108,6 +112,8 @@ __all__ = [
     "set_default_num_threads",
     "get_default_encoder_preset",
     "set_default_encoder_preset",
+    "get_libheif_version",
+    "get_libheif_version_number",
     "get_default_codec_executor",
     "set_default_codec_executor",
     "shutdown_default_codec_executor",
@@ -115,6 +121,7 @@ __all__ = [
     "from_pillow",
     "register_pillow_opener",
     "unregister_pillow_opener",
+    "__version__",
     "__doc__",
 ]
 
