@@ -283,7 +283,14 @@ NB_MODULE(_pylibheif, m) {
         });
 
     nb::class_<HeifDecodingOptions>(m, "HeifDecodingOptions")
-        .def(nb::init<>())
+        .def(nb::init<std::optional<int>, std::optional<bool>, std::optional<bool>,
+                      std::optional<bool>, const std::optional<std::string>&, std::optional<bool>,
+                      std::optional<bool>>(),
+             nb::arg("num_codec_threads") = nb::none(),
+             nb::arg("ignore_transformations") = nb::none(),
+             nb::arg("convert_hdr_to_8bit") = nb::none(), nb::arg("strict_decoding") = nb::none(),
+             nb::arg("decoder_id") = nb::none(), nb::arg("autocorrect_broken_input") = nb::none(),
+             nb::arg("output_image_nclx_profile_passthrough") = nb::none())
         .def_prop_rw("ignore_transformations", &HeifDecodingOptions::get_ignore_transformations,
                      &HeifDecodingOptions::set_ignore_transformations)
         .def_prop_rw("convert_hdr_to_8bit", &HeifDecodingOptions::get_convert_hdr_to_8bit,
@@ -527,4 +534,10 @@ NB_MODULE(_pylibheif, m) {
     m.attr("AUX_IMAGE_FILTER_OMIT_ALPHA") = nb::cast(LIBHEIF_AUX_IMAGE_FILTER_OMIT_ALPHA);
 
     m.attr("AUX_IMAGE_FILTER_OMIT_DEPTH") = nb::cast(LIBHEIF_AUX_IMAGE_FILTER_OMIT_DEPTH);
+
+    m.def("get_default_num_threads", &get_default_num_codec_threads,
+          "Get the global default number of threads used for decoding codecs.");
+    m.def("set_default_num_threads", &set_default_num_codec_threads, nb::arg("threads"),
+          "Set the global default number of threads used for decoding codecs (0 resets to adaptive "
+          "default).");
 }

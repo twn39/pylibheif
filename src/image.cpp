@@ -1,12 +1,99 @@
 #include "image.hpp"
 
 // Removed nanobind dependencies
+#include <algorithm>
+#include <atomic>
 #include <cmath>
+#include <cstdlib>
 #include <cstring>
+#include <stdexcept>
+#include <thread>
 
 #include "context.hpp"
 
 namespace pylibheif {
+
+static int compute_initial_default_threads() {
+    const char* env_threads = std::getenv("PYLIBHEIF_NUM_THREADS");
+    if (env_threads && *env_threads) {
+        char* end = nullptr;
+        long val = std::strtol(env_threads, &end, 10);
+        if (end != env_threads && val > 0) {
+            return std::clamp(static_cast<int>(val), 1, 64);
+        }
+    }
+    unsigned int hw = std::thread::hardware_concurrency();
+    int cores = (hw > 0) ? static_cast<int>(hw) : 1;
+    return std::clamp(cores, 1, 4);
+}
+
+static std::atomic<int> g_default_num_codec_threads{compute_initial_default_threads()};
+
+int get_default_num_codec_threads() {
+    return g_default_num_codec_threads.load(std::memory_order_relaxed);
+}
+
+void set_default_num_codec_threads(int threads) {
+    if (threads < 0) {
+        throw std::invalid_argument(
+            "threads must be non-negative (0 to reset to adaptive default)");
+    }
+    if (threads == 0) {
+        g_default_num_codec_threads.store(compute_initial_default_threads(),
+                                          std::memory_order_relaxed);
+    } else {
+        g_default_num_codec_threads.store(threads, std::memory_order_relaxed);
+    }
+}
+
+int resolve_decoding_threads(int image_width, int image_height, int requested_threads) {
+    if (requested_threads > 0) {
+        return requested_threads;
+    }
+    // Resolution-aware thread sizing:
+    // Small images / thumbnails have very few CTUs (<512x512).
+    // Starting worker threads costs 0.5~2ms, which exceeds single-thread decode time!
+    if (image_width > 0 && image_height > 0 && (image_width < 512 || image_height < 512)) {
+        return 1;
+    }
+    return get_default_num_codec_threads();
+}
+
+HeifDecodingOptions::HeifDecodingOptions() {
+    options = heif_decoding_options_alloc();
+    if (options) {
+        options->num_codec_threads = get_default_num_codec_threads();
+    }
+}
+
+HeifDecodingOptions::HeifDecodingOptions(
+    std::optional<int> num_codec_threads, std::optional<bool> ignore_transformations,
+    std::optional<bool> convert_hdr_to_8bit, std::optional<bool> strict_decoding,
+    const std::optional<std::string>& decoder_id, std::optional<bool> autocorrect_broken_input,
+    std::optional<bool> output_image_nclx_profile_passthrough) {
+    options = heif_decoding_options_alloc();
+    if (options) {
+        options->num_codec_threads = num_codec_threads.value_or(get_default_num_codec_threads());
+        if (ignore_transformations.has_value()) {
+            set_ignore_transformations(*ignore_transformations);
+        }
+        if (convert_hdr_to_8bit.has_value()) {
+            set_convert_hdr_to_8bit(*convert_hdr_to_8bit);
+        }
+        if (strict_decoding.has_value()) {
+            set_strict_decoding(*strict_decoding);
+        }
+        if (decoder_id.has_value()) {
+            set_decoder_id(*decoder_id);
+        }
+        if (autocorrect_broken_input.has_value()) {
+            set_autocorrect_broken_input(*autocorrect_broken_input);
+        }
+        if (output_image_nclx_profile_passthrough.has_value()) {
+            set_output_image_nclx_profile_passthrough(*output_image_nclx_profile_passthrough);
+        }
+    }
+}
 
 // from_numpy_rgb and from_numpy_rgb_16 moved to bindings_image.cpp
 
@@ -44,9 +131,25 @@ int HeifImageHandle::get_chroma_bits_per_pixel() const {
 HeifImage HeifImageHandle::decode(heif_colorspace colorspace, heif_chroma chroma,
                                   const HeifDecodingOptions* options) {
     check_valid();
-    heif_image* img;
-    const heif_decoding_options* raw_opts = options ? options->get() : nullptr;
-    check_error(heif_decode_image(handle.get(), &img, colorspace, chroma, raw_opts));
+    heif_image* img = nullptr;
+    int w = get_width();
+    int h = get_height();
+    if (options) {
+        int threads = options->get_num_codec_threads();
+        if (threads <= 0) {
+            HeifDecodingOptions effective_opts(*options);
+            effective_opts.set_num_codec_threads(resolve_decoding_threads(w, h, 0));
+            check_error(
+                heif_decode_image(handle.get(), &img, colorspace, chroma, effective_opts.get()));
+            return HeifImage(img);
+        }
+        check_error(heif_decode_image(handle.get(), &img, colorspace, chroma, options->get()));
+        return HeifImage(img);
+    }
+
+    HeifDecodingOptions default_opts;
+    default_opts.set_num_codec_threads(resolve_decoding_threads(w, h, 0));
+    check_error(heif_decode_image(handle.get(), &img, colorspace, chroma, default_opts.get()));
     return HeifImage(img);
 }
 
@@ -98,9 +201,28 @@ HeifImage HeifImageHandle::decode_tile(uint32_t tile_x, uint32_t tile_y, heif_co
                                        heif_chroma chroma, const HeifDecodingOptions* options) {
     check_valid();
     heif_image* out_img = nullptr;
-    const heif_decoding_options* raw_opts = options ? options->get() : nullptr;
+    HeifImageTiling tiling = get_image_tiling(true);
+    int tw = (tiling.tile_width > 0) ? static_cast<int>(tiling.tile_width) : get_width();
+    int th = (tiling.tile_height > 0) ? static_cast<int>(tiling.tile_height) : get_height();
+
+    if (options) {
+        int threads = options->get_num_codec_threads();
+        if (threads <= 0) {
+            HeifDecodingOptions effective_opts(*options);
+            effective_opts.set_num_codec_threads(resolve_decoding_threads(tw, th, 0));
+            check_error(heif_image_handle_decode_image_tile(
+                handle.get(), &out_img, colorspace, chroma, effective_opts.get(), tile_x, tile_y));
+            return HeifImage(out_img);
+        }
+        check_error(heif_image_handle_decode_image_tile(handle.get(), &out_img, colorspace, chroma,
+                                                        options->get(), tile_x, tile_y));
+        return HeifImage(out_img);
+    }
+
+    HeifDecodingOptions default_opts;
+    default_opts.set_num_codec_threads(resolve_decoding_threads(tw, th, 0));
     check_error(heif_image_handle_decode_image_tile(handle.get(), &out_img, colorspace, chroma,
-                                                    raw_opts, tile_x, tile_y));
+                                                    default_opts.get(), tile_x, tile_y));
     return HeifImage(out_img);
 }
 

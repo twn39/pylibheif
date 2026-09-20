@@ -16,7 +16,7 @@ namespace nb = nanobind;
 
 namespace pylibheif {
 
-HeifImage from_numpy_rgb_impl(nb::ndarray<uint8_t, nb::ndim<3>, nb::c_contig> arr) {
+HeifImage from_numpy_rgb_impl(nb::ndarray<uint8_t, nb::ndim<3>> arr) {
     if (arr.ndim() != 3) {
         throw std::invalid_argument("Array must be 3-dimensional (H, W, C)");
     }
@@ -45,16 +45,35 @@ HeifImage from_numpy_rgb_impl(nb::ndarray<uint8_t, nb::ndim<3>, nb::c_contig> ar
 
     const uint8_t* src = arr.data();
     const size_t row_bytes = static_cast<size_t>(width) * channels;
+    int64_t stride_y = arr.stride(0);
+    int64_t stride_x = arr.stride(1);
+    int64_t stride_c = arr.stride(2);
 
     {
         nb::gil_scoped_release release;
-        if (stride == static_cast<int>(row_bytes)) {
-            // Contiguous copy
-            std::memcpy(dst, src, static_cast<size_t>(height) * row_bytes);
+        if (stride_x == channels && stride_c == 1) {
+            if (stride == static_cast<int>(row_bytes) &&
+                stride_y == static_cast<int64_t>(row_bytes)) {
+                // Contiguous copy
+                std::memcpy(dst, src, static_cast<size_t>(height) * row_bytes);
+            } else {
+                // Copy row by row
+                for (int y = 0; y < height; ++y) {
+                    std::memcpy(dst + y * stride, src + y * stride_y, row_bytes);
+                }
+            }
         } else {
-            // Copy row by row
+            // General strided layout (e.g. transposed or sliced)
             for (int y = 0; y < height; ++y) {
-                std::memcpy(dst + y * stride, src + y * row_bytes, row_bytes);
+                uint8_t* dst_row = dst + y * stride;
+                const uint8_t* src_row = src + y * stride_y;
+                for (int x = 0; x < width; ++x) {
+                    const uint8_t* src_px = src_row + x * stride_x;
+                    uint8_t* dst_px = dst_row + x * channels;
+                    for (int c = 0; c < channels; ++c) {
+                        dst_px[c] = src_px[c * stride_c];
+                    }
+                }
             }
         }
     }
@@ -62,8 +81,7 @@ HeifImage from_numpy_rgb_impl(nb::ndarray<uint8_t, nb::ndim<3>, nb::c_contig> ar
     return img;
 }
 
-HeifImage from_numpy_rgb_16_impl(nb::ndarray<uint16_t, nb::ndim<3>, nb::c_contig> arr,
-                                 int bit_depth) {
+HeifImage from_numpy_rgb_16_impl(nb::ndarray<uint16_t, nb::ndim<3>> arr, int bit_depth) {
     if (arr.ndim() != 3) {
         throw std::invalid_argument("Array must be 3-dimensional (H, W, C)");
     }
@@ -99,17 +117,107 @@ HeifImage from_numpy_rgb_16_impl(nb::ndarray<uint16_t, nb::ndim<3>, nb::c_contig
 
     const uint16_t* src = arr.data();
     const size_t row_elements = static_cast<size_t>(width) * channels;
+    int64_t stride_y = arr.stride(0);
+    int64_t stride_x = arr.stride(1);
+    int64_t stride_c = arr.stride(2);
 
     {
         nb::gil_scoped_release release;
-        if (stride_elements == static_cast<int>(row_elements)) {
-            // Contiguous copy
-            std::memcpy(dst, src, static_cast<size_t>(height) * row_elements * sizeof(uint16_t));
+        if (stride_x == channels && stride_c == 1) {
+            if (stride_elements == static_cast<int>(row_elements) &&
+                stride_y == static_cast<int64_t>(row_elements)) {
+                // Contiguous copy
+                std::memcpy(dst, src,
+                            static_cast<size_t>(height) * row_elements * sizeof(uint16_t));
+            } else {
+                // Copy row by row
+                for (int y = 0; y < height; ++y) {
+                    std::memcpy(dst + y * stride_elements, src + y * stride_y,
+                                row_elements * sizeof(uint16_t));
+                }
+            }
         } else {
-            // Copy row by row
+            // General strided layout
             for (int y = 0; y < height; ++y) {
-                std::memcpy(dst + y * stride_elements, src + y * row_elements,
-                            row_elements * sizeof(uint16_t));
+                uint16_t* dst_row = dst + y * stride_elements;
+                const uint16_t* src_row = src + y * stride_y;
+                for (int x = 0; x < width; ++x) {
+                    const uint16_t* src_px = src_row + x * stride_x;
+                    uint16_t* dst_px = dst_row + x * channels;
+                    for (int c = 0; c < channels; ++c) {
+                        dst_px[c] = src_px[c * stride_c];
+                    }
+                }
+            }
+        }
+    }
+
+    return img;
+}
+
+HeifImage from_buffer_impl(const nb::handle& buffer_obj, int width, int height,
+                           heif_colorspace colorspace, heif_chroma chroma, int bit_depth = 8,
+                           int stride = 0) {
+    if (width <= 0 || height <= 0) {
+        throw std::invalid_argument("Width and height must be positive");
+    }
+    if (bit_depth < 8 || bit_depth > 16) {
+        throw std::invalid_argument("Bit depth must be between 8 and 16");
+    }
+
+    int channels = 3;
+    if (chroma == heif_chroma_interleaved_RGBA || chroma == heif_chroma_interleaved_RRGGBBAA_BE ||
+        chroma == heif_chroma_interleaved_RRGGBBAA_LE) {
+        channels = 4;
+    } else if (chroma == heif_chroma_monochrome) {
+        channels = 1;
+    } else if (chroma == heif_chroma_interleaved_RGB ||
+               chroma == heif_chroma_interleaved_RRGGBB_BE ||
+               chroma == heif_chroma_interleaved_RRGGBB_LE) {
+        channels = 3;
+    } else {
+        throw std::invalid_argument("Unsupported chroma format for from_buffer");
+    }
+
+    int bytes_per_channel = (bit_depth > 8) ? 2 : 1;
+    size_t min_row_bytes = static_cast<size_t>(width) * channels * bytes_per_channel;
+    size_t src_row_stride = (stride > 0) ? static_cast<size_t>(stride) : min_row_bytes;
+    if (src_row_stride < min_row_bytes) {
+        throw std::invalid_argument("Stride cannot be less than row data bytes");
+    }
+
+    size_t required_bytes = src_row_stride * (height - 1) + min_row_bytes;
+
+    PyBufferHolder holder(buffer_obj.ptr(), PyBUF_SIMPLE);
+    if (holder.len() < required_bytes) {
+        throw std::invalid_argument("Buffer is too small: expected at least " +
+                                    std::to_string(required_bytes) + " bytes, got " +
+                                    std::to_string(holder.len()));
+    }
+
+    heif_image* img_ptr = nullptr;
+    check_error(heif_image_create(width, height, colorspace, chroma, &img_ptr));
+    HeifImage img(img_ptr);
+
+    heif_channel channel =
+        (chroma == heif_chroma_monochrome) ? heif_channel_Y : heif_channel_interleaved;
+    check_error(heif_image_add_plane(img_ptr, channel, width, height, bit_depth));
+
+    int dst_stride = 0;
+    uint8_t* dst = heif_image_get_plane(img_ptr, channel, &dst_stride);
+    if (!dst) {
+        throw std::runtime_error("Failed to get writable image plane");
+    }
+
+    const uint8_t* src = static_cast<const uint8_t*>(holder.buf());
+
+    {
+        nb::gil_scoped_release release;
+        if (dst_stride == static_cast<int>(min_row_bytes) && src_row_stride == min_row_bytes) {
+            std::memcpy(dst, src, static_cast<size_t>(height) * min_row_bytes);
+        } else {
+            for (int y = 0; y < height; ++y) {
+                std::memcpy(dst + y * dst_stride, src + y * src_row_stride, min_row_bytes);
             }
         }
     }
@@ -254,15 +362,55 @@ void bind_image(nb::module_& m) {
         .def_prop_ro("has_alpha", &HeifImageHandle::has_alpha_channel)
         .def_prop_ro("luma_bits_per_pixel", &HeifImageHandle::get_luma_bits_per_pixel)
         .def_prop_ro("chroma_bits_per_pixel", &HeifImageHandle::get_chroma_bits_per_pixel)
-        .def("decode", &HeifImageHandle::decode, nb::arg("colorspace") = heif_colorspace_RGB,
-             nb::arg("chroma") = heif_chroma_interleaved_RGB, nb::arg("options") = nullptr,
-             nb::call_guard<nb::gil_scoped_release>())
+        .def(
+            "decode",
+            [](HeifImageHandle& self, heif_colorspace colorspace, heif_chroma chroma,
+               const HeifDecodingOptions* options, std::optional<int> num_threads) {
+                if (num_threads.has_value()) {
+                    if (num_threads.value() < 0) {
+                        throw std::invalid_argument("num_threads must be non-negative");
+                    }
+                    if (options) {
+                        HeifDecodingOptions opt_copy(*options);
+                        opt_copy.set_num_codec_threads(num_threads.value());
+                        return self.decode(colorspace, chroma, &opt_copy);
+                    } else {
+                        HeifDecodingOptions opt_copy;
+                        opt_copy.set_num_codec_threads(num_threads.value());
+                        return self.decode(colorspace, chroma, &opt_copy);
+                    }
+                }
+                return self.decode(colorspace, chroma, options);
+            },
+            nb::arg("colorspace") = heif_colorspace_RGB,
+            nb::arg("chroma") = heif_chroma_interleaved_RGB, nb::arg("options") = nullptr,
+            nb::arg("num_threads") = nb::none(), nb::call_guard<nb::gil_scoped_release>())
         .def("get_image_tiling", &HeifImageHandle::get_image_tiling,
              nb::arg("process_transformations") = true)
-        .def("decode_tile", &HeifImageHandle::decode_tile, nb::arg("tile_x"), nb::arg("tile_y"),
-             nb::arg("colorspace") = heif_colorspace_RGB,
-             nb::arg("chroma") = heif_chroma_interleaved_RGB, nb::arg("options") = nullptr,
-             nb::call_guard<nb::gil_scoped_release>())
+        .def(
+            "decode_tile",
+            [](HeifImageHandle& self, uint32_t tile_x, uint32_t tile_y, heif_colorspace colorspace,
+               heif_chroma chroma, const HeifDecodingOptions* options,
+               std::optional<int> num_threads) {
+                if (num_threads.has_value()) {
+                    if (num_threads.value() < 0) {
+                        throw std::invalid_argument("num_threads must be non-negative");
+                    }
+                    if (options) {
+                        HeifDecodingOptions opt_copy(*options);
+                        opt_copy.set_num_codec_threads(num_threads.value());
+                        return self.decode_tile(tile_x, tile_y, colorspace, chroma, &opt_copy);
+                    } else {
+                        HeifDecodingOptions opt_copy;
+                        opt_copy.set_num_codec_threads(num_threads.value());
+                        return self.decode_tile(tile_x, tile_y, colorspace, chroma, &opt_copy);
+                    }
+                }
+                return self.decode_tile(tile_x, tile_y, colorspace, chroma, options);
+            },
+            nb::arg("tile_x"), nb::arg("tile_y"), nb::arg("colorspace") = heif_colorspace_RGB,
+            nb::arg("chroma") = heif_chroma_interleaved_RGB, nb::arg("options") = nullptr,
+            nb::arg("num_threads") = nb::none(), nb::call_guard<nb::gil_scoped_release>())
         .def("get_auxiliary_image_ids", &HeifImageHandle::get_list_of_auxiliary_image_IDs,
              nb::arg("aux_key_mask") = 0)
         .def("get_auxiliary_type", &HeifImageHandle::get_auxiliary_type)
@@ -329,6 +477,16 @@ void bind_image(nb::module_& m) {
         .def_static("from_numpy", &from_numpy_rgb_16_impl, nb::arg("arr"),
                     nb::arg("bit_depth") = 10,
                     nb::sig("def from_numpy(arr: numpy.ndarray, bit_depth: int = 10) -> HeifImage"))
+        .def_static(
+            "from_buffer", &from_buffer_impl, nb::arg("buffer"), nb::arg("width"),
+            nb::arg("height"), nb::arg("colorspace") = heif_colorspace_RGB,
+            nb::arg("chroma") = heif_chroma_interleaved_RGB, nb::arg("bit_depth") = 8,
+            nb::arg("stride") = 0,
+            "Create a HeifImage directly from a Python buffer (bytes, bytearray, memoryview).")
+        .def_static("from_bytes", &from_buffer_impl, nb::arg("data"), nb::arg("width"),
+                    nb::arg("height"), nb::arg("colorspace") = heif_colorspace_RGB,
+                    nb::arg("chroma") = heif_chroma_interleaved_RGB, nb::arg("bit_depth") = 8,
+                    nb::arg("stride") = 0, "Create a HeifImage directly from raw bytes.")
         .def(nb::init<int, int, heif_colorspace, heif_chroma>())
         .def_prop_ro("width", nb::overload_cast<>(&HeifImage::get_width, nb::const_))
         .def_prop_ro("height", nb::overload_cast<>(&HeifImage::get_height, nb::const_))

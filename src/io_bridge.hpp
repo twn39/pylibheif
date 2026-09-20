@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
+#include <exception>
 #include <memory>
 #include <string>
 #include <vector>
@@ -16,6 +17,8 @@ namespace nb = nanobind;
 
 class PyStreamReader {
    public:
+    enum class ReadStrategy { AutoDetect, UseReadinto, FallbackRead };
+
     explicit PyStreamReader(nb::object stream, size_t buffer_size = 65536)
         : m_stream(stream), m_buffer(buffer_size) {
         nb::gil_scoped_acquire acquire;
@@ -24,17 +27,20 @@ class PyStreamReader {
         } catch (...) {
             m_current_pos = 0;
         }
+        m_stream_pos = m_current_pos;
 
         try {
             // Check if stream supports seek to end to cache file size
             m_stream.attr("seek")(0, 2);  // os.SEEK_END = 2
             m_file_size = nb::cast<int64_t>(m_stream.attr("tell")());
             m_stream.attr("seek")(m_current_pos, 0);  // os.SEEK_SET = 0
+            m_stream_pos = m_current_pos;
         } catch (...) {
             // Seek to end not supported (e.g. non-seekable or streaming network socket)
             m_file_size = -1;
             try {
                 m_stream.attr("seek")(m_current_pos, 0);
+                m_stream_pos = m_current_pos;
             } catch (...) {
             }
         }
@@ -85,47 +91,109 @@ class PyStreamReader {
             // 2. Buffer miss: must fetch data from Python stream under GIL
             nb::gil_scoped_acquire acquire;
             try {
-                // First, ensure underlying python stream seek matches m_current_pos
-                m_stream.attr("seek")(m_current_pos, 0);
+                // Seek only if current position differs from underlying stream position (redundant
+                // seek elimination)
+                if (m_stream_pos != m_current_pos) {
+                    m_stream.attr("seek")(m_current_pos, 0);
+                    m_stream_pos = m_current_pos;
+                }
 
                 // If request is larger than our buffer size, read directly into output
                 if (remaining_to_read >= m_buffer.size()) {
-                    nb::object py_chunk = m_stream.attr("read")(remaining_to_read);
-                    Py_buffer view;
-                    if (PyObject_GetBuffer(py_chunk.ptr(), &view, PyBUF_SIMPLE) != 0) {
-                        return -1;
+                    size_t got = 0;
+                    if (m_read_strategy != ReadStrategy::FallbackRead) {
+                        try {
+                            PyObject* mv_obj = PyMemoryView_FromMemory(
+                                reinterpret_cast<char*>(out_ptr), remaining_to_read, PyBUF_WRITE);
+                            if (mv_obj) {
+                                nb::object mv = nb::steal(mv_obj);
+                                nb::object ret = m_stream.attr("readinto")(mv);
+                                if (!ret.is_none()) {
+                                    got = nb::cast<size_t>(ret);
+                                    m_read_strategy = ReadStrategy::UseReadinto;
+                                }
+                            }
+                        } catch (const nb::python_error&) {
+                            if (m_read_strategy == ReadStrategy::AutoDetect) {
+                                m_read_strategy = ReadStrategy::FallbackRead;
+                            } else {
+                                throw;
+                            }
+                        }
                     }
-                    size_t got = static_cast<size_t>(view.len);
-                    if (got == 0) {
+
+                    if (m_read_strategy == ReadStrategy::FallbackRead) {
+                        nb::object py_chunk = m_stream.attr("read")(remaining_to_read);
+                        Py_buffer view;
+                        if (PyObject_GetBuffer(py_chunk.ptr(), &view, PyBUF_SIMPLE) != 0) {
+                            return -1;
+                        }
+                        got = static_cast<size_t>(view.len);
+                        if (got > 0) {
+                            std::memcpy(out_ptr, view.buf, got);
+                        }
                         PyBuffer_Release(&view);
+                    }
+
+                    if (got == 0) {
                         return -1;  // EOF
                     }
-                    std::memcpy(out_ptr, view.buf, got);
-                    PyBuffer_Release(&view);
 
+                    m_stream_pos += got;
                     m_current_pos += got;
                     out_ptr += got;
                     remaining_to_read -= got;
                     m_buffer_valid_len = 0;  // invalidated buffer
-                    if (got < remaining_to_read) {
+                    if (remaining_to_read > 0) {
                         // Premature EOF
                         return -1;
                     }
                 } else {
                     // Refill buffer with buffer_size
-                    nb::object py_chunk = m_stream.attr("read")(m_buffer.size());
-                    Py_buffer view;
-                    if (PyObject_GetBuffer(py_chunk.ptr(), &view, PyBUF_SIMPLE) != 0) {
-                        return -1;
+                    size_t got = 0;
+                    if (m_read_strategy != ReadStrategy::FallbackRead) {
+                        try {
+                            // Short-read packing loop: try to fill m_buffer as much as possible
+                            while (got < m_buffer.size()) {
+                                PyObject* mv_obj = PyMemoryView_FromMemory(
+                                    reinterpret_cast<char*>(m_buffer.data() + got),
+                                    m_buffer.size() - got, PyBUF_WRITE);
+                                if (!mv_obj) break;
+                                nb::object mv = nb::steal(mv_obj);
+                                nb::object ret = m_stream.attr("readinto")(mv);
+                                if (ret.is_none()) break;
+                                size_t n = nb::cast<size_t>(ret);
+                                if (n == 0) break;  // EOF reached
+                                got += n;
+                                m_read_strategy = ReadStrategy::UseReadinto;
+                            }
+                        } catch (const nb::python_error&) {
+                            if (m_read_strategy == ReadStrategy::AutoDetect) {
+                                m_read_strategy = ReadStrategy::FallbackRead;
+                            } else {
+                                throw;
+                            }
+                        }
                     }
-                    size_t got = static_cast<size_t>(view.len);
-                    if (got == 0) {
+
+                    if (m_read_strategy == ReadStrategy::FallbackRead) {
+                        nb::object py_chunk = m_stream.attr("read")(m_buffer.size());
+                        Py_buffer view;
+                        if (PyObject_GetBuffer(py_chunk.ptr(), &view, PyBUF_SIMPLE) != 0) {
+                            return -1;
+                        }
+                        got = static_cast<size_t>(view.len);
+                        if (got > 0) {
+                            std::memcpy(m_buffer.data(), view.buf, got);
+                        }
                         PyBuffer_Release(&view);
+                    }
+
+                    if (got == 0) {
                         return -1;  // EOF
                     }
-                    std::memcpy(m_buffer.data(), view.buf, got);
-                    PyBuffer_Release(&view);
 
+                    m_stream_pos += got;
                     m_buffer_pos = m_current_pos;
                     m_buffer_valid_len = got;
 
@@ -160,6 +228,7 @@ class PyStreamReader {
             m_stream.attr("seek")(0, 2);
             m_file_size = nb::cast<int64_t>(m_stream.attr("tell")());
             m_stream.attr("seek")(current, 0);
+            m_stream_pos = current;
 
             if (target_size <= m_file_size) {
                 return heif_reader_grow_status_size_reached;
@@ -195,24 +264,103 @@ class PyStreamReader {
     int64_t m_buffer_pos = 0;
     size_t m_buffer_valid_len = 0;
     int64_t m_current_pos = 0;
+    int64_t m_stream_pos = 0;
     int64_t m_file_size = -1;
+    ReadStrategy m_read_strategy = ReadStrategy::AutoDetect;
 };
 
 class PyStreamWriter {
    public:
-    explicit PyStreamWriter(nb::object stream) : m_stream(stream) {}
+    explicit PyStreamWriter(nb::object stream, size_t buffer_size = 65536)
+        : m_stream(stream), m_buffer(buffer_size), m_buffered_len(0) {}
 
-    heif_error write(const void* data, size_t size) {
+    ~PyStreamWriter() {
+        try {
+            flush();
+        } catch (...) {
+        }
+    }
+
+    heif_error flush() {
+        if (m_buffered_len == 0) {
+            return {heif_error_Ok, heif_suberror_Unspecified, "Success"};
+        }
         nb::gil_scoped_acquire acquire;
         try {
-            nb::bytes chunk(static_cast<const char*>(data), size);
+            nb::bytes chunk(reinterpret_cast<const char*>(m_buffer.data()), m_buffered_len);
+            m_buffered_len = 0;
             m_stream.attr("write")(chunk);
             return {heif_error_Ok, heif_suberror_Unspecified, "Success"};
         } catch (const std::exception& ex) {
+            m_buffered_len = 0;
+            m_captured_exception = std::current_exception();
             return {heif_error_Encoding_error, heif_suberror_Cannot_write_output_data, ex.what()};
         } catch (...) {
+            m_buffered_len = 0;
+            m_captured_exception = std::current_exception();
             return {heif_error_Encoding_error, heif_suberror_Cannot_write_output_data,
                     "Unknown error writing to Python stream"};
+        }
+    }
+
+    heif_error write(const void* data, size_t size) {
+        if (size == 0) {
+            return {heif_error_Ok, heif_suberror_Unspecified, "Success"};
+        }
+
+        const uint8_t* src = static_cast<const uint8_t*>(data);
+
+        // Case 1: Oversized chunk (>= buffer size)
+        // Flush any buffered data first, then write directly to python stream under GIL
+        if (size >= m_buffer.size()) {
+            heif_error err = flush();
+            if (err.code != heif_error_Ok) {
+                return err;
+            }
+            nb::gil_scoped_acquire acquire;
+            try {
+                nb::bytes chunk(reinterpret_cast<const char*>(src), size);
+                m_stream.attr("write")(chunk);
+                return {heif_error_Ok, heif_suberror_Unspecified, "Success"};
+            } catch (const std::exception& ex) {
+                m_captured_exception = std::current_exception();
+                return {heif_error_Encoding_error, heif_suberror_Cannot_write_output_data,
+                        ex.what()};
+            } catch (...) {
+                m_captured_exception = std::current_exception();
+                return {heif_error_Encoding_error, heif_suberror_Cannot_write_output_data,
+                        "Unknown error writing to Python stream"};
+            }
+        }
+
+        // Case 2: Chunk fits in remaining buffer space without flushing (zero GIL!)
+        size_t avail = m_buffer.size() - m_buffered_len;
+        if (size <= avail) {
+            std::memcpy(m_buffer.data() + m_buffered_len, src, size);
+            m_buffered_len += size;
+            return {heif_error_Ok, heif_suberror_Unspecified, "Success"};
+        }
+
+        // Case 3: Chunk doesn't fit in remaining space -> fill buffer, flush, then buffer remainder
+        std::memcpy(m_buffer.data() + m_buffered_len, src, avail);
+        m_buffered_len = m_buffer.size();
+        heif_error err = flush();
+        if (err.code != heif_error_Ok) {
+            return err;
+        }
+
+        size_t remainder = size - avail;
+        if (remainder > 0) {
+            std::memcpy(m_buffer.data(), src + avail, remainder);
+            m_buffered_len = remainder;
+        }
+
+        return {heif_error_Ok, heif_suberror_Unspecified, "Success"};
+    }
+
+    void rethrow_if_exception() {
+        if (m_captured_exception) {
+            std::rethrow_exception(m_captured_exception);
         }
     }
 
@@ -223,6 +371,9 @@ class PyStreamWriter {
 
    private:
     nb::object m_stream;
+    std::vector<uint8_t> m_buffer;
+    size_t m_buffered_len = 0;
+    std::exception_ptr m_captured_exception;
 };
 
 }  // namespace pylibheif

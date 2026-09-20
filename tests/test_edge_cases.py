@@ -245,7 +245,7 @@ def test_decoding_options():
 
     # 1. 实例化并配置解码选项
     opts = pylibheif.HeifDecodingOptions()
-    assert opts.num_codec_threads == 0  # 默认值
+    assert opts.num_codec_threads == pylibheif.get_default_num_threads()  # 默认值
     assert not opts.strict_decoding
 
     opts.num_codec_threads = 4

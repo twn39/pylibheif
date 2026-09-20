@@ -15,18 +15,54 @@ namespace pylibheif {
 class HeifImage;
 struct ContextState;
 
+int get_default_num_codec_threads();
+void set_default_num_codec_threads(int threads);
+int resolve_decoding_threads(int image_width, int image_height, int requested_threads = 0);
+
 class HeifDecodingOptions {
    public:
-    HeifDecodingOptions() { options = heif_decoding_options_alloc(); }
+    HeifDecodingOptions();
+    HeifDecodingOptions(std::optional<int> num_codec_threads,
+                        std::optional<bool> ignore_transformations = std::nullopt,
+                        std::optional<bool> convert_hdr_to_8bit = std::nullopt,
+                        std::optional<bool> strict_decoding = std::nullopt,
+                        const std::optional<std::string>& decoder_id = std::nullopt,
+                        std::optional<bool> autocorrect_broken_input = std::nullopt,
+                        std::optional<bool> output_image_nclx_profile_passthrough = std::nullopt);
     ~HeifDecodingOptions() {
         if (options) {
             heif_decoding_options_free(options);
         }
     }
 
-    // Rule of Five (Move-only wrapper)
-    HeifDecodingOptions(const HeifDecodingOptions&) = delete;
-    HeifDecodingOptions& operator=(const HeifDecodingOptions&) = delete;
+    // Copy constructor & assignment
+    HeifDecodingOptions(const HeifDecodingOptions& other) {
+        options = heif_decoding_options_alloc();
+        if (options && other.options) {
+            *options = *(other.options);
+        }
+        m_decoder_id = other.m_decoder_id;
+        if (options) {
+            options->decoder_id = m_decoder_id.empty() ? nullptr : m_decoder_id.c_str();
+        }
+    }
+    HeifDecodingOptions& operator=(const HeifDecodingOptions& other) {
+        if (this != &other) {
+            if (!options) {
+                options = heif_decoding_options_alloc();
+            }
+            if (options && other.options) {
+                *options = *(other.options);
+            }
+            m_decoder_id = other.m_decoder_id;
+            if (options) {
+                options->decoder_id = m_decoder_id.empty() ? nullptr : m_decoder_id.c_str();
+            }
+        }
+        return *this;
+    }
+
+    // Move constructor & assignment
     HeifDecodingOptions(HeifDecodingOptions&& other) noexcept
         : options(other.options), m_decoder_id(std::move(other.m_decoder_id)) {
         other.options = nullptr;

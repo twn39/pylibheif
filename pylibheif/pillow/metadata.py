@@ -60,9 +60,8 @@ def normalize_exif_for_pillow(
     try:
         from PIL import Image
 
-        temp_img = Image.new("RGB", (1, 1))
-        temp_img.info["exif"] = payload
-        exif = temp_img.getexif()
+        exif = Image.Exif()
+        exif.load(payload)
         orig_orientation = exif.get(0x0112)  # Tag 274: Orientation
         if orig_orientation is not None and orig_orientation != 1:
             exif[0x0112] = 1

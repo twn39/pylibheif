@@ -314,7 +314,16 @@ class HeifDecodingOptions:
     num_codec_threads: int
     autocorrect_broken_input: bool
     output_image_nclx_profile_passthrough: bool
-    def __init__(self) -> None: ...
+    def __init__(
+        self,
+        num_codec_threads: int | None = None,
+        ignore_transformations: bool | None = None,
+        convert_hdr_to_8bit: bool | None = None,
+        strict_decoding: bool | None = None,
+        decoder_id: str | None = None,
+        autocorrect_broken_input: bool | None = None,
+        output_image_nclx_profile_passthrough: bool | None = None,
+    ) -> None: ...
 
 class HeifOrientation(enum.Enum):
     Normal = 1
@@ -405,6 +414,7 @@ class HeifImageHandle:
         colorspace: HeifColorspace = HeifColorspace.RGB,
         chroma: HeifChroma = HeifChroma.InterleavedRGB,
         options: HeifDecodingOptions | None = None,
+        num_threads: int | None = None,
     ) -> HeifImage: ...
     def get_image_tiling(
         self, process_transformations: bool = True
@@ -416,6 +426,7 @@ class HeifImageHandle:
         colorspace: HeifColorspace = HeifColorspace.RGB,
         chroma: HeifChroma = HeifChroma.InterleavedRGB,
         options: HeifDecodingOptions | None = None,
+        num_threads: int | None = None,
     ) -> HeifImage: ...
     def get_metadata_block_ids(self, type_filter: str = "") -> list[int]: ...
     def get_metadata_block_type(self, arg: int, /) -> str: ...
@@ -463,7 +474,12 @@ class HeifImageHandle:
     ) -> HeifMasteringDisplayColourVolume | None: ...
     @property
     def ambient_viewing_environment(self) -> HeifAmbientViewingEnvironment | None: ...
-    def to_pillow(self, convert_hdr_to_8bit: bool = True) -> Any: ...
+    def to_pillow(
+        self,
+        convert_hdr_to_8bit: bool = True,
+        options: HeifDecodingOptions | None = None,
+        num_threads: int | None = None,
+    ) -> Any: ...
 
 class HeifImage:
     def __init__(
@@ -472,8 +488,33 @@ class HeifImage:
     @staticmethod
     def from_numpy(arr: numpy.ndarray, bit_depth: int = 10) -> HeifImage: ...
     @staticmethod
+    def from_buffer(
+        buffer: Any,
+        width: int,
+        height: int,
+        colorspace: HeifColorspace = HeifColorspace.RGB,
+        chroma: HeifChroma = HeifChroma.InterleavedRGB,
+        bit_depth: int = 8,
+        stride: int = 0,
+    ) -> HeifImage: ...
+    @staticmethod
+    def from_bytes(
+        data: Any,
+        width: int,
+        height: int,
+        colorspace: HeifColorspace = HeifColorspace.RGB,
+        chroma: HeifChroma = HeifChroma.InterleavedRGB,
+        bit_depth: int = 8,
+        stride: int = 0,
+    ) -> HeifImage: ...
+    @staticmethod
     def from_pillow(pil_image: Any, bit_depth: int = 8) -> HeifImage: ...
-    def to_pillow(self, convert_hdr_to_8bit: bool = True) -> Any: ...
+    def to_pillow(
+        self,
+        convert_hdr_to_8bit: bool = True,
+        options: HeifDecodingOptions | None = None,
+        num_threads: int | None = None,
+    ) -> Any: ...
     @property
     def width(self) -> int: ...
     @property
@@ -697,6 +738,16 @@ class AsyncHeifImageHandle:
         colorspace: HeifColorspace = HeifColorspace.RGB,
         chroma: HeifChroma = HeifChroma.InterleavedRGB,
         options: Optional[HeifDecodingOptions] = None,
+        num_threads: Optional[int] = None,
+    ) -> HeifImage: ...
+    async def decode_tile(
+        self,
+        tile_x: int,
+        tile_y: int,
+        colorspace: HeifColorspace = HeifColorspace.RGB,
+        chroma: HeifChroma = HeifChroma.InterleavedRGB,
+        options: Optional[HeifDecodingOptions] = None,
+        num_threads: Optional[int] = None,
     ) -> HeifImage: ...
     def get_metadata_block_ids(self, type_filter: str = "") -> List[int]: ...
     def get_metadata_block_type(self, id: int) -> str: ...
@@ -789,3 +840,13 @@ class AsyncHeifEncoder:
     def name(self) -> str: ...
     @property
     def parameters(self) -> HeifEncoderParametersProxy: ...
+
+def get_default_num_threads() -> int: ...
+def set_default_num_threads(threads: int) -> None: ...
+def get_default_codec_executor() -> concurrent.futures.ThreadPoolExecutor: ...
+def set_default_codec_executor(
+    executor: Optional[concurrent.futures.ThreadPoolExecutor],
+) -> None: ...
+def shutdown_default_codec_executor(
+    wait: bool = False, cancel_futures: bool = True
+) -> None: ...

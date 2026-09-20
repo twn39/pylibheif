@@ -181,8 +181,22 @@ void HeifContext::write_to_stream(const nb::object& stream) {
     writer.writer_api_version = 1;
     writer.write = PyStreamWriter::trampoline_write;
 
-    nb::gil_scoped_release release;
-    check_error(heif_context_write(state->ctx.get(), &writer, &sw));
+    heif_error err;
+    {
+        nb::gil_scoped_release release;
+        err = heif_context_write(state->ctx.get(), &writer, &sw);
+    }
+
+    if (err.code != heif_error_Ok) {
+        sw.rethrow_if_exception();
+        check_error(err);
+    }
+
+    heif_error flush_err = sw.flush();
+    if (flush_err.code != heif_error_Ok) {
+        sw.rethrow_if_exception();
+        check_error(flush_err);
+    }
 }
 
 void HeifContext::add_exif_metadata(const HeifImageHandle& handle, const nb::bytes& data) {

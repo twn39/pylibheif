@@ -82,14 +82,20 @@ class HeifImageFile(ImageFile.ImageFile):
                 if self._mode == "RGBA"
                 else HeifChroma.InterleavedRGB
             )
-            heif_image = self._handle.decode(HeifColorspace.RGB, chroma)
+            opts = self.info.get("decoding_options", None)
+            num_threads = self.info.get("num_threads", None)
+            heif_image = self._handle.decode(
+                HeifColorspace.RGB, chroma, options=opts, num_threads=num_threads
+            )
             plane = heif_image.get_plane(HeifChannel.Interleaved, writeable=False)
             arr = np.asarray(plane)
 
             if arr.dtype == np.uint16:
                 bit_depth = self.info.get("bit_depth", 10)
                 shift = max(0, bit_depth - 8)
-                arr = (arr >> shift).astype(np.uint8)
+                if shift > 0:
+                    np.right_shift(arr, shift, out=arr)
+                arr = arr.astype(np.uint8, copy=False)
 
             im = Image.fromarray(arr)
             self.im = im.im

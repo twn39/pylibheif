@@ -40,11 +40,16 @@ from ._pylibheif import (
     HeifImageLayout,
     HeifImageTiling,
     HeifDepthRepresentationInfo,
+    get_default_num_threads,
+    set_default_num_threads,
     __doc__,
 )
 
+import atexit
 import asyncio
 import concurrent.futures
+import math
+import os
 import weakref
 import threading
 from typing import Optional, Union, List, Any
@@ -97,6 +102,11 @@ __all__ = [
     "AsyncHeifContext",
     "AsyncHeifImageHandle",
     "AsyncHeifEncoder",
+    "get_default_num_threads",
+    "set_default_num_threads",
+    "get_default_codec_executor",
+    "set_default_codec_executor",
+    "shutdown_default_codec_executor",
     "to_pillow",
     "from_pillow",
     "register_pillow_opener",
@@ -248,13 +258,103 @@ HeifImageHandle.thumbnails = property(  # type: ignore
 )
 
 
+def _detect_usable_cpu_count() -> int:
+    """Detect the number of usable CPU cores, taking into account cgroups quotas and affinities."""
+    if hasattr(os, "process_cpu_count"):
+        try:
+            cnt = os.process_cpu_count()
+            if cnt is not None and cnt > 0:
+                return cnt
+        except Exception:
+            pass
+
+    # Check Linux cgroups v2 quota (/sys/fs/cgroup/cpu.max)
+    try:
+        with open("/sys/fs/cgroup/cpu.max", "r", encoding="utf-8") as f:
+            quota_s, period_s = f.read().strip().split()
+            if quota_s != "max":
+                quota = int(quota_s)
+                period = int(period_s)
+                if quota > 0 and period > 0:
+                    return max(1, math.ceil(quota / period))
+    except (OSError, ValueError):
+        pass
+
+    # Check Linux cgroups v1 quota (/sys/fs/cgroup/cpu/cpu.cfs_quota_us)
+    try:
+        with open("/sys/fs/cgroup/cpu/cpu.cfs_quota_us", "r", encoding="utf-8") as fq:
+            quota = int(fq.read().strip())
+        with open("/sys/fs/cgroup/cpu/cpu.cfs_period_us", "r", encoding="utf-8") as fp:
+            period = int(fp.read().strip())
+        if quota > 0 and period > 0:
+            return max(1, math.ceil(quota / period))
+    except (OSError, ValueError):
+        pass
+
+    return max(1, os.cpu_count() or 1)
+
+
+_default_codec_executor: Optional[concurrent.futures.ThreadPoolExecutor] = None
+_default_codec_executor_lock = threading.Lock()
+
+
+def get_default_codec_executor() -> concurrent.futures.ThreadPoolExecutor:
+    """Get or lazily initialize the dedicated thread pool executor for CPU-bound codec operations."""
+    global _default_codec_executor
+    if _default_codec_executor is None:
+        with _default_codec_executor_lock:
+            if _default_codec_executor is None:
+                usable = _detect_usable_cpu_count()
+                workers = max(1, usable // 2)
+                _default_codec_executor = concurrent.futures.ThreadPoolExecutor(
+                    max_workers=workers,
+                    thread_name_prefix="pylibheif-codec",
+                )
+    return _default_codec_executor
+
+
+def set_default_codec_executor(
+    executor: Optional[concurrent.futures.ThreadPoolExecutor],
+) -> None:
+    """Set or replace the default codec executor.
+
+    If an existing internal executor was active, it is cleanly shut down.
+    """
+    global _default_codec_executor
+    with _default_codec_executor_lock:
+        old_executor = _default_codec_executor
+        _default_codec_executor = executor
+    if old_executor is not None and old_executor is not executor:
+        try:
+            old_executor.shutdown(wait=False, cancel_futures=True)
+        except TypeError:
+            old_executor.shutdown(wait=False)
+
+
+def shutdown_default_codec_executor(
+    wait: bool = False, cancel_futures: bool = True
+) -> None:
+    """Explicitly shut down the dedicated codec thread pool executor."""
+    global _default_codec_executor
+    with _default_codec_executor_lock:
+        executor = _default_codec_executor
+        _default_codec_executor = None
+    if executor is not None:
+        try:
+            executor.shutdown(wait=wait, cancel_futures=cancel_futures)
+        except TypeError:
+            executor.shutdown(wait=wait)
+
+
+atexit.register(shutdown_default_codec_executor, wait=False, cancel_futures=True)
+
+
 async def _run_in_executor(
     executor: Optional[concurrent.futures.Executor], func, *args
 ):
-    if executor is None:
-        return await asyncio.to_thread(func, *args)
+    exec_to_use = executor if executor is not None else get_default_codec_executor()
     loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(executor, func, *args)
+    return await loop.run_in_executor(exec_to_use, func, *args)
 
 
 class AsyncHeifImageHandle:
@@ -337,10 +437,16 @@ class AsyncHeifImageHandle:
         colorspace: HeifColorspace = HeifColorspace.RGB,
         chroma: HeifChroma = HeifChroma.InterleavedRGB,
         options: Optional[HeifDecodingOptions] = None,
+        num_threads: Optional[int] = None,
     ) -> HeifImage:
         """Asynchronously decode the image."""
         return await _run_in_executor(
-            self._executor, self._handle.decode, colorspace, chroma, options
+            self._executor,
+            self._handle.decode,
+            colorspace,
+            chroma,
+            options,
+            num_threads,
         )
 
     def get_metadata_block_ids(self, type_filter: str = "") -> List[int]:
@@ -405,6 +511,7 @@ class AsyncHeifImageHandle:
         colorspace: HeifColorspace = HeifColorspace.RGB,
         chroma: HeifChroma = HeifChroma.InterleavedRGB,
         options: Optional[HeifDecodingOptions] = None,
+        num_threads: Optional[int] = None,
     ) -> HeifImage:
         return await _run_in_executor(
             self._executor,
@@ -414,6 +521,7 @@ class AsyncHeifImageHandle:
             colorspace,
             chroma,
             options,
+            num_threads,
         )
 
     @property
@@ -728,11 +836,21 @@ class AsyncHeifEncoder:
 # --- Pillow (PIL) Interoperability ---
 
 
-def to_pillow(source: Any, convert_hdr_to_8bit: bool = True) -> Any:
+def to_pillow(
+    source: Any,
+    convert_hdr_to_8bit: bool = True,
+    options: Optional[HeifDecodingOptions] = None,
+    num_threads: Optional[int] = None,
+) -> Any:
     """Convert a HeifImage or HeifImageHandle into a Pillow Image."""
     from .pillow.convert import to_pillow as _to_pillow
 
-    return _to_pillow(source, convert_hdr_to_8bit=convert_hdr_to_8bit)
+    return _to_pillow(
+        source,
+        convert_hdr_to_8bit=convert_hdr_to_8bit,
+        options=options,
+        num_threads=num_threads,
+    )
 
 
 def from_pillow(pil_image: Any, bit_depth: int = 8) -> Any:
