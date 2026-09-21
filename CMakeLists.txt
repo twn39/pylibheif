@@ -40,8 +40,8 @@ add_subdirectory(third_party/kvazaar EXCLUDE_FROM_ALL)
 target_compile_definitions(kvazaar PUBLIC KVZ_STATIC_LIB KVZ_RANGE_EXTENSION)
 
 # Help libheif find Kvazaar from submodule
-set(kvazaar_FOUND TRUE CACHE BOOLEAN "Kvazaar found" FORCE)
-set(KVAZAAR_FOUND TRUE CACHE BOOLEAN "Kvazaar found" FORCE)
+set(kvazaar_FOUND TRUE CACHE BOOL "Kvazaar found" FORCE)
+set(KVAZAAR_FOUND TRUE CACHE BOOL "Kvazaar found" FORCE)
 set(KVAZAAR_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party/kvazaar/src" CACHE PATH "Kvazaar include dir" FORCE)
 set(KVAZAAR_LIBRARY kvazaar CACHE STRING "Kvazaar library" FORCE)
 set(KVAZAAR_LIBRARIES $<BUILD_INTERFACE:kvazaar> CACHE STRING "Kvazaar libraries" FORCE)
