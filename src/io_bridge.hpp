@@ -22,8 +22,25 @@ class PyStreamReader {
     explicit PyStreamReader(nb::object stream, size_t buffer_size = 65536)
         : m_stream(stream), m_buffer(buffer_size) {
         nb::gil_scoped_acquire acquire;
+        if (nb::hasattr(m_stream, "read")) {
+            m_read_method = m_stream.attr("read");
+        }
+        if (nb::hasattr(m_stream, "seek")) {
+            m_seek_method = m_stream.attr("seek");
+        }
+        if (nb::hasattr(m_stream, "tell")) {
+            m_tell_method = m_stream.attr("tell");
+        }
+        if (nb::hasattr(m_stream, "readinto")) {
+            m_readinto_method = m_stream.attr("readinto");
+        }
+
         try {
-            m_current_pos = nb::cast<int64_t>(m_stream.attr("tell")());
+            if (m_tell_method.is_valid()) {
+                m_current_pos = nb::cast<int64_t>(m_tell_method());
+            } else {
+                m_current_pos = 0;
+            }
         } catch (...) {
             m_current_pos = 0;
         }
@@ -31,16 +48,28 @@ class PyStreamReader {
 
         try {
             // Check if stream supports seek to end to cache file size
-            m_stream.attr("seek")(0, 2);  // os.SEEK_END = 2
-            m_file_size = nb::cast<int64_t>(m_stream.attr("tell")());
-            m_stream.attr("seek")(m_current_pos, 0);  // os.SEEK_SET = 0
-            m_stream_pos = m_current_pos;
+            if (m_seek_method.is_valid() && m_tell_method.is_valid()) {
+                m_seek_method(0, 2);  // os.SEEK_END = 2
+                m_file_size = nb::cast<int64_t>(m_tell_method());
+                m_seek_method(m_current_pos, 0);  // os.SEEK_SET = 0
+                m_stream_pos = m_current_pos;
+
+                // Adaptive buffer sizing: for large streams (>10MB), dynamically size up buffer
+                // to 128KB (or 256KB for >50MB) to reduce Python call transitions by up to 75%
+                if (m_file_size > 50 * 1024 * 1024 && buffer_size == 65536) {
+                    m_buffer.resize(262144);
+                } else if (m_file_size > 10 * 1024 * 1024 && buffer_size == 65536) {
+                    m_buffer.resize(131072);
+                }
+            }
         } catch (...) {
             // Seek to end not supported (e.g. non-seekable or streaming network socket)
             m_file_size = -1;
             try {
-                m_stream.attr("seek")(m_current_pos, 0);
-                m_stream_pos = m_current_pos;
+                if (m_seek_method.is_valid()) {
+                    m_seek_method(m_current_pos, 0);
+                    m_stream_pos = m_current_pos;
+                }
             } catch (...) {
             }
         }
@@ -94,7 +123,11 @@ class PyStreamReader {
                 // Seek only if current position differs from underlying stream position (redundant
                 // seek elimination)
                 if (m_stream_pos != m_current_pos) {
-                    m_stream.attr("seek")(m_current_pos, 0);
+                    if (m_seek_method.is_valid()) {
+                        m_seek_method(m_current_pos, 0);
+                    } else {
+                        m_stream.attr("seek")(m_current_pos, 0);
+                    }
                     m_stream_pos = m_current_pos;
                 }
 
@@ -107,7 +140,9 @@ class PyStreamReader {
                                 reinterpret_cast<char*>(out_ptr), remaining_to_read, PyBUF_WRITE);
                             if (mv_obj) {
                                 nb::object mv = nb::steal(mv_obj);
-                                nb::object ret = m_stream.attr("readinto")(mv);
+                                nb::object ret = m_readinto_method.is_valid()
+                                                     ? m_readinto_method(mv)
+                                                     : m_stream.attr("readinto")(mv);
                                 if (!ret.is_none()) {
                                     got = nb::cast<size_t>(ret);
                                     m_read_strategy = ReadStrategy::UseReadinto;
@@ -123,7 +158,9 @@ class PyStreamReader {
                     }
 
                     if (m_read_strategy == ReadStrategy::FallbackRead) {
-                        nb::object py_chunk = m_stream.attr("read")(remaining_to_read);
+                        nb::object py_chunk = m_read_method.is_valid()
+                                                  ? m_read_method(remaining_to_read)
+                                                  : m_stream.attr("read")(remaining_to_read);
                         Py_buffer view;
                         if (PyObject_GetBuffer(py_chunk.ptr(), &view, PyBUF_SIMPLE) != 0) {
                             return -1;
@@ -160,7 +197,9 @@ class PyStreamReader {
                                     m_buffer.size() - got, PyBUF_WRITE);
                                 if (!mv_obj) break;
                                 nb::object mv = nb::steal(mv_obj);
-                                nb::object ret = m_stream.attr("readinto")(mv);
+                                nb::object ret = m_readinto_method.is_valid()
+                                                     ? m_readinto_method(mv)
+                                                     : m_stream.attr("readinto")(mv);
                                 if (ret.is_none()) break;
                                 size_t n = nb::cast<size_t>(ret);
                                 if (n == 0) break;  // EOF reached
@@ -177,7 +216,9 @@ class PyStreamReader {
                     }
 
                     if (m_read_strategy == ReadStrategy::FallbackRead) {
-                        nb::object py_chunk = m_stream.attr("read")(m_buffer.size());
+                        nb::object py_chunk = m_read_method.is_valid()
+                                                  ? m_read_method(m_buffer.size())
+                                                  : m_stream.attr("read")(m_buffer.size());
                         Py_buffer view;
                         if (PyObject_GetBuffer(py_chunk.ptr(), &view, PyBUF_SIMPLE) != 0) {
                             return -1;
@@ -260,6 +301,10 @@ class PyStreamReader {
 
    private:
     nb::object m_stream;
+    nb::object m_read_method;
+    nb::object m_seek_method;
+    nb::object m_tell_method;
+    nb::object m_readinto_method;
     std::vector<uint8_t> m_buffer;
     int64_t m_buffer_pos = 0;
     size_t m_buffer_valid_len = 0;
@@ -272,7 +317,12 @@ class PyStreamReader {
 class PyStreamWriter {
    public:
     explicit PyStreamWriter(nb::object stream, size_t buffer_size = 65536)
-        : m_stream(stream), m_buffer(buffer_size), m_buffered_len(0) {}
+        : m_stream(stream), m_buffer(buffer_size), m_buffered_len(0) {
+        nb::gil_scoped_acquire acquire;
+        if (nb::hasattr(m_stream, "write")) {
+            m_write_method = m_stream.attr("write");
+        }
+    }
 
     ~PyStreamWriter() {
         try {
@@ -289,7 +339,11 @@ class PyStreamWriter {
         try {
             nb::bytes chunk(reinterpret_cast<const char*>(m_buffer.data()), m_buffered_len);
             m_buffered_len = 0;
-            m_stream.attr("write")(chunk);
+            if (m_write_method.is_valid()) {
+                m_write_method(chunk);
+            } else {
+                m_stream.attr("write")(chunk);
+            }
             return {heif_error_Ok, heif_suberror_Unspecified, "Success"};
         } catch (const std::exception& ex) {
             m_buffered_len = 0;
@@ -320,7 +374,11 @@ class PyStreamWriter {
             nb::gil_scoped_acquire acquire;
             try {
                 nb::bytes chunk(reinterpret_cast<const char*>(src), size);
-                m_stream.attr("write")(chunk);
+                if (m_write_method.is_valid()) {
+                    m_write_method(chunk);
+                } else {
+                    m_stream.attr("write")(chunk);
+                }
                 return {heif_error_Ok, heif_suberror_Unspecified, "Success"};
             } catch (const std::exception& ex) {
                 m_captured_exception = std::current_exception();
@@ -371,6 +429,7 @@ class PyStreamWriter {
 
    private:
     nb::object m_stream;
+    nb::object m_write_method;
     std::vector<uint8_t> m_buffer;
     size_t m_buffered_len = 0;
     std::exception_ptr m_captured_exception;

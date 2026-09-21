@@ -168,22 +168,30 @@ def test_reconstruct_hdr_boost() -> None:
     )
 
     # Reconstruct with full display boost (4.0)
-    hdr_linear = reconstruct_hdr(sdr, gm, meta, display_boost=4.0, output_format="linear_float32")
+    hdr_linear = reconstruct_hdr(
+        sdr, gm, meta, display_boost=4.0, output_format="linear_float32"
+    )
     assert hdr_linear.shape == (4, 4, 3)
     sdr_linear = srgb_to_linear(128.0 / 255.0)
     expected_linear = (sdr_linear + 0.015625) * 4.0 - 0.015625
     np.testing.assert_allclose(hdr_linear[0, 0, 0], expected_linear, rtol=1e-2)
 
     # Reconstruct with display_boost=1.0 (SDR display) -> should equal original SDR in linear
-    hdr_sdr_linear = reconstruct_hdr(sdr, gm, meta, display_boost=1.0, output_format="linear_float32")
+    hdr_sdr_linear = reconstruct_hdr(
+        sdr, gm, meta, display_boost=1.0, output_format="linear_float32"
+    )
     np.testing.assert_allclose(hdr_sdr_linear[0, 0, 0], sdr_linear, rtol=1e-2)
 
     # Reconstruct with float16 output
-    hdr_fp16 = reconstruct_hdr(sdr, gm, meta, display_boost=4.0, output_format="linear_float16")
+    hdr_fp16 = reconstruct_hdr(
+        sdr, gm, meta, display_boost=4.0, output_format="linear_float16"
+    )
     assert hdr_fp16.dtype == np.float16
 
     # Reconstruct with Rec.2100 PQ uint16 output
-    hdr_pq = reconstruct_hdr(sdr, gm, meta, display_boost=4.0, output_format="pq_uint16")
+    hdr_pq = reconstruct_hdr(
+        sdr, gm, meta, display_boost=4.0, output_format="pq_uint16"
+    )
     assert hdr_pq.dtype == np.uint16
 
 
@@ -216,7 +224,9 @@ def test_cpp_assign_auxiliary_image_and_readback(tmp_path: Path) -> None:
 
     # 3. Encode both into context
     ctx = pylibheif.HeifContext()
-    encoder = pylibheif.HeifEncoder(pylibheif.HeifCompressionFormat.HEVC, preset="ultrafast")
+    encoder = pylibheif.HeifEncoder(
+        pylibheif.HeifCompressionFormat.HEVC, preset="ultrafast"
+    )
 
     primary_handle = encoder.encode_image(ctx, sdr_img, preset="ultrafast")
     aux_handle = encoder.encode_image(ctx, gm_img, preset="ultrafast")
@@ -268,7 +278,9 @@ def test_cpp_assign_auxiliary_image_and_readback(tmp_path: Path) -> None:
     assert decoded_gm.shape[1] == 32
 
     # Check reconstruct_hdr on handle
-    hdr_reconstructed = read_primary.reconstruct_hdr(display_boost=2.0, output_format="srgb_uint8")
+    hdr_reconstructed = read_primary.reconstruct_hdr(
+        display_boost=2.0, output_format="srgb_uint8"
+    )
     assert hdr_reconstructed.shape == (64, 64, 3)
     assert hdr_reconstructed.dtype == np.uint8
 
@@ -337,7 +349,9 @@ def test_cli_info_and_convert_gain_map(tmp_path: Path) -> None:
     gm_pixels = np.full((32, 32), 220, dtype=np.uint8)
 
     ctx = pylibheif.HeifContext()
-    encoder = pylibheif.HeifEncoder(pylibheif.HeifCompressionFormat.HEVC, preset="ultrafast")
+    encoder = pylibheif.HeifEncoder(
+        pylibheif.HeifCompressionFormat.HEVC, preset="ultrafast"
+    )
     sdr_img = pylibheif.HeifImage.from_buffer(
         sdr_pixels,
         64,

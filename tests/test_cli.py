@@ -222,6 +222,6 @@ def test_cli_info_jpeg_without_pillow(tmp_path):
     with unittest.mock.patch.dict("sys.modules", {"PIL": None, "PIL.Image": None}):
         result = runner.invoke(app, ["info", str(img_path)])
         assert result.exit_code == 1
-        assert "requires 'Pillow'" in result.stderr or "requires 'Pillow'" in result.stdout
-
-
+        assert (
+            "requires 'Pillow'" in result.stderr or "requires 'Pillow'" in result.stdout
+        )

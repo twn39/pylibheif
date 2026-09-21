@@ -23,7 +23,9 @@ URN_GAIN_MAP_APPLE = "urn:com:apple:photo:2020:aux:hdrgainmap"
 URN_PORTRAIT_MATTE_APPLE = "urn:com:apple:photo:2018:aux:portraitmatte"
 
 
-def _to_tuple3(val: Union[float, int, Tuple[float, float, float], list[float]]) -> Tuple[float, float, float]:
+def _to_tuple3(
+    val: Union[float, int, Tuple[float, float, float], list[float]],
+) -> Tuple[float, float, float]:
     """Ensure value is a 3-tuple of floats (R, G, B)."""
     if isinstance(val, (tuple, list)):
         if len(val) == 1:
@@ -55,11 +57,19 @@ class GainMapMetadata:
         standard: Metadata standard format ("iso_21496_1", "apple", or "dual").
     """
 
-    gain_map_min: Tuple[float, float, float] = field(default_factory=lambda: (0.0, 0.0, 0.0))
-    gain_map_max: Tuple[float, float, float] = field(default_factory=lambda: (2.0, 2.0, 2.0))
+    gain_map_min: Tuple[float, float, float] = field(
+        default_factory=lambda: (0.0, 0.0, 0.0)
+    )
+    gain_map_max: Tuple[float, float, float] = field(
+        default_factory=lambda: (2.0, 2.0, 2.0)
+    )
     gamma: Tuple[float, float, float] = field(default_factory=lambda: (1.0, 1.0, 1.0))
-    offset_sdr: Tuple[float, float, float] = field(default_factory=lambda: (0.015625, 0.015625, 0.015625))
-    offset_hdr: Tuple[float, float, float] = field(default_factory=lambda: (0.015625, 0.015625, 0.015625))
+    offset_sdr: Tuple[float, float, float] = field(
+        default_factory=lambda: (0.015625, 0.015625, 0.015625)
+    )
+    offset_hdr: Tuple[float, float, float] = field(
+        default_factory=lambda: (0.015625, 0.015625, 0.015625)
+    )
     hdr_capacity_min: float = 0.0
     hdr_capacity_max: float = 2.0
     base_rendition_is_hdr: bool = False
@@ -125,7 +135,9 @@ class GainMapMetadata:
         standard: str = "dual",
     ) -> "GainMapMetadata":
         """Convenience constructor from single scalar values."""
-        cap_max = hdr_capacity_max if hdr_capacity_max is not None else 2.0**max_boost_stops
+        cap_max = (
+            hdr_capacity_max if hdr_capacity_max is not None else 2.0**max_boost_stops
+        )
         return cls(
             gain_map_min=(min_boost_stops, min_boost_stops, min_boost_stops),
             gain_map_max=(max_boost_stops, max_boost_stops, max_boost_stops),
@@ -190,7 +202,9 @@ def parse_gain_map_metadata(xmp_data: Union[bytes, str]) -> Optional[GainMapMeta
         return _parse_xmp_fallback(xmp_str)
 
     # Find rdf:Description elements
-    descriptions = root.findall(".//{http://www.w3.org/1999/02/22-rdf-syntax-ns#}Description")
+    descriptions = root.findall(
+        ".//{http://www.w3.org/1999/02/22-rdf-syntax-ns#}Description"
+    )
     if not descriptions:
         descriptions = [root]
 
@@ -242,8 +256,12 @@ def parse_gain_map_metadata(xmp_data: Union[bytes, str]) -> Optional[GainMapMeta
             gamma_v = props.get("hdrgainmapgamma") or props.get("gamma")
             off_sdr_v = props.get("hdrgainmapoffsetsdr") or props.get("offsetsdr")
             off_hdr_v = props.get("hdrgainmapoffsethdr") or props.get("offsethdr")
-            cap_min_v = props.get("hdrgainmaphdrcapacitymin") or props.get("hdrcapacitymin")
-            cap_max_v = props.get("hdrgainmaphdrcapacitymax") or props.get("hdrcapacitymax")
+            cap_min_v = props.get("hdrgainmaphdrcapacitymin") or props.get(
+                "hdrcapacitymin"
+            )
+            cap_max_v = props.get("hdrgainmaphdrcapacitymax") or props.get(
+                "hdrcapacitymax"
+            )
             base_hdr_v = props.get("baserenditionishdr")
 
             if max_v is not None:
@@ -254,7 +272,11 @@ def parse_gain_map_metadata(xmp_data: Union[bytes, str]) -> Optional[GainMapMeta
                 off_hdr = _val_to_tuple3(off_hdr_v, 1.0 / 64.0)
 
                 cap_min = float(cap_min_v) if cap_min_v is not None else 0.0
-                cap_max = float(cap_max_v) if cap_max_v is not None else (2.0 ** max(max_boost))
+                cap_max = (
+                    float(cap_max_v)
+                    if cap_max_v is not None
+                    else (2.0 ** max(max_boost))
+                )
                 base_is_hdr = str(base_hdr_v).lower() in ("true", "1")
 
                 return GainMapMetadata(
@@ -316,7 +338,9 @@ def _parse_iso_gainmap_desc(desc: ET.Element) -> GainMapMetadata:
 
     def get_seq(key: str, default: float) -> Tuple[float, float, float]:
         # Check attribute
-        v = desc.attrib.get(f"{{{iso_ns}}}{key}") or desc.attrib.get(f"{{{adobe_ns}}}{key}")
+        v = desc.attrib.get(f"{{{iso_ns}}}{key}") or desc.attrib.get(
+            f"{{{adobe_ns}}}{key}"
+        )
         if v is not None:
             try:
                 f = float(v)
@@ -352,7 +376,9 @@ def _parse_iso_gainmap_desc(desc: ET.Element) -> GainMapMetadata:
         return (default, default, default)
 
     def get_scalar(key: str, default: float) -> float:
-        v = desc.attrib.get(f"{{{iso_ns}}}{key}") or desc.attrib.get(f"{{{adobe_ns}}}{key}")
+        v = desc.attrib.get(f"{{{iso_ns}}}{key}") or desc.attrib.get(
+            f"{{{adobe_ns}}}{key}"
+        )
         if v is not None:
             try:
                 return float(v)
@@ -373,9 +399,9 @@ def _parse_iso_gainmap_desc(desc: ET.Element) -> GainMapMetadata:
     offset_hdr = get_seq("OffsetHDR", 1.0 / 64.0)
     cap_min = get_scalar("HDRCapacityMin", 1.0)
     cap_max = get_scalar("HDRCapacityMax", 2.0 ** max(max_boost))
-    base_hdr_val = desc.attrib.get(f"{{{iso_ns}}}BaseRenditionIsHDR") or desc.attrib.get(
-        f"{{{adobe_ns}}}BaseRenditionIsHDR"
-    )
+    base_hdr_val = desc.attrib.get(
+        f"{{{iso_ns}}}BaseRenditionIsHDR"
+    ) or desc.attrib.get(f"{{{adobe_ns}}}BaseRenditionIsHDR")
     base_is_hdr = str(base_hdr_val).lower() in ("true", "1")
 
     return GainMapMetadata(
@@ -395,19 +421,28 @@ def _parse_xmp_fallback(text: str) -> Optional[GainMapMetadata]:
     """Simple regex/string search fallback for malformed or embedded XMP snippets."""
     import re
 
-    max_m = re.search(r'(?:HDRGainMapMax|GainMapMax)["\']?\s*[:=]\s*["\']?([0-9.]+)', text)
+    max_m = re.search(
+        r'(?:HDRGainMapMax|GainMapMax)["\']?\s*[:=]\s*["\']?([0-9.]+)', text
+    )
     if not max_m:
         return None
 
     max_val = float(max_m.group(1))
 
-    min_m = re.search(r'(?:HDRGainMapMin|GainMapMin)["\']?\s*[:=]\s*["\']?([0-9.]+)', text)
+    min_m = re.search(
+        r'(?:HDRGainMapMin|GainMapMin)["\']?\s*[:=]\s*["\']?([0-9.]+)', text
+    )
     min_val = float(min_m.group(1)) if min_m else 0.0
 
-    gamma_m = re.search(r'(?:HDRGainMapGamma|Gamma)["\']?\s*[:=]\s*["\']?([0-9.]+)', text)
+    gamma_m = re.search(
+        r'(?:HDRGainMapGamma|Gamma)["\']?\s*[:=]\s*["\']?([0-9.]+)', text
+    )
     gamma_val = float(gamma_m.group(1)) if gamma_m else 1.0
 
-    cap_m = re.search(r'(?:HDRCapacityMax|HDRGainMapHDRCapacityMax)["\']?\s*[:=]\s*["\']?([0-9.]+)', text)
+    cap_m = re.search(
+        r'(?:HDRCapacityMax|HDRGainMapHDRCapacityMax)["\']?\s*[:=]\s*["\']?([0-9.]+)',
+        text,
+    )
     cap_max = float(cap_m.group(1)) if cap_m else 2.0**max_val
 
     return GainMapMetadata(
@@ -420,7 +455,9 @@ def _parse_xmp_fallback(text: str) -> Optional[GainMapMetadata]:
     )
 
 
-def generate_gain_map_xmp(metadata: GainMapMetadata, format_type: str = "dual") -> bytes:
+def generate_gain_map_xmp(
+    metadata: GainMapMetadata, format_type: str = "dual"
+) -> bytes:
     """Generate XMP packet containing ISO 21496-1, Apple HDRGainMap, or dual metadata.
 
     Args:
@@ -568,7 +605,9 @@ def linear_to_pq(linear: np.ndarray, max_nits: float = 1000.0) -> np.ndarray:
 # ==============================================================================
 
 
-def _resample_gain_map(gain_map: np.ndarray, target_height: int, target_width: int) -> np.ndarray:
+def _resample_gain_map(
+    gain_map: np.ndarray, target_height: int, target_width: int
+) -> np.ndarray:
     """Bilinear resampling of Gain Map to match SDR dimensions with center alignment."""
     if gain_map.shape[0] == target_height and gain_map.shape[1] == target_width:
         return gain_map
@@ -584,7 +623,9 @@ def _resample_gain_map(gain_map: np.ndarray, target_height: int, target_width: i
             im_data = gain_map
 
         pil_img = Image.fromarray((im_data * 255.0).astype(np.uint8), mode=mode)
-        resized = pil_img.resize((target_width, target_height), resample=Image.Resampling.BILINEAR)
+        resized = pil_img.resize(
+            (target_width, target_height), resample=Image.Resampling.BILINEAR
+        )
         res_arr = np.asarray(resized).astype(np.float32) / 255.0
         if gain_map.ndim == 3 and res_arr.ndim == 2:
             res_arr = np.expand_dims(res_arr, axis=-1)
@@ -594,8 +635,12 @@ def _resample_gain_map(gain_map: np.ndarray, target_height: int, target_width: i
 
     # Pure numpy bilinear interpolation fallback
     gh, gw = gain_map.shape[:2]
-    y_indices = (np.arange(target_height, dtype=np.float32) + 0.5) * (gh / target_height) - 0.5
-    x_indices = (np.arange(target_width, dtype=np.float32) + 0.5) * (gw / target_width) - 0.5
+    y_indices = (np.arange(target_height, dtype=np.float32) + 0.5) * (
+        gh / target_height
+    ) - 0.5
+    x_indices = (np.arange(target_width, dtype=np.float32) + 0.5) * (
+        gw / target_width
+    ) - 0.5
 
     y_indices = np.clip(y_indices, 0, gh - 1)
     x_indices = np.clip(x_indices, 0, gw - 1)
@@ -784,7 +829,9 @@ def reconstruct_hdr(
         srgb_out = linear_to_srgb(hdr_linear)
         uint8_res = (np.clip(srgb_out, 0.0, 1.0) * 255.0 + 0.5).astype(np.uint8)
         if alpha is not None:
-            a_uint8 = (np.clip(alpha, 0.0, 1.0) * 255.0 + 0.5).astype(np.uint8)[:, :, np.newaxis]
+            a_uint8 = (np.clip(alpha, 0.0, 1.0) * 255.0 + 0.5).astype(np.uint8)[
+                :, :, np.newaxis
+            ]
             uint8_res = np.concatenate([uint8_res, a_uint8], axis=-1)
         return uint8_res
     else:

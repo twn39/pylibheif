@@ -425,4 +425,18 @@ void HeifContext::set_number_of_sequence_repetitions(uint32_t repetitions) {
     heif_context_set_number_of_sequence_repetitions(state->ctx.get(), repetitions);
 }
 
+void HeifContext::set_max_decoding_threads(int max_threads) {
+    check_closed();
+    if (max_threads < 0) {
+        throw std::invalid_argument(
+            "max_threads must be non-negative (0 to decode tiles in main thread)");
+    }
+    heif_context_set_max_decoding_threads(state->ctx.get(), max_threads);
+}
+
+int HeifContext::get_max_decoding_threads() const {
+    check_closed();
+    return heif_context_get_max_decoding_threads(state->ctx.get());
+}
+
 }  // namespace pylibheif

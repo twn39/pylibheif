@@ -56,6 +56,7 @@ __version__ = "1.23.2"
 import atexit
 import asyncio
 import concurrent.futures
+import dataclasses
 import math
 import os
 import weakref
@@ -146,6 +147,8 @@ __all__ = [
     "get_default_codec_executor",
     "set_default_codec_executor",
     "shutdown_default_codec_executor",
+    "ConcurrencyBudget",
+    "get_concurrency_budget",
     "to_pillow",
     "from_pillow",
     "register_pillow_opener",
@@ -351,6 +354,55 @@ def _detect_usable_cpu_count() -> int:
         pass
 
     return max(1, os.cpu_count() or 1)
+
+
+@dataclasses.dataclass(frozen=True)
+class ConcurrencyBudget:
+    """Thread and worker resource budget for balanced HEIF/AVIF processing."""
+
+    mode: str
+    workers: int
+    tile_threads: int
+    codec_threads: int
+
+
+def get_concurrency_budget(
+    mode: Literal["throughput", "latency"] = "throughput",
+    total_cpu_quota: Optional[int] = None,
+) -> ConcurrencyBudget:
+    """Compute optimal concurrency budget avoiding thread oversubscription.
+
+    Modes:
+    - 'throughput' (Default for batch/multi-image):
+      Maximizes overall image throughput by scaling worker threads across cores,
+      while locking intra-image tile and codec threads to 0/1. Avoids inter-core
+      spinlocks, L1/L2 cache evictions, and Amdahl's law bottleneck on single frames.
+    - 'latency' (Optimized for interactive single-image decoding/encoding):
+      Allocates all hardware capability to a single worker, activating both tile-level
+      parallelism and up to 4 intra-frame codec threads.
+    """
+    usable = (
+        total_cpu_quota
+        if (total_cpu_quota is not None and total_cpu_quota > 0)
+        else _detect_usable_cpu_count()
+    )
+    if mode == "latency":
+        tile_threads = min(4, usable)
+        codec_threads = min(4, usable)
+        return ConcurrencyBudget(
+            mode="latency",
+            workers=1,
+            tile_threads=tile_threads,
+            codec_threads=codec_threads,
+        )
+
+    # Throughput mode: one task per CPU core, single-threaded per image
+    return ConcurrencyBudget(
+        mode="throughput",
+        workers=max(1, usable),
+        tile_threads=0,  # Decode tiles sequentially in the worker thread
+        codec_threads=1,  # Single thread per codec instance
+    )
 
 
 _default_codec_executor: Optional[concurrent.futures.ThreadPoolExecutor] = None
@@ -683,7 +735,9 @@ class AsyncHeifImageHandle:
     def get_color_profile_info(self, prefer_nclx: bool = False) -> Dict[str, Any]:
         return self._handle.get_color_profile_info(prefer_nclx=prefer_nclx)
 
-    async def get_color_profile_info_async(self, prefer_nclx: bool = False) -> Dict[str, Any]:
+    async def get_color_profile_info_async(
+        self, prefer_nclx: bool = False
+    ) -> Dict[str, Any]:
         return await _run_in_executor(
             self._executor, self._handle.get_color_profile_info, prefer_nclx
         )
@@ -766,6 +820,27 @@ class AsyncHeifContext:
         """Reset context and release buffer references."""
         await _run_in_executor(self._executor, self._ctx.reset)
 
+    @property
+    def max_decoding_threads(self) -> int:
+        """Maximum background threads used for parallel tile decoding."""
+        return self._ctx.max_decoding_threads
+
+    @max_decoding_threads.setter
+    def max_decoding_threads(self, value: int) -> None:
+        self._ctx.max_decoding_threads = value
+
+    async def set_max_decoding_threads(self, max_threads: int) -> None:
+        """Asynchronously set maximum background threads for parallel tile decoding."""
+        await _run_in_executor(
+            self._executor, self._ctx.set_max_decoding_threads, max_threads
+        )
+
+    async def get_max_decoding_threads(self) -> int:
+        """Asynchronously get maximum background threads used for parallel tile decoding."""
+        return await _run_in_executor(
+            self._executor, self._ctx.get_max_decoding_threads
+        )
+
     async def __aenter__(self):
         return self
 
@@ -776,9 +851,7 @@ class AsyncHeifContext:
         """Asynchronously read from file."""
         await _run_in_executor(self._executor, self._ctx.read_from_file, filename)
 
-    async def read_from_memory(
-        self, data: Union[bytes, bytearray, memoryview]
-    ) -> None:
+    async def read_from_memory(self, data: Union[bytes, bytearray, memoryview]) -> None:
         """Asynchronously read from memory."""
         await _run_in_executor(self._executor, self._ctx.read_from_memory, data)
 
@@ -1013,7 +1086,9 @@ class AsyncHeifContext:
         timescale: int = 1000,
     ) -> "AsyncHeifTrack":
         """Add a visual sequence track to the context for encoding."""
-        track = self._ctx.add_visual_sequence_track(width, height, track_type, timescale)
+        track = self._ctx.add_visual_sequence_track(
+            width, height, track_type, timescale
+        )
         return AsyncHeifTrack(track, executor=self._executor)
 
     async def add_visual_sequence_track_async(
@@ -1493,7 +1568,7 @@ def _handle_decode(
     return raw_img
 
 
-HeifImageHandle.decode = _handle_decode
+setattr(HeifImageHandle, "decode", _handle_decode)
 
 
 def _handle_get_color_profile_bytes(

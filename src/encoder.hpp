@@ -3,6 +3,7 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -110,7 +111,10 @@ class HeifEncoder {
     heif_encoder* get() const { return encoder.get(); }
 
    private:
+    void init_parameter_cache();
+
     EncoderPtr encoder;
+    std::unordered_set<std::string> m_supported_parameters;
 };
 
 }  // namespace pylibheif

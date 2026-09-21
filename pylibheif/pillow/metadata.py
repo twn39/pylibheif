@@ -158,7 +158,9 @@ def extract_metadata_to_info(handle: Any) -> Dict[str, Any]:
 
     # 6. Gain Map (HDR)
     try:
-        if getattr(handle, "has_gain_map", False) and hasattr(handle, "get_gain_map_metadata"):
+        if getattr(handle, "has_gain_map", False) and hasattr(
+            handle, "get_gain_map_metadata"
+        ):
             gm_meta = handle.get_gain_map_metadata()
             if gm_meta is not None:
                 info["gain_map_metadata"] = gm_meta

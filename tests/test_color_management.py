@@ -57,6 +57,7 @@ def test_get_profile_info_and_wide_gamut():
 
 def test_nclx_to_icc_profile_mapping():
     """Test mapping of NCLX color primaries to canonical ICC profiles."""
+
     class DummyNclx:
         def __init__(self, primaries):
             self.color_primaries = primaries

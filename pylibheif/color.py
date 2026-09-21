@@ -17,7 +17,7 @@ import functools
 import hashlib
 import io
 from enum import IntEnum
-from typing import Any, Dict, Union
+from typing import Any, Dict, Union, cast
 
 import numpy as np
 
@@ -231,7 +231,11 @@ def get_profile_info(profile: Union[bytes, str]) -> Dict[str, Any]:
             info["pcs"] = pcs or "XYZ"
 
     # Identify wide-gamut
-    desc_lower = str(info.get("description", "")).lower() + " " + str(info.get("name", "")).lower()
+    desc_lower = (
+        str(info.get("description", "")).lower()
+        + " "
+        + str(info.get("name", "")).lower()
+    )
     if "p3" in desc_lower or "2020" in desc_lower or "adobe" in desc_lower:
         info["is_wide_gamut"] = True
 
@@ -259,20 +263,20 @@ def _get_cached_transform(
 
     src_p = ImageCms.ImageCmsProfile(io.BytesIO(src_bytes))
     dst_p = ImageCms.ImageCmsProfile(io.BytesIO(dst_bytes))
-    intent_val: Any = (
-        ImageCms.Intent(intent) if hasattr(ImageCms, "Intent") else intent
+    intent_val = ImageCms.Intent(intent) if hasattr(ImageCms, "Intent") else intent
+    flags_val = (
+        (ImageCms.Flags.BLACKPOINTCOMPENSATION if bpc else ImageCms.Flags.NONE)
+        if hasattr(ImageCms, "Flags")
+        else (0x2000 if bpc else 0)
     )
-    flags_val: Any = (
-        ImageCms.Flags.BLACKPOINTCOMPENSATION if bpc else ImageCms.Flags.NONE
-    ) if hasattr(ImageCms, "Flags") else (0x2000 if bpc else 0)
 
     return ImageCms.buildTransform(
         src_p,
         dst_p,
         in_mode,
         out_mode,
-        renderingIntent=intent_val,
-        flags=flags_val,
+        renderingIntent=cast(Any, intent_val),
+        flags=cast(Any, flags_val),
     )
 
 

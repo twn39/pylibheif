@@ -11,6 +11,7 @@
 
 #include "context.hpp"
 #include "image.hpp"
+#include "preset_config.hpp"
 
 namespace pylibheif {
 
@@ -39,10 +40,24 @@ void set_default_encoder_preset(const std::string& preset) {
     s_default_preset_active.store(s_preset_storage.back().get(), std::memory_order_release);
 }
 
+void HeifEncoder::init_parameter_cache() {
+    m_supported_parameters.clear();
+    if (!encoder) return;
+    const heif_encoder_parameter* const* params = heif_encoder_list_parameters(encoder.get());
+    if (!params) return;
+    for (int i = 0; params[i]; ++i) {
+        const char* p_name = heif_encoder_parameter_get_name(params[i]);
+        if (p_name) {
+            m_supported_parameters.emplace(p_name);
+        }
+    }
+}
+
 HeifEncoder::HeifEncoder(heif_compression_format format, const std::string& preset) {
     heif_encoder* enc = nullptr;
     check_error(heif_context_get_encoder_for_format(nullptr, format, &enc));
     encoder.reset(enc);
+    init_parameter_cache();
     if (!preset.empty()) {
         apply_preset(preset);
     } else {
@@ -58,6 +73,7 @@ HeifEncoder::HeifEncoder(const HeifEncoderDescriptor& descriptor, const std::str
     heif_encoder* enc = nullptr;
     check_error(heif_context_get_encoder(nullptr, descriptor.raw(), &enc));
     encoder.reset(enc);
+    init_parameter_cache();
     if (!preset.empty()) {
         apply_preset(preset);
     } else {
@@ -68,70 +84,30 @@ HeifEncoder::HeifEncoder(const HeifEncoderDescriptor& descriptor, const std::str
 std::string HeifEncoder::name() const { return heif_encoder_get_name(encoder.get()); }
 
 bool HeifEncoder::has_parameter(const std::string& name) const {
-    if (!encoder) return false;
-    const heif_encoder_parameter* const* params = heif_encoder_list_parameters(encoder.get());
-    if (!params) return false;
-    for (int i = 0; params[i]; ++i) {
-        const char* p_name = heif_encoder_parameter_get_name(params[i]);
-        if (p_name && name == p_name) {
-            return true;
-        }
-    }
-    return false;
+    return m_supported_parameters.find(name) != m_supported_parameters.end();
 }
 
 void HeifEncoder::apply_preset(const std::string& preset) {
     if (!encoder || preset.empty()) {
         return;
     }
-    std::string p = preset;
-    std::transform(p.begin(), p.end(), p.begin(), [](unsigned char c) { return std::tolower(c); });
+    std::string p = PresetMappings::normalize_preset(preset);
 
     // 1. Check if encoder has "preset" parameter (e.g. x265)
     if (has_parameter("preset")) {
-        std::string mapped_preset = p;
-        if (p == "ultrafast") {
-            mapped_preset = "ultrafast";
-        } else if (p == "fast") {
-            mapped_preset = "fast";
-        } else if (p == "balanced") {
-            mapped_preset = "medium";
-        } else if (p == "quality") {
-            mapped_preset = "slow";
-        }
-        set_parameter("preset", mapped_preset);
+        set_parameter("preset", PresetMappings::map_x265_preset(p));
     }
 
     // 2. Check if encoder has "speed" parameter (e.g. aom)
     if (has_parameter("speed")) {
-        int speed_val = 6;
-        if (p == "ultrafast") {
-            speed_val = 8;
-        } else if (p == "fast") {
-            speed_val = 6;
-        } else if (p == "balanced") {
-            speed_val = 6;
-        } else if (p == "quality") {
-            speed_val = 4;
-        } else {
-            try {
-                speed_val = std::stoi(p);
-            } catch (...) {
-                speed_val = 6;
-            }
-        }
-        set_integer_parameter("speed", speed_val);
+        set_integer_parameter("speed", PresetMappings::map_aom_speed(p));
     }
 
     // 3. Multithreading & auto-tiles concurrency optimizations for encoders that support them (e.g.
     // AOM)
     if (has_parameter("threads")) {
-        int threads = get_default_num_codec_threads();
-        if (threads <= 0) {
-            threads = static_cast<int>(std::thread::hardware_concurrency());
-            if (threads <= 0) threads = 4;
-            if (threads > 8) threads = 8;
-        }
+        int threads = PresetMappings::resolve_encoder_threads(get_default_num_codec_threads(),
+                                                              std::thread::hardware_concurrency());
         set_integer_parameter("threads", threads);
     }
 

@@ -87,6 +87,10 @@ class HeifContext {
     void set_sequence_timescale(uint32_t timescale);
     void set_number_of_sequence_repetitions(uint32_t repetitions);
 
+    // Concurrency & Tile decoding control
+    void set_max_decoding_threads(int max_threads);
+    int get_max_decoding_threads() const;
+
     heif_context* get() const { return state ? state->ctx.get() : nullptr; }
     bool is_closed() const { return !state || state->is_closed; }
     std::shared_ptr<ContextState> get_state() const { return state; }

@@ -54,8 +54,12 @@ def to_pillow(
         if getattr(handle, "has_gain_map", False):
             try:
                 gm_handle = handle.get_gain_map_handle()
-                gm_decoded = gm_handle.decode(HeifColorspace.RGB, HeifChroma.InterleavedRGB)
-                gm_plane = gm_decoded.get_plane(HeifChannel.Interleaved, writeable=False)
+                gm_decoded = gm_handle.decode(
+                    HeifColorspace.RGB, HeifChroma.InterleavedRGB
+                )
+                gm_plane = gm_decoded.get_plane(
+                    HeifChannel.Interleaved, writeable=False
+                )
                 gm_arr = np.asarray(gm_plane)
                 info["gain_map"] = Image.fromarray(gm_arr)
                 if hasattr(handle, "get_gain_map_metadata"):

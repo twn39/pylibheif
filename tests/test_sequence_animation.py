@@ -18,14 +18,18 @@ def setup_pillow():
     register_pillow_opener()
 
 
-def _create_rgb_image(width: int, height: int, color: tuple[int, int, int], duration: int = 100) -> HeifImage:
+def _create_rgb_image(
+    width: int, height: int, color: tuple[int, int, int], duration: int = 100
+) -> HeifImage:
     pil_img = Image.new("RGB", (width, height), color)
     img = HeifImage.from_pillow(pil_img)
     img.duration = duration
     return img
 
 
-def _create_rgba_image(width: int, height: int, color: tuple[int, int, int, int], duration: int = 100) -> HeifImage:
+def _create_rgba_image(
+    width: int, height: int, color: tuple[int, int, int, int], duration: int = 100
+) -> HeifImage:
     pil_img = Image.new("RGBA", (width, height), color)
     img = HeifImage.from_pillow(pil_img)
     img.duration = duration
@@ -42,15 +46,17 @@ def test_heif_track_basic_encoding_and_decoding():
     ctx.add_compatible_brand("avis")
     ctx.add_compatible_brand("mif1")
 
-    track = ctx.add_visual_sequence_track(width, height, HeifTrackType.ImageSequence, 1000)
+    track = ctx.add_visual_sequence_track(
+        width, height, HeifTrackType.ImageSequence, 1000
+    )
     assert track.id > 0
 
     encoder = HeifEncoder(HeifCompressionFormat.AV1)
 
     colors = [
-        (255, 0, 0),    # Red
-        (0, 255, 0),    # Green
-        (0, 0, 255),    # Blue
+        (255, 0, 0),  # Red
+        (0, 255, 0),  # Green
+        (0, 0, 255),  # Blue
     ]
     durations = [100, 200, 300]
 
@@ -99,7 +105,9 @@ def test_infinite_loop_prevention_on_decode():
     ctx = HeifContext()
     ctx.set_sequence_timescale(600)
     ctx.set_number_of_sequence_repetitions(0)  # Looping animation
-    track = ctx.add_visual_sequence_track(width, height, HeifTrackType.ImageSequence, 600)
+    track = ctx.add_visual_sequence_track(
+        width, height, HeifTrackType.ImageSequence, 600
+    )
     encoder = HeifEncoder(HeifCompressionFormat.AV1)
 
     for _ in range(2):
@@ -135,7 +143,9 @@ async def test_async_sequence_track_workflow():
     ctx = AsyncHeifContext()
     ctx.set_sequence_timescale(1000)
 
-    track = await ctx.add_visual_sequence_track_async(width, height, HeifTrackType.ImageSequence, 1000)
+    track = await ctx.add_visual_sequence_track_async(
+        width, height, HeifTrackType.ImageSequence, 1000
+    )
     encoder = HeifEncoder(HeifCompressionFormat.AV1)
 
     for c in [(200, 10, 10), (10, 200, 10)]:

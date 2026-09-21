@@ -444,6 +444,15 @@ NB_MODULE(_pylibheif, m) {
              "Set global sequence timescale.")
         .def("set_number_of_sequence_repetitions", &HeifContext::set_number_of_sequence_repetitions,
              nb::arg("repetitions"), "Set playback repetition count (0 = infinite loop).")
+        .def("set_max_decoding_threads", &HeifContext::set_max_decoding_threads,
+             nb::arg("max_threads"),
+             "Set maximum background threads for parallel tile decoding (0 to decode in main "
+             "thread).")
+        .def("get_max_decoding_threads", &HeifContext::get_max_decoding_threads,
+             "Get maximum background threads used for parallel tile decoding.")
+        .def_prop_rw("max_decoding_threads", &HeifContext::get_max_decoding_threads,
+                     &HeifContext::set_max_decoding_threads,
+                     "Maximum background threads for parallel tile decoding.")
         .def("__enter__", [](HeifContext& self) { return &self; })
         .def("__exit__", [](HeifContext& self, nb::args) { self.close(); })
         .def("__repr__", [](const HeifContext& self) {

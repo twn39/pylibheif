@@ -371,7 +371,9 @@ def _save(
 
     if append_images:
         all_frames = [im] + list(append_images)
-    elif (save_all or getattr(im, "is_animated", False)) and getattr(im, "n_frames", 1) > 1:
+    elif (save_all or getattr(im, "is_animated", False)) and getattr(
+        im, "n_frames", 1
+    ) > 1:
         all_frames = []
         curr = im.tell()
         for i in range(getattr(im, "n_frames", 1)):
@@ -523,7 +525,9 @@ def _save(
         aux_urn = encoderinfo.get("gain_map_urn") or URN_GAIN_MAP_ISO_21496_1
         ctx.assign_auxiliary_image(handle, gm_handle, str(aux_urn))
 
-        gm_meta = encoderinfo.get("gain_map_metadata") or im.info.get("gain_map_metadata")
+        gm_meta = encoderinfo.get("gain_map_metadata") or im.info.get(
+            "gain_map_metadata"
+        )
         if gm_meta is not None:
             if isinstance(gm_meta, dict):
                 gm_meta = GainMapMetadata(**gm_meta)

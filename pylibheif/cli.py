@@ -169,7 +169,9 @@ def _get_shooting_summary(exif_data: Dict[str, Any]) -> Dict[str, str]:
                     alt_suffix = f" (Alt: {float(alt):.1f}m)"
                 except Exception:
                     pass
-            summary["GPS Location"] = f"{lat_val} {lat_ref}, {lon_val} {lon_ref}{alt_suffix}"
+            summary["GPS Location"] = (
+                f"{lat_val} {lat_ref}, {lon_val} {lon_ref}{alt_suffix}"
+            )
 
     return summary
 
@@ -241,35 +243,49 @@ def _info_cmd_pillow(file: Path, json_output: bool, detail: bool) -> None:
     xmp_text: Optional[str] = None
     if "xmp" in im.info:
         raw = im.info["xmp"]
-        xmp_text = raw.decode("utf-8", errors="replace") if isinstance(raw, bytes) else str(raw)
+        xmp_text = (
+            raw.decode("utf-8", errors="replace")
+            if isinstance(raw, bytes)
+            else str(raw)
+        )
     elif "XML:com.adobe.xmp" in im.info:
         raw = im.info["XML:com.adobe.xmp"]
-        xmp_text = raw.decode("utf-8", errors="replace") if isinstance(raw, bytes) else str(raw)
+        xmp_text = (
+            raw.decode("utf-8", errors="replace")
+            if isinstance(raw, bytes)
+            else str(raw)
+        )
     has_xmp = bool(xmp_text)
 
     shooting_summary = _get_shooting_summary(parsed_exif)
 
     meta_blocks: List[Dict[str, Any]] = []
     if parsed_exif:
-        meta_blocks.append({
-            "id": 1,
-            "type": "Exif",
-            "size_bytes": len(im.info.get("exif", b"")),
-            "parsed_exif": parsed_exif,
-        })
+        meta_blocks.append(
+            {
+                "id": 1,
+                "type": "Exif",
+                "size_bytes": len(im.info.get("exif", b"")),
+                "parsed_exif": parsed_exif,
+            }
+        )
     if xmp_text:
-        meta_blocks.append({
-            "id": 2,
-            "type": "mime",
-            "size_bytes": len(xmp_text.encode("utf-8")),
-            "content_utf8": xmp_text,
-        })
+        meta_blocks.append(
+            {
+                "id": 2,
+                "type": "mime",
+                "size_bytes": len(xmp_text.encode("utf-8")),
+                "content_utf8": xmp_text,
+            }
+        )
     if has_icc:
-        meta_blocks.append({
-            "id": 3,
-            "type": "icc",
-            "size_bytes": len(im.info["icc_profile"]),
-        })
+        meta_blocks.append(
+            {
+                "id": 3,
+                "type": "icc",
+                "size_bytes": len(im.info["icc_profile"]),
+            }
+        )
 
     data: Dict[str, Any] = {
         "file": str(file.resolve()),
@@ -309,7 +325,9 @@ def _info_cmd_pillow(file: Path, json_output: bool, detail: bool) -> None:
         return
 
     console = Console()
-    table = Table(title=f"Image Information: [bold cyan]{file.name}[/bold cyan] ({fmt})")
+    table = Table(
+        title=f"Image Information: [bold cyan]{file.name}[/bold cyan] ({fmt})"
+    )
     table.add_column("Property", style="bold yellow")
     table.add_column("Value", style="green")
 
@@ -375,35 +393,49 @@ def _metadata_dump_pillow(file: Path, json_output: bool) -> None:
     xmp_text: Optional[str] = None
     if "xmp" in im.info:
         raw = im.info["xmp"]
-        xmp_text = raw.decode("utf-8", errors="replace") if isinstance(raw, bytes) else str(raw)
+        xmp_text = (
+            raw.decode("utf-8", errors="replace")
+            if isinstance(raw, bytes)
+            else str(raw)
+        )
     elif "XML:com.adobe.xmp" in im.info:
         raw = im.info["XML:com.adobe.xmp"]
-        xmp_text = raw.decode("utf-8", errors="replace") if isinstance(raw, bytes) else str(raw)
+        xmp_text = (
+            raw.decode("utf-8", errors="replace")
+            if isinstance(raw, bytes)
+            else str(raw)
+        )
 
     blocks: List[Dict[str, Any]] = []
     block_id = 1
     if parsed_exif:
-        blocks.append({
-            "id": block_id,
-            "type": "Exif",
-            "size_bytes": len(im.info.get("exif", b"")),
-            "parsed_exif": parsed_exif,
-        })
+        blocks.append(
+            {
+                "id": block_id,
+                "type": "Exif",
+                "size_bytes": len(im.info.get("exif", b"")),
+                "parsed_exif": parsed_exif,
+            }
+        )
         block_id += 1
     if xmp_text:
-        blocks.append({
-            "id": block_id,
-            "type": "mime",
-            "size_bytes": len(xmp_text.encode("utf-8")),
-            "content_utf8": xmp_text,
-        })
+        blocks.append(
+            {
+                "id": block_id,
+                "type": "mime",
+                "size_bytes": len(xmp_text.encode("utf-8")),
+                "content_utf8": xmp_text,
+            }
+        )
         block_id += 1
     if "icc_profile" in im.info:
-        blocks.append({
-            "id": block_id,
-            "type": "icc",
-            "size_bytes": len(im.info["icc_profile"]),
-        })
+        blocks.append(
+            {
+                "id": block_id,
+                "type": "icc",
+                "size_bytes": len(im.info["icc_profile"]),
+            }
+        )
         block_id += 1
 
     out_data = {
@@ -434,7 +466,9 @@ def _metadata_dump_pillow(file: Path, json_output: bool) -> None:
     for b in blocks:
         mtype = b["type"].lower()
         if mtype == "exif" and b.get("parsed_exif"):
-            exif_table = Table(title=f"EXIF Tags: [bold cyan]{file.name}[/bold cyan] (Block {b['id']})")
+            exif_table = Table(
+                title=f"EXIF Tags: [bold cyan]{file.name}[/bold cyan] (Block {b['id']})"
+            )
             exif_table.add_column("Tag Name", style="cyan")
             exif_table.add_column("Value", style="green")
             for k, v in sorted(b["parsed_exif"].items()):
@@ -489,17 +523,24 @@ def _metadata_extract_pillow(file: Path, out_file: Path, meta_type: str) -> None
         raw_data = im.info.get("icc_profile", b"")
 
     if not raw_data:
-        typer.echo(f"Error: No metadata of type '{meta_type}' found in '{file.name}'.", err=True)
+        typer.echo(
+            f"Error: No metadata of type '{meta_type}' found in '{file.name}'.",
+            err=True,
+        )
         raise typer.Exit(code=1)
 
     out_file.write_bytes(raw_data)
-    typer.echo(f"Successfully extracted {len(raw_data)} bytes of '{meta_type}' metadata to '{out_file}'.")
+    typer.echo(
+        f"Successfully extracted {len(raw_data)} bytes of '{meta_type}' metadata to '{out_file}'."
+    )
 
 
 # =====================================================================
 # 1. info command
 # =====================================================================
-@app.command("info", help="Inspect image dimensions, color profiles, HDR tags, and metadata.")
+@app.command(
+    "info", help="Inspect image dimensions, color profiles, HDR tags, and metadata."
+)
 def info_cmd(
     file: Path = typer.Argument(
         ...,
@@ -698,9 +739,14 @@ def info_cmd(
     table.add_column("Value", style="green")
 
     table.add_row("Resolution", f"{handle.width} x {handle.height}")
-    table.add_row("Bit Depth", f"{handle.luma_bits_per_pixel}-bit (chroma: {handle.chroma_bits_per_pixel}-bit)")
+    table.add_row(
+        "Bit Depth",
+        f"{handle.luma_bits_per_pixel}-bit (chroma: {handle.chroma_bits_per_pixel}-bit)",
+    )
     table.add_row("Alpha Channel", "Yes" if handle.has_alpha else "No")
-    table.add_row("File Size", f"{data['size_bytes'] / 1024:.1f} KB ({data['size_bytes']} bytes)")
+    table.add_row(
+        "File Size", f"{data['size_bytes'] / 1024:.1f} KB ({data['size_bytes']} bytes)"
+    )
     table.add_row("Images in File", f"{len(image_ids)} (primary id: {primary_id})")
     table.add_row("Thumbnails", str(handle.number_of_thumbnails))
     table.add_row("Depth Map", "Yes" if handle.has_depth_image else "No")
@@ -743,7 +789,9 @@ def info_cmd(
     if hdr_info:
         hdr_desc = []
         if "clli" in hdr_info:
-            hdr_desc.append(f"CLLI (Max: {hdr_info['clli']['max_content_light_level']} nits)")
+            hdr_desc.append(
+                f"CLLI (Max: {hdr_info['clli']['max_content_light_level']} nits)"
+            )
         if "mdcv" in hdr_info:
             hdr_desc.append(f"MDCV (Max: {hdr_info['mdcv']['max_luminance']} nits)")
         if "amve" in hdr_info:
@@ -780,7 +828,9 @@ def info_cmd(
 # =====================================================================
 # 2. convert command
 # =====================================================================
-@app.command("convert", help="Convert images between HEIC, AVIF, JPEG, and PNG formats.")
+@app.command(
+    "convert", help="Convert images between HEIC, AVIF, JPEG, and PNG formats."
+)
 def convert_cmd(
     source: Path = typer.Argument(
         ...,
@@ -914,11 +964,18 @@ def convert_cmd(
                         gm_pil = to_pillow(gm_handle)
                         extract_gain_map.parent.mkdir(parents=True, exist_ok=True)
                         gm_pil.save(str(extract_gain_map))
-                        typer.echo(f"Extracted auxiliary Gain Map to '{extract_gain_map}'.")
+                        typer.echo(
+                            f"Extracted auxiliary Gain Map to '{extract_gain_map}'."
+                        )
                     except Exception as e:
-                        typer.echo(f"Warning: Failed to extract gain map: {e}", err=True)
+                        typer.echo(
+                            f"Warning: Failed to extract gain map: {e}", err=True
+                        )
                 else:
-                    typer.echo(f"Warning: '{source.name}' does not contain an auxiliary Gain Map.", err=True)
+                    typer.echo(
+                        f"Warning: '{source.name}' does not contain an auxiliary Gain Map.",
+                        err=True,
+                    )
 
             # Target is HEIF or AVIF
             if target_fmt in ("heic", "avif"):
@@ -936,7 +993,9 @@ def convert_cmd(
 
                 if render_hdr and handle.has_gain_map:
                     # Reconstruct HDR into sRGB uint8 HeifImage
-                    hdr_arr = handle.reconstruct_hdr(display_boost=hdr_headroom, output_format="srgb_uint8")
+                    hdr_arr = handle.reconstruct_hdr(
+                        display_boost=hdr_headroom, output_format="srgb_uint8"
+                    )
                     raw_img = pylibheif.HeifImage.from_buffer(
                         hdr_arr,
                         hdr_arr.shape[1],
@@ -965,7 +1024,9 @@ def convert_cmd(
                     try:
                         gm_img = handle.decode_gain_map()
                         aux_encoder = pylibheif.HeifEncoder(comp_fmt, preset=preset)
-                        aux_handle = aux_encoder.encode_image(out_ctx, gm_img, preset=preset)
+                        aux_handle = aux_encoder.encode_image(
+                            out_ctx, gm_img, preset=preset
+                        )
                         gm_meta = handle.get_gain_map_metadata()
                         urn = "urn:iso:std:iso:ts:21496-1"
                         if gm_meta and gm_meta.format_type == "Apple":
@@ -1003,7 +1064,9 @@ def convert_cmd(
                     raise typer.Exit(code=2)
 
                 if render_hdr and handle.has_gain_map:
-                    hdr_arr = handle.reconstruct_hdr(display_boost=hdr_headroom, output_format="srgb_uint8")
+                    hdr_arr = handle.reconstruct_hdr(
+                        display_boost=hdr_headroom, output_format="srgb_uint8"
+                    )
                     pil_img = Image.fromarray(hdr_arr)
                 else:
                     pil_img = to_pillow(
@@ -1177,7 +1240,9 @@ def metadata_dump(
     for b in blocks:
         mtype = b["type"].lower()
         if mtype == "exif" and b.get("parsed_exif"):
-            exif_table = Table(title=f"EXIF Tags: [bold cyan]{file.name}[/bold cyan] (Block {b['id']})")
+            exif_table = Table(
+                title=f"EXIF Tags: [bold cyan]{file.name}[/bold cyan] (Block {b['id']})"
+            )
             exif_table.add_column("Tag Name", style="cyan")
             exif_table.add_column("Value", style="green")
             for k, v in sorted(b["parsed_exif"].items()):
@@ -1208,7 +1273,9 @@ def metadata_dump(
             )
 
 
-@metadata_app.command("extract", help="Extract raw metadata binary (e.g. EXIF or XMP) to a file.")
+@metadata_app.command(
+    "extract", help="Extract raw metadata binary (e.g. EXIF or XMP) to a file."
+)
 def metadata_extract(
     file: Path = typer.Argument(
         ...,
@@ -1238,7 +1305,10 @@ def metadata_extract(
 ) -> None:
     """Extract a raw metadata payload to an external binary file."""
     if out_file.exists() and not overwrite:
-        typer.echo(f"Error: Output file '{out_file}' already exists. Use -y / --overwrite.", err=True)
+        typer.echo(
+            f"Error: Output file '{out_file}' already exists. Use -y / --overwrite.",
+            err=True,
+        )
         raise typer.Exit(code=3)
 
     try:
@@ -1268,12 +1338,17 @@ def metadata_extract(
             break
 
     if block_data is None:
-        typer.echo(f"Error: No metadata block matching '{meta_type}' was found in '{file.name}'.", err=True)
+        typer.echo(
+            f"Error: No metadata block matching '{meta_type}' was found in '{file.name}'.",
+            err=True,
+        )
         raise typer.Exit(code=1)
 
     try:
         out_file.write_bytes(block_data)
-        typer.echo(f"Extracted {len(block_data)} bytes ({meta_type}) to '{out_file.name}'")
+        typer.echo(
+            f"Extracted {len(block_data)} bytes ({meta_type}) to '{out_file.name}'"
+        )
     except Exception as e:
         typer.echo(f"Failed to write metadata: {e}", err=True)
         raise typer.Exit(code=1)
@@ -1282,7 +1357,9 @@ def metadata_extract(
 # =====================================================================
 # 4. doctor command
 # =====================================================================
-@app.command("doctor", help="Inspect runtime environment, codec support, and thread limits.")
+@app.command(
+    "doctor", help="Inspect runtime environment, codec support, and thread limits."
+)
 def doctor_cmd(
     json_output: bool = typer.Option(
         False, "--json", "-j", help="Output machine-readable JSON format"
@@ -1347,8 +1424,12 @@ def doctor_cmd(
         f"JPEG2000: {'✅' if supported_formats['jpeg2000'] else '❌'}",
     )
     table.add_row("Hardware Threads", str(concurrency_info["hardware_threads"]))
-    table.add_row("Default Codec Threads", str(concurrency_info["default_codec_threads"]))
-    table.add_row("Default Encoder Preset", str(concurrency_info["default_encoder_preset"]))
+    table.add_row(
+        "Default Codec Threads", str(concurrency_info["default_codec_threads"])
+    )
+    table.add_row(
+        "Default Encoder Preset", str(concurrency_info["default_encoder_preset"])
+    )
     table.add_row(
         "Pillow Integration",
         f"{'Installed (v' + str(pillow_version) + ')' if pillow_installed else 'Not installed'}",

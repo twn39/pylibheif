@@ -448,6 +448,16 @@ class HeifContext:
     def set_number_of_sequence_repetitions(self, repetitions: int) -> None:
         """Set the number of repetitions for the sequence (0 = infinite)."""
 
+    def set_max_decoding_threads(self, max_threads: int) -> None:
+        """Set maximum background threads for parallel tile decoding (0 to decode in main thread)."""
+
+    def get_max_decoding_threads(self) -> int:
+        """Get maximum background threads used for parallel tile decoding."""
+
+    @property
+    def max_decoding_threads(self) -> int: ...
+    @max_decoding_threads.setter
+    def max_decoding_threads(self, value: int) -> None: ...
     def __enter__(self) -> HeifContext: ...
     def __exit__(self, *args) -> None: ...
 
