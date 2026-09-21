@@ -79,10 +79,24 @@ jobs:
 
       - name: Install Windows dependencies
         if: runner.os == 'Windows'
+        shell: bash
         run: |
           uv venv
           uv pip install meson ninja
-          vcpkg install x265 libde265 aom dav1d openjpeg libjpeg-turbo --triplet x64-windows-static-md --overlay-triplets=triplets
+          for i in 1 2 3; do
+            echo "Installing vcpkg dependencies (attempt $i/3)..."
+            if vcpkg install x265 libde265 aom dav1d openjpeg libjpeg-turbo --triplet x64-windows-static-md --overlay-triplets=triplets; then
+              echo "vcpkg dependencies installed successfully."
+              break
+            fi
+            if [ "$i" -lt 3 ]; then
+              echo "vcpkg install failed, waiting 15 seconds before retry..."
+              sleep 15
+            else
+              echo "vcpkg install failed after 3 attempts."
+              exit 1
+            fi
+          done
 
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.3.1
