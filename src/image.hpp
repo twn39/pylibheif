@@ -107,6 +107,13 @@ class HeifDecodingOptions {
         options->output_image_nclx_profile_passthrough = val ? 1 : 0;
     }
 
+    bool get_ignore_sequence_editlist() const {
+        return options->ignore_sequence_editlist != 0;
+    }
+    void set_ignore_sequence_editlist(bool val) {
+        options->ignore_sequence_editlist = val ? 1 : 0;
+    }
+
    private:
     heif_decoding_options* options = nullptr;
     std::string m_decoder_id;
@@ -387,6 +394,9 @@ class HeifImage {
     void set_content_light_level(const HeifContentLightLevel& cll);
     void set_mastering_display_colour_volume(const HeifMasteringDisplayColourVolume& mdcv);
     void set_ambient_viewing_environment(const HeifAmbientViewingEnvironment& amve);
+
+    void set_duration(uint32_t duration);
+    uint32_t get_duration() const;
 
     heif_image* get() const { return image.get(); }
 

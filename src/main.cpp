@@ -10,6 +10,7 @@
 #include "encoder.hpp"
 #include "hdr_metadata.hpp"
 #include "image.hpp"
+#include "track.hpp"
 
 namespace nb = nanobind;
 using namespace pylibheif;
@@ -307,6 +308,9 @@ NB_MODULE(_pylibheif, m) {
         .def_prop_rw("output_image_nclx_profile_passthrough",
                      &HeifDecodingOptions::get_output_image_nclx_profile_passthrough,
                      &HeifDecodingOptions::set_output_image_nclx_profile_passthrough)
+        .def_prop_rw("ignore_sequence_editlist",
+                     &HeifDecodingOptions::get_ignore_sequence_editlist,
+                     &HeifDecodingOptions::set_ignore_sequence_editlist)
         .def("__repr__", [](const HeifDecodingOptions& self) {
             return "<pylibheif.HeifDecodingOptions num_codec_threads=" +
                    std::to_string(self.get_num_codec_threads()) +
@@ -400,10 +404,78 @@ NB_MODULE(_pylibheif, m) {
              "optional content type.")
         .def("assign_thumbnail", &HeifContext::assign_thumbnail, nb::arg("master_image"),
              nb::arg("thumbnail_image"), "Assign a thumbnail image to a master image.")
+        .def("set_primary_image", &HeifContext::set_primary_image, nb::arg("handle"),
+             "Designate an image handle as the primary image of the context.")
+        .def("set_major_brand", &HeifContext::set_major_brand, nb::arg("brand"),
+             "Set the major brand of the HEIF container (4-character FourCC).")
+        .def("add_compatible_brand", &HeifContext::add_compatible_brand, nb::arg("brand"),
+             "Add a compatible brand to the HEIF container (4-character FourCC).")
+        .def("has_sequence", &HeifContext::has_sequence,
+             "Check whether the HEIF file contains an image sequence track.")
+        .def("get_sequence_timescale", &HeifContext::get_sequence_timescale,
+             "Get the sequence timescale (clock ticks per second).")
+        .def("get_sequence_duration", &HeifContext::get_sequence_duration,
+             "Get total sequence duration in timescale ticks.")
+        .def("get_number_of_sequence_tracks", &HeifContext::get_number_of_sequence_tracks,
+             "Get number of sequence tracks in the HEIF file.")
+        .def("get_sequence_track_ids", &HeifContext::get_sequence_track_ids,
+             "Get list of sequence track IDs.")
+        .def("get_track", &HeifContext::get_track, nb::arg("track_id") = 0,
+             "Get a HeifTrack object for track_id (0 for first visual track).")
+        .def("add_visual_sequence_track", [](HeifContext& self, uint16_t width, uint16_t height,
+                                             nb::handle track_type, uint32_t timescale) {
+            uint32_t tt = static_cast<uint32_t>(heif_track_type_image_sequence);
+            if (!track_type.is_none()) {
+                if (nb::isinstance<nb::int_>(track_type)) {
+                    tt = nb::cast<uint32_t>(track_type);
+                } else if (nb::hasattr(track_type, "value")) {
+                    tt = nb::cast<uint32_t>(track_type.attr("value"));
+                }
+            }
+            return self.add_visual_sequence_track(width, height, tt, timescale);
+        }, nb::arg("width"), nb::arg("height"),
+           nb::arg("track_type") = nb::none(),
+           nb::arg("timescale") = 1000,
+           "Add a new visual sequence track to the HEIF container.")
+        .def("set_sequence_timescale", &HeifContext::set_sequence_timescale, nb::arg("timescale"),
+             "Set global sequence timescale.")
+        .def("set_number_of_sequence_repetitions", &HeifContext::set_number_of_sequence_repetitions,
+             nb::arg("repetitions"), "Set playback repetition count (0 = infinite loop).")
         .def("__enter__", [](HeifContext& self) { return &self; })
         .def("__exit__", [](HeifContext& self, nb::args) { self.close(); })
         .def("__repr__", [](const HeifContext& self) {
             return "<pylibheif.HeifContext" + std::string(self.get() ? "" : " (closed)") + ">";
+        });
+
+    nb::enum_<heif_track_type_4cc>(m, "HeifTrackType")
+        .value("Video", heif_track_type_video)
+        .value("ImageSequence", heif_track_type_image_sequence)
+        .value("Auxiliary", heif_track_type_auxiliary)
+        .value("Metadata", heif_track_type_metadata);
+
+    nb::class_<HeifTrack>(m, "HeifTrack")
+        .def_prop_ro("id", &HeifTrack::id)
+        .def_prop_ro("track_type", &HeifTrack::track_type)
+        .def_prop_ro("timescale", &HeifTrack::timescale)
+        .def_prop_ro("number_of_repetitions", &HeifTrack::number_of_repetitions)
+        .def_prop_ro("resolution", &HeifTrack::resolution)
+        .def_prop_ro("has_alpha_channel", &HeifTrack::has_alpha_channel)
+        .def("encode_sequence_image", &HeifTrack::encode_sequence_image,
+             nb::arg("image"), nb::arg("encoder"), nb::arg("save_alpha") = false,
+             "Encode a single image frame into the sequence track.")
+        .def("encode_end_of_sequence", &HeifTrack::encode_end_of_sequence, nb::arg("encoder"),
+             "Signal the end of frame sequence to the encoder.")
+        .def("decode_next_image", &HeifTrack::decode_next_image,
+             nb::arg("colorspace") = heif_colorspace_RGB,
+             nb::arg("chroma") = heif_chroma_undefined,
+             nb::arg("options") = nullptr,
+             "Decode the next image frame from the track. Returns None at end of sequence.")
+        .def("rewind", &HeifTrack::rewind,
+             "Rewind sequence track playback back to the first frame.")
+        .def("__repr__", [](const HeifTrack& self) {
+            auto res = self.resolution();
+            return "<pylibheif.HeifTrack id=" + std::to_string(self.id()) + " " +
+                   std::to_string(res.first) + "x" + std::to_string(res.second) + ">";
         });
 
     bind_image(m);

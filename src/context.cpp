@@ -3,7 +3,11 @@
 #include <nanobind/nanobind.h>  // Ensure nanobind is included for gil_scoped_release
 #include <nanobind/ndarray.h>
 
+#include <libheif/heif_brands.h>
+#include <libheif/heif_sequences.h>
+
 #include "image.hpp"
+#include "track.hpp"
 
 namespace pylibheif {
 
@@ -298,4 +302,120 @@ void HeifContext::assign_thumbnail(const HeifImageHandle& master_image,
     check_error(err);
 }
 
+void HeifContext::set_primary_image(const HeifImageHandle& handle) {
+    check_closed();
+    heif_image_handle* h_ptr = handle.get();
+    if (!h_ptr) {
+        throw std::invalid_argument("Cannot set null handle as primary image.");
+    }
+    heif_context* ctx_ptr = state->ctx.get();
+    heif_error err;
+    {
+        nb::gil_scoped_release release;
+        err = heif_context_set_primary_image(ctx_ptr, h_ptr);
+    }
+    check_error(err);
+}
+
+void HeifContext::set_major_brand(const std::string& brand) {
+    check_closed();
+    if (brand.size() != 4) {
+        throw std::invalid_argument("Brand must be a 4-character string (FourCC).");
+    }
+    heif_brand2 b = heif_fourcc_to_brand(brand.c_str());
+    heif_context_set_major_brand(state->ctx.get(), b);
+}
+
+void HeifContext::add_compatible_brand(const std::string& brand) {
+    check_closed();
+    if (brand.size() != 4) {
+        throw std::invalid_argument("Brand must be a 4-character string (FourCC).");
+    }
+    heif_brand2 b = heif_fourcc_to_brand(brand.c_str());
+    heif_context_add_compatible_brand(state->ctx.get(), b);
+}
+
+bool HeifContext::has_sequence() const {
+    check_closed();
+    return heif_context_has_sequence(state->ctx.get()) != 0;
+}
+
+uint32_t HeifContext::get_sequence_timescale() const {
+    check_closed();
+    return heif_context_get_sequence_timescale(state->ctx.get());
+}
+
+uint64_t HeifContext::get_sequence_duration() const {
+    check_closed();
+    return heif_context_get_sequence_duration(state->ctx.get());
+}
+
+int HeifContext::get_number_of_sequence_tracks() const {
+    check_closed();
+    if (!has_sequence()) return 0;
+    return heif_context_number_of_sequence_tracks(state->ctx.get());
+}
+
+std::vector<uint32_t> HeifContext::get_sequence_track_ids() const {
+    check_closed();
+    int count = get_number_of_sequence_tracks();
+    if (count <= 0) return {};
+    std::vector<uint32_t> ids(count);
+    heif_context_get_track_ids(state->ctx.get(), ids.data());
+    return ids;
+}
+
+HeifTrack HeifContext::get_track(uint32_t track_id) {
+    check_closed();
+    if (!has_sequence()) {
+        throw HeifInputDoesNotExistError("Context does not contain any image sequences.");
+    }
+    heif_track* t = heif_context_get_track(state->ctx.get(), track_id);
+    if (!t) {
+        throw HeifInputDoesNotExistError("Sequence track not found.");
+    }
+    uint32_t actual_id = heif_track_get_id(t);
+    return HeifTrack(t, state, actual_id);
+}
+
+HeifTrack HeifContext::add_visual_sequence_track(uint16_t width, uint16_t height,
+                                                uint32_t track_type,
+                                                uint32_t timescale) {
+    check_closed();
+    heif_track_options* track_opts = heif_track_options_alloc();
+    if (track_opts) {
+        heif_track_options_set_timescale(track_opts, timescale);
+    }
+    heif_track* out_track = nullptr;
+    heif_error err = heif_context_add_visual_sequence_track(
+        state->ctx.get(),
+        width, height,
+        track_type,
+        track_opts,
+        nullptr,
+        &out_track
+    );
+    if (track_opts) {
+        heif_track_options_release(track_opts);
+    }
+    check_error(err);
+    if (!out_track) {
+        throw std::runtime_error("Failed to create visual sequence track.");
+    }
+    uint32_t actual_id = heif_track_get_id(out_track);
+    return HeifTrack(out_track, state, actual_id);
+}
+
+void HeifContext::set_sequence_timescale(uint32_t timescale) {
+    check_closed();
+    heif_context_set_sequence_timescale(state->ctx.get(), timescale);
+}
+
+void HeifContext::set_number_of_sequence_repetitions(uint32_t repetitions) {
+    check_closed();
+    heif_context_set_number_of_sequence_repetitions(state->ctx.get(), repetitions);
+}
+
 }  // namespace pylibheif
+
+

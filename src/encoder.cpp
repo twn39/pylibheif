@@ -1,43 +1,42 @@
 #include "encoder.hpp"
 
 #include <algorithm>
+#include <atomic>
 #include <cctype>
 #include <cstdlib>
+#include <memory>
 #include <mutex>
 #include <thread>
+#include <vector>
 
 #include "context.hpp"
 #include "image.hpp"
 
 namespace pylibheif {
 
-static std::mutex s_preset_mutex;
-static std::string s_default_preset;
-static bool s_preset_initialized = false;
+static std::string init_default_preset() {
+    const char* env = std::getenv("PYLIBHEIF_ENCODER_PRESET");
+    return (env && *env) ? std::string(env) : std::string("balanced");
+}
+
+static const std::string s_default_preset_initial = init_default_preset();
+static std::atomic<const std::string*> s_default_preset_active{&s_default_preset_initial};
+static std::mutex s_preset_write_mutex;
+static std::vector<std::unique_ptr<std::string>> s_preset_storage;
 
 std::string get_default_encoder_preset() {
-    std::lock_guard<std::mutex> lock(s_preset_mutex);
-    if (!s_preset_initialized) {
-        const char* env = std::getenv("PYLIBHEIF_ENCODER_PRESET");
-        if (env && *env) {
-            s_default_preset = env;
-        } else {
-            s_default_preset = "balanced";
-        }
-        s_preset_initialized = true;
-    }
-    return s_default_preset;
+    const std::string* ptr = s_default_preset_active.load(std::memory_order_acquire);
+    return ptr ? *ptr : "balanced";
 }
 
 void set_default_encoder_preset(const std::string& preset) {
-    std::lock_guard<std::mutex> lock(s_preset_mutex);
     if (preset.empty()) {
-        const char* env = std::getenv("PYLIBHEIF_ENCODER_PRESET");
-        s_default_preset = (env && *env) ? env : "balanced";
-    } else {
-        s_default_preset = preset;
+        s_default_preset_active.store(&s_default_preset_initial, std::memory_order_release);
+        return;
     }
-    s_preset_initialized = true;
+    std::lock_guard<std::mutex> lock(s_preset_write_mutex);
+    s_preset_storage.push_back(std::make_unique<std::string>(preset));
+    s_default_preset_active.store(s_preset_storage.back().get(), std::memory_order_release);
 }
 
 HeifEncoder::HeifEncoder(heif_compression_format format, const std::string& preset) {

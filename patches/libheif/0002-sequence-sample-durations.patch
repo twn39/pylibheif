@@ -1,0 +1,45 @@
+diff --git a/libheif/api/libheif/heif_sequences.cc b/libheif/api/libheif/heif_sequences.cc
+index 4ab489e2..f5319a24 100644
+--- a/libheif/api/libheif/heif_sequences.cc
++++ b/libheif/api/libheif/heif_sequences.cc
+@@ -205,7 +205,6 @@ heif_error heif_track_decode_next_image(heif_track* track_ptr,
+ 
+     std::shared_ptr<HeifPixelImage> img = *decodingResult;
+ 
+-
+     // --- convert to output colorspace
+ 
+     auto conversion_result = track_ptr->context->convert_to_output_colorspace(img, colorspace, chroma, *opts);
+@@ -213,7 +212,9 @@ heif_error heif_track_decode_next_image(heif_track* track_ptr,
+       return conversion_result.error_struct(track_ptr->context.get());
+     }
+     else {
++      uint32_t duration = img->get_sample_duration();
+       img = *conversion_result;
++      img->set_sample_duration(duration);
+     }
+ 
+     *out_img = new heif_image();
+diff --git a/libheif/sequences/track_visual.cc b/libheif/sequences/track_visual.cc
+index deb7cdb1..812bd4e4 100644
+--- a/libheif/sequences/track_visual.cc
++++ b/libheif/sequences/track_visual.cc
+@@ -286,7 +286,9 @@ Result<std::shared_ptr<HeifPixelImage> > Track_Visual::decode_next_image_sample(
+   //     Postprocess decoded image, attach metadata.
+ 
+   if (m_stts) {
+-    image->set_sample_duration(m_stts->get_sample_duration(sample_idx_in_chunk));
++    uint32_t out_sample_idx = m_presentation_timeline.empty() ? 0 :
++        m_presentation_timeline[m_next_sample_to_be_output % m_presentation_timeline.size()].sampleIdx;
++    image->set_sample_duration(m_stts->get_sample_duration(out_sample_idx));
+   }
+ 
+   // --- assign alpha if we have an assigned alpha track
+@@ -571,6 +573,7 @@ Error Track_Visual::encode_image(const std::shared_ptr<HeifPixelImage>& image,
+   }
+ 
+   std::shared_ptr<HeifPixelImage> colorConvertedImage = *srcImageResult;
++  colorConvertedImage->set_sample_duration(image->get_sample_duration());
+ 
+   // integer range is checked at beginning of function.
+   assert(colorConvertedImage->get_width() == image->get_width());

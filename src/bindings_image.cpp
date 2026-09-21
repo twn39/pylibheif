@@ -548,6 +548,8 @@ void bind_image(nb::module_& m) {
             [](HeifImage& self, const HeifAmbientViewingEnvironment& val) {
                 self.set_ambient_viewing_environment(val);
             })
+        .def_prop_rw("duration", &HeifImage::get_duration, &HeifImage::set_duration,
+                     "Display duration of this frame in sequence timescale ticks.")
         .def("__repr__", [](const HeifImage& self) {
             return "<pylibheif.HeifImage " + std::to_string(self.get_width()) + "x" +
                    std::to_string(self.get_height()) + ">";

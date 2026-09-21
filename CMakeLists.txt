@@ -48,25 +48,30 @@ set(KVAZAAR_LIBRARIES $<BUILD_INTERFACE:kvazaar> CACHE STRING "Kvazaar libraries
 
 # Apply patches to bundled libheif submodule if needed
 find_package(Git QUIET)
-if(GIT_FOUND AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/patches/libheif/0001-kvazaar-rext.patch")
-  execute_process(
-    COMMAND ${GIT_EXECUTABLE} apply --check "${CMAKE_CURRENT_SOURCE_DIR}/patches/libheif/0001-kvazaar-rext.patch"
-    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/third_party/libheif"
-    RESULT_VARIABLE _patch_check
-    OUTPUT_QUIET
-    ERROR_QUIET
-  )
-  if(_patch_check EQUAL 0)
-    message(STATUS "Applying Kvazaar RExt patch to third_party/libheif...")
+if(GIT_FOUND)
+  file(GLOB LIBHEIF_PATCHES "${CMAKE_CURRENT_SOURCE_DIR}/patches/libheif/*.patch")
+  list(SORT LIBHEIF_PATCHES)
+  foreach(_patch_file IN LISTS LIBHEIF_PATCHES)
+    get_filename_component(_patch_name "${_patch_file}" NAME)
     execute_process(
-      COMMAND ${GIT_EXECUTABLE} apply "${CMAKE_CURRENT_SOURCE_DIR}/patches/libheif/0001-kvazaar-rext.patch"
+      COMMAND ${GIT_EXECUTABLE} apply --check "${_patch_file}"
       WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/third_party/libheif"
-      RESULT_VARIABLE _patch_apply
+      RESULT_VARIABLE _patch_check
+      OUTPUT_QUIET
+      ERROR_QUIET
     )
-    if(NOT _patch_apply EQUAL 0)
-      message(WARNING "Failed to apply Kvazaar RExt patch to third_party/libheif")
+    if(_patch_check EQUAL 0)
+      message(STATUS "Applying ${_patch_name} to third_party/libheif...")
+      execute_process(
+        COMMAND ${GIT_EXECUTABLE} apply "${_patch_file}"
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/third_party/libheif"
+        RESULT_VARIABLE _patch_apply
+      )
+      if(NOT _patch_apply EQUAL 0)
+        message(WARNING "Failed to apply ${_patch_name} to third_party/libheif")
+      endif()
     endif()
-  endif()
+  endforeach()
 endif()
 
 # Add libheif submodule
@@ -80,6 +85,7 @@ nanobind_add_module(_pylibheif
     src/context.cpp
     src/image.cpp
     src/encoder.cpp
+    src/track.cpp
 )
 
 # Link with libheif

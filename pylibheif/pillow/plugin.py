@@ -13,6 +13,7 @@ from .._pylibheif import (
     HeifContext,
     HeifEncoder,
     HeifImageHandle,
+    HeifTrackType,
 )
 from .convert import from_pillow
 from .metadata import extract_metadata_to_info, pack_exif_for_heif
@@ -32,6 +33,9 @@ class HeifImageFile(ImageFile.ImageFile):
         self._ctx: Union[HeifContext, None] = None
         self._handle: Optional[HeifImageHandle] = None
         self._top_level_ids: List[int] = []
+        self._is_sequence_track: bool = False
+        self._frames: List[Any] = []
+        self._durations: List[int] = []
         self._frame_idx = 0
         self._n_frames = 1
         super().__init__(fp if fp is not None else "", filename)
@@ -56,6 +60,45 @@ class HeifImageFile(ImageFile.ImageFile):
             raise ValueError(f"Unsupported fp type: {type(self.fp)}")
 
         self._ctx = ctx
+        self._is_sequence_track = False
+        self._frames = []
+        self._durations = []
+
+        if ctx.has_sequence():
+            self._is_sequence_track = True
+            track = ctx.get_track(0)
+            self._track = track
+            self.is_animated = True
+            timescale = track.timescale or 1000
+
+            while True:
+                img = track.decode_next_image()
+                if img is None:
+                    break
+                self._frames.append(img)
+                ms = (
+                    int(round((img.duration * 1000.0) / timescale))
+                    if timescale > 0
+                    else 100
+                )
+                self._durations.append(ms)
+
+            if not self._frames:
+                raise SyntaxError("Empty sequence track in HEIF container")
+
+            self._n_frames = len(self._frames)
+            self._frame_idx = 0
+            w, h = track.resolution
+            self._size = (w, h)
+            self._mode = "RGBA" if track.has_alpha_channel else "RGB"
+            reps = track.number_of_repetitions
+            loop_val = 0 if (reps == 0 or reps == 0xFFFFFFFF) else reps
+            self.info["loop"] = loop_val
+            self.info["duration"] = self._durations[0] if self._durations else 100
+            self._init_track_frame(0)
+            self.tile = []
+            return
+
         self._top_level_ids = ctx.get_list_of_top_level_image_IDs()
         if not self._top_level_ids:
             raise SyntaxError("No top-level images found in HEIF container")
@@ -66,6 +109,13 @@ class HeifImageFile(ImageFile.ImageFile):
 
         self._init_frame(0)
         self.tile = []
+
+    def _init_track_frame(self, frame_idx: int) -> None:
+        """Initialize frame size and duration for sequence track."""
+        if 0 <= frame_idx < len(self._frames):
+            heif_image = self._frames[frame_idx]
+            self._size = (heif_image.width, heif_image.height)
+            self.info["duration"] = self._durations[frame_idx]
 
     def _init_frame(self, frame_idx: int) -> None:
         """Initialize frame metadata and handle without decoding pixel data (lazy)."""
@@ -79,6 +129,23 @@ class HeifImageFile(ImageFile.ImageFile):
 
     def load(self):
         """Perform on-demand / lazy decoding of the image frame."""
+        if self._is_sequence_track:
+            if 0 <= self._frame_idx < len(self._frames):
+                heif_image = self._frames[self._frame_idx]
+                plane = heif_image.get_plane(HeifChannel.Interleaved, writeable=False)
+                arr = np.asarray(plane)
+
+                if arr.dtype == np.uint16:
+                    bit_depth = self.info.get("bit_depth", 10)
+                    shift = max(0, bit_depth - 8)
+                    if shift > 0:
+                        np.right_shift(arr, shift, out=arr)
+                    arr = arr.astype(np.uint8, copy=False)
+
+                im = Image.fromarray(arr)
+                self.im = im.im
+            return super().load()
+
         if self._handle is not None:
             chroma = (
                 HeifChroma.InterleavedRGBA
@@ -118,7 +185,10 @@ class HeifImageFile(ImageFile.ImageFile):
             return
 
         self._frame_idx = frame
-        self._init_frame(frame)
+        if self._is_sequence_track:
+            self._init_track_frame(frame)
+        else:
+            self._init_frame(frame)
 
         # Reset core image object so next load() produces the new frame
         if hasattr(Image, "core") and hasattr(Image.core, "new"):
@@ -132,6 +202,13 @@ class HeifImageFile(ImageFile.ImageFile):
     def n_frames(self) -> int:
         """Return the total number of frames."""
         return self._n_frames
+
+    def close(self) -> None:
+        self._frames.clear()
+        self._durations.clear()
+        self._handle = None
+        self._ctx = None
+        super().close()
 
 
 def _accept(prefix: bytes) -> bool:
@@ -158,13 +235,20 @@ def _accept(prefix: bytes) -> bool:
 
 
 def _save(
-    im: Image.Image, fp: Union[IO[bytes], str], filename: Union[str, bytes] = ""
+    im: Image.Image,
+    fp: Union[IO[bytes], str],
+    filename: Union[str, bytes] = "",
+    save_format: Optional[str] = None,
 ) -> None:
     """Save function for Pillow Image.register_save."""
     # Determine format: HEVC or AV1
-    format_name = getattr(im, "format", "HEIF") or "HEIF"
+    format_name = save_format or getattr(im, "format", None) or "HEIF"
     ext = os.path.splitext(str(filename))[1].lower() if filename else ""
-    if ext in (".avif", ".avis") or format_name.upper() in ("AVIF", "AV1"):
+    if ext in (".avif", ".avis") or str(format_name).upper() in (
+        "AVIF",
+        "AVIS",
+        "AV1",
+    ):
         compression = HeifCompressionFormat.AV1
     else:
         compression = HeifCompressionFormat.HEVC
@@ -182,6 +266,87 @@ def _save(
     tune = encoderinfo.get("tune", None)
     chroma = encoderinfo.get("chroma", None)
     enc_params = encoderinfo.get("enc_params", None)
+
+    save_all = bool(encoderinfo.get("save_all", False))
+    append_images = encoderinfo.get("append_images", [])
+
+    if append_images:
+        all_frames = [im] + list(append_images)
+    elif (save_all or getattr(im, "is_animated", False)) and getattr(im, "n_frames", 1) > 1:
+        all_frames = []
+        curr = im.tell()
+        for i in range(im.n_frames):
+            im.seek(i)
+            all_frames.append(im.copy())
+        im.seek(curr)
+    else:
+        all_frames = [im]
+
+    if len(all_frames) > 1:
+        dur = encoderinfo.get("duration", im.info.get("duration", 100))
+        if isinstance(dur, (list, tuple)):
+            durations = list(dur)
+            while len(durations) < len(all_frames):
+                durations.append(durations[-1] if durations else 100)
+        else:
+            durations = [int(dur)] * len(all_frames)
+
+        loop = int(encoderinfo.get("loop", im.info.get("loop", 0)))
+
+        ctx = HeifContext()
+        major_brand = "avis" if compression == HeifCompressionFormat.AV1 else "msf1"
+        ctx.set_major_brand(major_brand)
+        ctx.add_compatible_brand(major_brand)
+        ctx.add_compatible_brand("mif1")
+        if compression == HeifCompressionFormat.AV1:
+            ctx.add_compatible_brand("avif")
+        else:
+            ctx.add_compatible_brand("heic")
+
+        timescale = 1000
+        ctx.set_sequence_timescale(timescale)
+        ctx.set_number_of_sequence_repetitions(loop)
+
+        w, h = im.size
+        track = ctx.add_visual_sequence_track(
+            w, h, HeifTrackType.ImageSequence, timescale
+        )
+
+        encoder = HeifEncoder(compression, preset=str(preset) if preset else "")
+        if lossless:
+            encoder.set_lossless(True)
+        else:
+            encoder.set_lossy_quality(int(quality))
+
+        if speed is not None and encoder.has_parameter("speed"):
+            encoder.set_integer_parameter("speed", int(speed))
+        if threads is not None and encoder.has_parameter("threads"):
+            encoder.set_integer_parameter("threads", int(threads))
+        if tune is not None and encoder.has_parameter("tune"):
+            encoder.set_string_parameter("tune", str(tune))
+        if chroma is not None and encoder.has_parameter("chroma"):
+            encoder.set_string_parameter("chroma", str(chroma))
+        if enc_params and isinstance(enc_params, dict):
+            for k, v in enc_params.items():
+                encoder.set_parameter(str(k), str(v))
+
+        for idx, frame in enumerate(all_frames):
+            frame_img, _ = from_pillow(frame)
+            frame_duration_ms = max(1, int(durations[idx]))
+            frame_img.duration = frame_duration_ms
+            save_alpha = frame.mode in ("RGBA", "LA", "PA")
+            track.encode_sequence_image(frame_img, encoder, save_alpha=save_alpha)
+
+        track.encode_end_of_sequence(encoder)
+
+        if hasattr(fp, "write"):
+            ctx.write_to_stream(fp)
+        elif isinstance(fp, (str, bytes, os.PathLike)):
+            ctx.write_to_file(str(os.fspath(fp)))
+        else:
+            with open(str(fp), "wb") as f:
+                ctx.write_to_stream(f)
+        return
 
     heif_image, info = from_pillow(im)
 
@@ -239,10 +404,63 @@ def _save(
             ctx.write_to_stream(f)
 
 
+def _save_heif(
+    im: Image.Image,
+    fp: Union[IO[bytes], str],
+    filename: Union[str, bytes] = "",
+) -> None:
+    _save(im, fp, filename, save_format="HEIF")
+
+
+def _save_avif(
+    im: Image.Image,
+    fp: Union[IO[bytes], str],
+    filename: Union[str, bytes] = "",
+) -> None:
+    _save(im, fp, filename, save_format="AVIF")
+
+
+def _save_heic(
+    im: Image.Image,
+    fp: Union[IO[bytes], str],
+    filename: Union[str, bytes] = "",
+) -> None:
+    _save(im, fp, filename, save_format="HEIC")
+
+
+def _save_avis(
+    im: Image.Image,
+    fp: Union[IO[bytes], str],
+    filename: Union[str, bytes] = "",
+) -> None:
+    _save(im, fp, filename, save_format="AVIS")
+
+
+def _save_heifs(
+    im: Image.Image,
+    fp: Union[IO[bytes], str],
+    filename: Union[str, bytes] = "",
+) -> None:
+    _save(im, fp, filename, save_format="HEIFS")
+
+
 def register_heif_opener() -> None:
     """Register pylibheif as the handler for HEIF / AVIF images in Pillow."""
     Image.register_open(HeifImageFile.format, HeifImageFile, _accept)
-    Image.register_save(HeifImageFile.format, _save)
+    handlers = {
+        HeifImageFile.format: _save_heif,
+        "AVIF": _save_avif,
+        "HEIC": _save_heic,
+        "HEIFS": _save_heifs,
+        "AVIS": _save_avis,
+    }
+    for fmt, handler in handlers.items():
+        Image.register_save(fmt, handler)
+        if hasattr(Image, "register_save_all"):
+            Image.register_save_all(fmt, handler)
+        elif hasattr(Image, "SAVE_ALL"):
+            Image.SAVE_ALL[fmt] = handler
+
     Image.register_extensions(
         HeifImageFile.format,
         [".heic", ".heif", ".hif", ".heics", ".heifs", ".avif", ".avis"],
@@ -259,7 +477,10 @@ def unregister_heif_opener() -> None:
             del Image.EXTENSION[ext]
     if HeifImageFile.format in Image.ID:
         Image.ID.remove(HeifImageFile.format)
-    if HeifImageFile.format in Image.SAVE:
-        del Image.SAVE[HeifImageFile.format]
+    for fmt in (HeifImageFile.format, "AVIF", "HEIC", "HEIFS", "AVIS"):
+        if fmt in Image.SAVE:
+            del Image.SAVE[fmt]
+        if hasattr(Image, "SAVE_ALL") and fmt in Image.SAVE_ALL:
+            del Image.SAVE_ALL[fmt]
     if HeifImageFile.format in Image.MIME:
         del Image.MIME[HeifImageFile.format]

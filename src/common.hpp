@@ -68,6 +68,12 @@ class HeifError : public std::runtime_error {
           code(err.code),
           subcode(err.subcode) {}
 
+    HeifError(heif_error_code c, const std::string& msg = "",
+              heif_suberror_code sc = heif_suberror_Unspecified)
+        : std::runtime_error(std::string("[HeifError: ") + get_error_code_name(c) + "] " + msg),
+          code(c),
+          subcode(sc) {}
+
     heif_error_code code;
     heif_suberror_code subcode;
 };
@@ -75,41 +81,57 @@ class HeifError : public std::runtime_error {
 class HeifInputDoesNotExistError : public HeifError {
    public:
     HeifInputDoesNotExistError(const heif_error& err) : HeifError(err) {}
+    HeifInputDoesNotExistError(const std::string& msg = "")
+        : HeifError(heif_error_Input_does_not_exist, msg) {}
 };
 
 class HeifInvalidInputError : public HeifError {
    public:
     HeifInvalidInputError(const heif_error& err) : HeifError(err) {}
+    HeifInvalidInputError(const std::string& msg = "")
+        : HeifError(heif_error_Invalid_input, msg) {}
 };
 
 class HeifUnsupportedFiletypeError : public HeifError {
    public:
     HeifUnsupportedFiletypeError(const heif_error& err) : HeifError(err) {}
+    HeifUnsupportedFiletypeError(const std::string& msg = "")
+        : HeifError(heif_error_Unsupported_filetype, msg) {}
 };
 
 class HeifUnsupportedFeatureError : public HeifError {
    public:
     HeifUnsupportedFeatureError(const heif_error& err) : HeifError(err) {}
+    HeifUnsupportedFeatureError(const std::string& msg = "")
+        : HeifError(heif_error_Unsupported_feature, msg) {}
 };
 
 class HeifUsageError : public HeifError {
    public:
     HeifUsageError(const heif_error& err) : HeifError(err) {}
+    HeifUsageError(const std::string& msg = "")
+        : HeifError(heif_error_Usage_error, msg) {}
 };
 
 class HeifMemoryAllocationError : public HeifError {
    public:
     HeifMemoryAllocationError(const heif_error& err) : HeifError(err) {}
+    HeifMemoryAllocationError(const std::string& msg = "")
+        : HeifError(heif_error_Memory_allocation_error, msg) {}
 };
 
 class HeifEncodingError : public HeifError {
    public:
     HeifEncodingError(const heif_error& err) : HeifError(err) {}
+    HeifEncodingError(const std::string& msg = "")
+        : HeifError(heif_error_Encoding_error, msg) {}
 };
 
 class HeifColorProfileDoesNotExistError : public HeifError {
    public:
     HeifColorProfileDoesNotExistError(const heif_error& err) : HeifError(err) {}
+    HeifColorProfileDoesNotExistError(const std::string& msg = "")
+        : HeifError(heif_error_Color_profile_does_not_exist, msg) {}
 };
 
 inline void check_error(const heif_error& err) {

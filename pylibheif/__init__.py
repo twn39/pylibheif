@@ -40,6 +40,8 @@ from ._pylibheif import (
     HeifImageLayout,
     HeifImageTiling,
     HeifDepthRepresentationInfo,
+    HeifTrack,
+    HeifTrackType,
     get_default_num_threads,
     set_default_num_threads,
     get_default_encoder_preset,
@@ -105,9 +107,12 @@ __all__ = [
     "HeifImageTiling",
     "HeifDepthRepresentationInfo",
     "HeifEncoderParametersProxy",
+    "HeifTrack",
+    "HeifTrackType",
     "AsyncHeifContext",
     "AsyncHeifImageHandle",
     "AsyncHeifEncoder",
+    "AsyncHeifTrack",
     "get_default_num_threads",
     "set_default_num_threads",
     "get_default_encoder_preset",
@@ -782,6 +787,211 @@ class AsyncHeifContext:
             else thumbnail_image
         )
         await _run_in_executor(self._executor, self._ctx.assign_thumbnail, m, t)
+
+    def set_primary_image(
+        self, handle: Union[HeifImageHandle, AsyncHeifImageHandle]
+    ) -> None:
+        """Designate an image handle as the primary image of the context."""
+        h = handle._handle if isinstance(handle, AsyncHeifImageHandle) else handle
+        self._ctx.set_primary_image(h)
+
+    async def set_primary_image_async(
+        self, handle: Union[HeifImageHandle, AsyncHeifImageHandle]
+    ) -> None:
+        """Asynchronously designate an image handle as the primary image of the context."""
+        h = handle._handle if isinstance(handle, AsyncHeifImageHandle) else handle
+        await _run_in_executor(self._executor, self._ctx.set_primary_image, h)
+
+    def set_major_brand(self, brand: str) -> None:
+        """Set the major brand of the HEIF container (4-character FourCC)."""
+        self._ctx.set_major_brand(brand)
+
+    def add_compatible_brand(self, brand: str) -> None:
+        """Add a compatible brand to the HEIF container (4-character FourCC)."""
+        self._ctx.add_compatible_brand(brand)
+
+    @property
+    def has_sequence(self) -> bool:
+        """Check if the context contains any image sequence tracks."""
+        return self._ctx.has_sequence()
+
+    def get_sequence_timescale(self) -> int:
+        """Get the sequence timescale (ticks per second)."""
+        return self._ctx.get_sequence_timescale()
+
+    def get_sequence_duration(self) -> int:
+        """Get the total sequence duration in ticks."""
+        return self._ctx.get_sequence_duration()
+
+    def get_number_of_sequence_tracks(self) -> int:
+        """Get the number of sequence tracks."""
+        return self._ctx.get_number_of_sequence_tracks()
+
+    def get_sequence_track_ids(self) -> List[int]:
+        """Get the list of sequence track IDs."""
+        return self._ctx.get_sequence_track_ids()
+
+    def get_track(self, track_id: int = 0) -> "AsyncHeifTrack":
+        """Get a track wrapper (use track_id=0 for first visual track)."""
+        track = self._ctx.get_track(track_id)
+        return AsyncHeifTrack(track, executor=self._executor)
+
+    async def get_track_async(self, track_id: int = 0) -> "AsyncHeifTrack":
+        """Asynchronously get a track wrapper."""
+        track = await _run_in_executor(self._executor, self._ctx.get_track, track_id)
+        return AsyncHeifTrack(track, executor=self._executor)
+
+    def add_visual_sequence_track(
+        self,
+        width: int,
+        height: int,
+        track_type: Union[HeifTrackType, int] = HeifTrackType.ImageSequence,
+        timescale: int = 1000,
+    ) -> "AsyncHeifTrack":
+        """Add a visual sequence track to the context for encoding."""
+        tt = track_type.value if hasattr(track_type, "value") else track_type
+        track = self._ctx.add_visual_sequence_track(width, height, tt, timescale)
+        return AsyncHeifTrack(track, executor=self._executor)
+
+    async def add_visual_sequence_track_async(
+        self,
+        width: int,
+        height: int,
+        track_type: Union[HeifTrackType, int] = HeifTrackType.ImageSequence,
+        timescale: int = 1000,
+    ) -> "AsyncHeifTrack":
+        """Asynchronously add a visual sequence track."""
+        tt = track_type.value if hasattr(track_type, "value") else track_type
+        track = await _run_in_executor(
+            self._executor,
+            self._ctx.add_visual_sequence_track,
+            width,
+            height,
+            tt,
+            timescale,
+        )
+        return AsyncHeifTrack(track, executor=self._executor)
+
+    def set_sequence_timescale(self, timescale: int) -> None:
+        """Set the sequence timescale (ticks per second)."""
+        self._ctx.set_sequence_timescale(timescale)
+
+    def set_number_of_sequence_repetitions(self, repetitions: int) -> None:
+        """Set the repetition count for the sequence (0 = infinite)."""
+        self._ctx.set_number_of_sequence_repetitions(repetitions)
+
+
+class AsyncHeifTrack:
+    """Async wrapper for HeifTrack (timed image sequences/animations)."""
+
+    def __init__(
+        self,
+        track: HeifTrack,
+        executor: Optional[concurrent.futures.Executor] = None,
+    ):
+        self._track = track
+        self._executor = executor
+
+    def __repr__(self) -> str:
+        return repr(self._track).replace("HeifTrack", "AsyncHeifTrack")
+
+    @property
+    def id(self) -> int:
+        return self._track.id
+
+    @property
+    def track_type(self) -> HeifTrackType:
+        return self._track.track_type
+
+    @property
+    def timescale(self) -> int:
+        return self._track.timescale
+
+    @property
+    def number_of_repetitions(self) -> int:
+        return self._track.number_of_repetitions
+
+    @property
+    def resolution(self) -> tuple[int, int]:
+        return self._track.resolution
+
+    @property
+    def has_alpha_channel(self) -> bool:
+        return self._track.has_alpha_channel
+
+    def rewind(self) -> None:
+        """Rewind sequence track playback back to frame 0."""
+        self._track.rewind()
+
+    async def rewind_async(self) -> None:
+        """Asynchronously rewind sequence track playback back to frame 0."""
+        await _run_in_executor(self._executor, self._track.rewind)
+
+    def encode_sequence_image(
+        self,
+        image: HeifImage,
+        encoder: Union[HeifEncoder, "AsyncHeifEncoder"],
+        save_alpha: bool = False,
+    ) -> None:
+        """Append a frame to the sequence track."""
+        enc = encoder._encoder if isinstance(encoder, AsyncHeifEncoder) else encoder
+        self._track.encode_sequence_image(image, enc, save_alpha)
+
+    async def encode_sequence_image_async(
+        self,
+        image: HeifImage,
+        encoder: Union[HeifEncoder, "AsyncHeifEncoder"],
+        save_alpha: bool = False,
+    ) -> None:
+        """Asynchronously append a frame to the sequence track."""
+        enc = encoder._encoder if isinstance(encoder, AsyncHeifEncoder) else encoder
+        await _run_in_executor(
+            self._executor,
+            self._track.encode_sequence_image,
+            image,
+            enc,
+            save_alpha,
+        )
+
+    def encode_end_of_sequence(
+        self,
+        encoder: Union[HeifEncoder, "AsyncHeifEncoder"],
+    ) -> None:
+        """Finalize the sequence track encoding."""
+        enc = encoder._encoder if isinstance(encoder, AsyncHeifEncoder) else encoder
+        self._track.encode_end_of_sequence(enc)
+
+    async def encode_end_of_sequence_async(
+        self,
+        encoder: Union[HeifEncoder, "AsyncHeifEncoder"],
+    ) -> None:
+        """Asynchronously finalize the sequence track encoding."""
+        enc = encoder._encoder if isinstance(encoder, AsyncHeifEncoder) else encoder
+        await _run_in_executor(self._executor, self._track.encode_end_of_sequence, enc)
+
+    def decode_next_image(
+        self,
+        colorspace: HeifColorspace = HeifColorspace.RGB,
+        chroma: HeifChroma = HeifChroma.InterleavedRGB,
+        options: Optional[HeifDecodingOptions] = None,
+    ) -> Optional[HeifImage]:
+        """Decode next image frame in sequence. Returns None at end of sequence."""
+        return self._track.decode_next_image(colorspace, chroma, options)
+
+    async def decode_next_image_async(
+        self,
+        colorspace: HeifColorspace = HeifColorspace.RGB,
+        chroma: HeifChroma = HeifChroma.InterleavedRGB,
+        options: Optional[HeifDecodingOptions] = None,
+    ) -> Optional[HeifImage]:
+        """Asynchronously decode next image frame in sequence."""
+        return await _run_in_executor(
+            self._executor,
+            self._track.decode_next_image,
+            colorspace,
+            chroma,
+            options,
+        )
 
 
 class AsyncHeifEncoder:

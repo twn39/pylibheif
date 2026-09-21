@@ -9,6 +9,7 @@
 namespace pylibheif {
 
 class HeifImageHandle;
+class HeifTrack;
 
 struct ContextState {
     ContextPtr ctx;
@@ -64,6 +65,23 @@ class HeifContext {
 
     void assign_thumbnail(const HeifImageHandle& master_image,
                           const HeifImageHandle& thumbnail_image);
+
+    void set_primary_image(const HeifImageHandle& handle);
+    void set_major_brand(const std::string& brand);
+    void add_compatible_brand(const std::string& brand);
+
+    // Sequence & Track APIs
+    bool has_sequence() const;
+    uint32_t get_sequence_timescale() const;
+    uint64_t get_sequence_duration() const;
+    int get_number_of_sequence_tracks() const;
+    std::vector<uint32_t> get_sequence_track_ids() const;
+    HeifTrack get_track(uint32_t track_id = 0);
+    HeifTrack add_visual_sequence_track(uint16_t width, uint16_t height,
+                                        uint32_t track_type = 0x76696465,
+                                        uint32_t timescale = 1000);
+    void set_sequence_timescale(uint32_t timescale);
+    void set_number_of_sequence_repetitions(uint32_t repetitions);
 
     heif_context* get() const { return state ? state->ctx.get() : nullptr; }
     bool is_closed() const { return !state || state->is_closed; }

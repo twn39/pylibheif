@@ -1,5 +1,7 @@
 #include "image.hpp"
 
+#include <libheif/heif_sequences.h>
+
 // Removed nanobind dependencies
 #include <algorithm>
 #include <atomic>
@@ -663,4 +665,16 @@ HeifPlaneLayout HeifImageLayout::get_plane_layout(heif_channel channel, int stri
     return layout;
 }
 
+void HeifImage::set_duration(uint32_t duration) {
+    if (image) {
+        heif_image_set_duration(image.get(), duration);
+    }
+}
+
+uint32_t HeifImage::get_duration() const {
+    if (!image) return 0;
+    return heif_image_get_duration(image.get());
+}
+
 }  // namespace pylibheif
+
