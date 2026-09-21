@@ -42,13 +42,20 @@ def to_pillow(
     """
     info: Dict[str, Any] = {}
 
+    has_alpha = False
     if isinstance(source, HeifImageHandle):
         handle = source
         info = extract_metadata_to_info(handle)
         has_alpha = getattr(handle, "has_alpha", False)
         chroma = HeifChroma.InterleavedRGBA if has_alpha else HeifChroma.InterleavedRGB
+        if options is None and convert_hdr_to_8bit:
+            decode_opts = HeifDecodingOptions(
+                num_codec_threads=num_threads, convert_hdr_to_8bit=True
+            )
+        else:
+            decode_opts = options
         heif_image = handle.decode(
-            HeifColorspace.RGB, chroma, options=options, num_threads=num_threads
+            HeifColorspace.RGB, chroma, options=decode_opts, num_threads=num_threads
         )
         # Check for Gain Map (HDR)
         if getattr(handle, "has_gain_map", False):
@@ -70,6 +77,9 @@ def to_pillow(
                 pass
     elif isinstance(source, HeifImage):
         heif_image = source
+        has_alpha = bool(
+            getattr(heif_image, "chroma", None) == HeifChroma.InterleavedRGBA
+        )
     else:
         raise TypeError(f"Expected HeifImage or HeifImageHandle, got {type(source)}")
 
@@ -81,11 +91,30 @@ def to_pillow(
         bit_depth = info.get("bit_depth", 10)
         shift = max(0, bit_depth - 8)
         if shift > 0:
-            np.right_shift(arr, shift, out=arr)
-        arr = arr.astype(np.uint8, copy=False)
+            arr = np.right_shift(arr, shift).astype(np.uint8)
+        else:
+            arr = arr.astype(np.uint8)
 
-    # Create Pillow Image
-    pil_image = Image.fromarray(arr)
+    # Create Pillow Image (use zero-copy frombuffer for RGBA 8-bit if C-contiguous)
+    if (
+        arr.dtype == np.uint8
+        and (has_alpha or (arr.ndim == 3 and arr.shape[2] == 4))
+        and arr.flags["C_CONTIGUOUS"]
+    ):
+        try:
+            pil_image = Image.frombuffer(
+                "RGBA",
+                (heif_image.width, heif_image.height),
+                plane,
+                "raw",
+                "RGBA",
+                0,
+                1,
+            )
+        except Exception:
+            pil_image = Image.fromarray(arr)
+    else:
+        pil_image = Image.fromarray(arr)
     if info:
         pil_image.info.update(info)
 

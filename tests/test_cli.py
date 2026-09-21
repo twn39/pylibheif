@@ -2,6 +2,7 @@
 
 import json
 from pathlib import Path
+import shutil
 import pytest
 
 typer = pytest.importorskip("typer")
@@ -225,3 +226,157 @@ def test_cli_info_jpeg_without_pillow(tmp_path):
         assert (
             "requires 'Pillow'" in result.stderr or "requires 'Pillow'" in result.stdout
         )
+
+
+def test_cli_info_batch(tmp_path):
+    img1 = tmp_path / "img1.heic"
+    img2 = tmp_path / "img2.heic"
+    shutil.copy(TEST_HEIC, img1)
+    shutil.copy(TEST_HEIC, img2)
+
+    # Text mode
+    res = runner.invoke(app, ["info", str(tmp_path)])
+    assert res.exit_code == 0
+    assert "Image Library Inspection" in res.stdout
+    assert "img1" in res.stdout
+    assert "img2" in res.stdout
+    assert "Total: 2 images" in res.stdout
+
+    # JSON mode
+    res_json = runner.invoke(app, ["info", str(tmp_path), "--json"])
+    assert res_json.exit_code == 0
+    data = json.loads(res_json.stdout)
+    assert isinstance(data, list)
+    assert len(data) == 2
+    assert {d["file"] for d in data} == {str(img1), str(img2)}
+
+
+def test_cli_info_batch_recursive(tmp_path):
+    sub = tmp_path / "subdir"
+    sub.mkdir()
+    img1 = tmp_path / "root.heic"
+    img2 = sub / "nested.heic"
+    shutil.copy(TEST_HEIC, img1)
+    shutil.copy(TEST_HEIC, img2)
+
+    # Without recursive: only root
+    res1 = runner.invoke(app, ["info", str(tmp_path), "--json"])
+    assert res1.exit_code == 0
+    data1 = json.loads(res1.stdout)
+    assert len(data1) == 1
+    assert data1[0]["file"] == str(img1)
+
+    # With recursive: both
+    res2 = runner.invoke(app, ["info", str(tmp_path), "-r", "--json"])
+    assert res2.exit_code == 0
+    data2 = json.loads(res2.stdout)
+    assert len(data2) == 2
+
+
+def test_cli_convert_batch_out_dir(tmp_path):
+    in_dir = tmp_path / "in"
+    out_dir = tmp_path / "out"
+    in_dir.mkdir()
+    img1 = in_dir / "a.heic"
+    img2 = in_dir / "b.heic"
+    shutil.copy(TEST_HEIC, img1)
+    shutil.copy(TEST_HEIC, img2)
+
+    res = runner.invoke(
+        app,
+        [
+            "convert",
+            str(in_dir),
+            "-o",
+            str(out_dir),
+            "--format",
+            "png",
+            "--jobs",
+            "2",
+            "--json",
+        ],
+    )
+    assert res.exit_code == 0
+    data = json.loads(res.stdout)
+    assert data["summary"]["total"] == 2
+    assert data["summary"]["succeeded"] == 2
+    assert (out_dir / "a.png").exists()
+    assert (out_dir / "b.png").exists()
+
+
+def test_cli_convert_batch_recursive_mirroring(tmp_path):
+    in_dir = tmp_path / "in"
+    sub_dir = in_dir / "nested" / "sub"
+    sub_dir.mkdir(parents=True)
+    out_dir = tmp_path / "out"
+
+    shutil.copy(TEST_HEIC, in_dir / "root.heic")
+    shutil.copy(TEST_HEIC, sub_dir / "leaf.heic")
+
+    res = runner.invoke(
+        app,
+        [
+            "convert",
+            str(in_dir),
+            "-o",
+            str(out_dir),
+            "--format",
+            "png",
+            "-r",
+        ],
+    )
+    assert res.exit_code == 0
+    assert (out_dir / "root.png").exists()
+    assert (out_dir / "nested" / "sub" / "leaf.png").exists()
+
+
+def test_cli_convert_batch_skip_existing(tmp_path):
+    in_dir = tmp_path / "in"
+    out_dir = tmp_path / "out"
+    in_dir.mkdir()
+    out_dir.mkdir()
+    shutil.copy(TEST_HEIC, in_dir / "item.heic")
+
+    # First run: converts
+    res1 = runner.invoke(
+        app,
+        ["convert", str(in_dir), "-o", str(out_dir), "--format", "png", "--json"],
+    )
+    assert res1.exit_code == 0
+    data1 = json.loads(res1.stdout)
+    assert data1["summary"]["succeeded"] == 1
+
+    # Second run with --skip-existing: skips
+    res2 = runner.invoke(
+        app,
+        [
+            "convert",
+            str(in_dir),
+            "-o",
+            str(out_dir),
+            "--format",
+            "png",
+            "--skip-existing",
+            "--json",
+        ],
+    )
+    assert res2.exit_code == 0
+    data2 = json.loads(res2.stdout)
+    assert data2["summary"]["skipped"] == 1
+    assert data2["summary"]["succeeded"] == 0
+
+
+def test_cli_convert_batch_dir_to_dir_positional(tmp_path):
+    in_dir = tmp_path / "src_dir"
+    out_dir = tmp_path / "dst_dir"
+    in_dir.mkdir()
+    shutil.copy(TEST_HEIC, in_dir / "pic.heic")
+
+    res = runner.invoke(
+        app,
+        ["convert", str(in_dir), str(out_dir), "--format", "png", "--json"],
+    )
+    assert res.exit_code == 0
+    data = json.loads(res.stdout)
+    assert data["summary"]["succeeded"] == 1
+    assert (out_dir / "pic.png").exists()

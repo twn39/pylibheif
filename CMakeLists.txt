@@ -86,6 +86,7 @@ nanobind_add_module(_pylibheif
     src/image.cpp
     src/encoder.cpp
     src/track.cpp
+    src/gain_map_accel.cpp
 )
 
 # Link with libheif

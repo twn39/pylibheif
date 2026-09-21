@@ -1,5 +1,6 @@
 """Pillow ImagePlugin implementation for HEIF/AVIF image formats."""
 
+import io
 import os
 from typing import IO, Union, Optional, List, Any
 import numpy as np
@@ -48,12 +49,40 @@ class HeifImageFile(ImageFile.ImageFile):
             raise ValueError("fp cannot be None")
         elif isinstance(self.fp, (str, bytes, os.PathLike)):
             ctx.read_from_file(str(os.fspath(self.fp)))
-        elif hasattr(self.fp, "read") and hasattr(self.fp, "seek"):
+        elif hasattr(self.fp, "getbuffer"):
+            # Direct zero-copy memory ingestion for io.BytesIO or buffer-protocol objects
             try:
-                self.fp.seek(0)
+                buf = getattr(self.fp, "getbuffer")()
+                ctx.read_from_memory(buf)
             except Exception:
-                pass
-            ctx.read_from_stream(self.fp)
+                if hasattr(self.fp, "seek"):
+                    try:
+                        self.fp.seek(0)
+                    except Exception:
+                        pass
+                ctx.read_from_stream(self.fp)
+        elif isinstance(self.fp, (bytearray, memoryview)):
+            ctx.read_from_memory(self.fp)
+        elif hasattr(self.fp, "read") and hasattr(self.fp, "seek"):
+            # If fp is a real file on disk (opened via open()), use native C++ read_from_file
+            is_file = False
+            if hasattr(self.fp, "name") and isinstance(
+                self.fp.name, (str, bytes, os.PathLike)
+            ):
+                try:
+                    if self.fp.tell() == 0 and os.path.isfile(
+                        str(os.fspath(self.fp.name))
+                    ):
+                        ctx.read_from_file(str(os.fspath(self.fp.name)))
+                        is_file = True
+                except Exception:
+                    pass
+            if not is_file:
+                try:
+                    self.fp.seek(0)
+                except Exception:
+                    pass
+                ctx.read_from_stream(self.fp)
         elif hasattr(self.fp, "read"):
             data = self.fp.read()
             ctx.read_from_memory(data)
@@ -140,10 +169,23 @@ class HeifImageFile(ImageFile.ImageFile):
                     bit_depth = self.info.get("bit_depth", 10)
                     shift = max(0, bit_depth - 8)
                     if shift > 0:
-                        np.right_shift(arr, shift, out=arr)
-                    arr = arr.astype(np.uint8, copy=False)
+                        arr = np.right_shift(arr, shift).astype(np.uint8)
+                    else:
+                        arr = arr.astype(np.uint8)
 
-                im = Image.fromarray(arr)
+                if (
+                    arr.dtype == np.uint8
+                    and self._mode == "RGBA"
+                    and arr.flags["C_CONTIGUOUS"]
+                ):
+                    try:
+                        im = Image.frombuffer(
+                            "RGBA", self._size, plane, "raw", "RGBA", 0, 1
+                        )
+                    except Exception:
+                        im = Image.fromarray(arr)
+                else:
+                    im = Image.fromarray(arr)
                 self.im = im.im
             return super().load()
 
@@ -155,6 +197,20 @@ class HeifImageFile(ImageFile.ImageFile):
             )
             opts = self.info.get("decoding_options", None)
             num_threads = self.info.get("num_threads", None)
+            if opts is None and self.info.get("convert_hdr_to_8bit", True):
+                from .._pylibheif import HeifDecodingOptions
+
+                opts = HeifDecodingOptions(
+                    num_codec_threads=num_threads, convert_hdr_to_8bit=True
+                )
+            if self._ctx is not None and "max_decoding_threads" in self.info:
+                try:
+                    self._ctx.set_max_decoding_threads(
+                        int(self.info["max_decoding_threads"])
+                    )
+                except Exception:
+                    pass
+
             heif_image = self._handle.decode(
                 HeifColorspace.RGB, chroma, options=opts, num_threads=num_threads
             )
@@ -165,16 +221,34 @@ class HeifImageFile(ImageFile.ImageFile):
                 bit_depth = self.info.get("bit_depth", 10)
                 shift = max(0, bit_depth - 8)
                 if shift > 0:
-                    np.right_shift(arr, shift, out=arr)
-                arr = arr.astype(np.uint8, copy=False)
+                    arr = np.right_shift(arr, shift).astype(np.uint8)
+                else:
+                    arr = arr.astype(np.uint8)
 
-            im = Image.fromarray(arr)
+            if (
+                arr.dtype == np.uint8
+                and self._mode == "RGBA"
+                and arr.flags["C_CONTIGUOUS"]
+            ):
+                try:
+                    im = Image.frombuffer(
+                        "RGBA", self._size, plane, "raw", "RGBA", 0, 1
+                    )
+                except Exception:
+                    im = Image.fromarray(arr)
+            else:
+                im = Image.fromarray(arr)
             self.im = im.im
 
-            # If single-frame, context and handle can be released
+            # If single-frame, context and handle can be deterministically released
             if not self.is_animated:
                 self._handle = None
-                self._ctx = None
+                if self._ctx is not None:
+                    try:
+                        self._ctx.close()
+                    except Exception:
+                        pass
+                    self._ctx = None
 
         return super().load()
 
@@ -306,7 +380,12 @@ class HeifImageFile(ImageFile.ImageFile):
         self._frames.clear()
         self._durations.clear()
         self._handle = None
-        self._ctx = None
+        if self._ctx is not None:
+            try:
+                self._ctx.close()
+            except Exception:
+                pass
+            self._ctx = None
         super().close()
 
 
@@ -366,31 +445,43 @@ def _save(
     chroma = encoderinfo.get("chroma", None)
     enc_params = encoderinfo.get("enc_params", None)
 
+    # Resolve concurrency budget if provided
+    budget = encoderinfo.get("concurrency_budget", None)
+    if budget is not None:
+        from .. import get_concurrency_budget
+
+        from typing import cast
+
+        cb = get_concurrency_budget(cast(Any, budget))
+        if threads is None:
+            threads = cb.codec_threads
+
     save_all = bool(encoderinfo.get("save_all", False))
     append_images = encoderinfo.get("append_images", [])
 
     if append_images:
-        all_frames = [im] + list(append_images)
+        frames_list = [im] + list(append_images)
+        n_frames = len(frames_list)
+        stream_frames = False
     elif (save_all or getattr(im, "is_animated", False)) and getattr(
         im, "n_frames", 1
     ) > 1:
-        all_frames = []
-        curr = im.tell()
-        for i in range(getattr(im, "n_frames", 1)):
-            im.seek(i)
-            all_frames.append(im.copy())
-        im.seek(curr)
+        frames_list = None
+        n_frames = getattr(im, "n_frames", 1)
+        stream_frames = True
     else:
-        all_frames = [im]
+        frames_list = [im]
+        n_frames = 1
+        stream_frames = False
 
-    if len(all_frames) > 1:
+    if n_frames > 1:
         dur = encoderinfo.get("duration", im.info.get("duration", 100))
         if isinstance(dur, (list, tuple)):
             durations = list(dur)
-            while len(durations) < len(all_frames):
+            while len(durations) < n_frames:
                 durations.append(durations[-1] if durations else 100)
         else:
-            durations = [int(dur)] * len(all_frames)
+            durations = [int(dur)] * n_frames
 
         loop = int(encoderinfo.get("loop", im.info.get("loop", 0)))
 
@@ -431,22 +522,38 @@ def _save(
             for k, v in enc_params.items():
                 encoder.set_parameter(str(k), str(v))
 
-        for idx, frame in enumerate(all_frames):
-            frame_img, _ = from_pillow(frame)
-            frame_duration_ms = max(1, int(durations[idx]))
-            frame_img.duration = frame_duration_ms
-            save_alpha = frame.mode in ("RGBA", "LA", "PA")
-            track.encode_sequence_image(frame_img, encoder, save_alpha=save_alpha)
+        curr = im.tell() if stream_frames else 0
+        try:
+            for idx in range(n_frames):
+                if stream_frames:
+                    im.seek(idx)
+                    frame = im
+                else:
+                    assert frames_list is not None
+                    frame = frames_list[idx]
+                frame_img, _ = from_pillow(frame)
+                frame_duration_ms = max(1, int(durations[idx]))
+                frame_img.duration = frame_duration_ms
+                save_alpha = frame.mode in ("RGBA", "LA", "PA")
+                track.encode_sequence_image(frame_img, encoder, save_alpha=save_alpha)
+        finally:
+            if stream_frames:
+                try:
+                    im.seek(curr)
+                except Exception:
+                    pass
 
         track.encode_end_of_sequence(encoder)
 
-        if hasattr(fp, "write"):
+        if isinstance(fp, io.BytesIO):
+            mv = ctx.write_to_memoryview()
+            fp.write(mv)
+        elif hasattr(fp, "write"):
             ctx.write_to_stream(fp)
         elif isinstance(fp, (str, bytes, os.PathLike)):
             ctx.write_to_file(str(os.fspath(fp)))
         else:
-            with open(str(fp), "wb") as f:
-                ctx.write_to_stream(f)
+            ctx.write_to_file(str(fp))
         return
 
     heif_image, info = from_pillow(im)
@@ -537,13 +644,15 @@ def _save(
             except Exception:
                 pass
 
-    if hasattr(fp, "write"):
+    if isinstance(fp, io.BytesIO):
+        mv = ctx.write_to_memoryview()
+        fp.write(mv)
+    elif hasattr(fp, "write"):
         ctx.write_to_stream(fp)
     elif isinstance(fp, (str, bytes, os.PathLike)):
         ctx.write_to_file(str(os.fspath(fp)))
     else:
-        with open(str(fp), "wb") as f:
-            ctx.write_to_stream(f)
+        ctx.write_to_file(str(fp))
 
 
 def _save_heif(

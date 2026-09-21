@@ -7,17 +7,29 @@ and environment diagnostics.
 
 from __future__ import annotations
 
+import concurrent.futures
 import importlib.util
 import json
 import os
 import sys
+import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 try:
     import typer
     from rich.console import Console
     from rich.panel import Panel
+    from rich.progress import (
+        BarColumn,
+        MofNCompleteColumn,
+        Progress,
+        SpinnerColumn,
+        TaskProgressColumn,
+        TextColumn,
+        TimeElapsedColumn,
+        TimeRemainingColumn,
+    )
     from rich.syntax import Syntax
     from rich.table import Table
 except ImportError:
@@ -538,25 +550,8 @@ def _metadata_extract_pillow(file: Path, out_file: Path, meta_type: str) -> None
 # =====================================================================
 # 1. info command
 # =====================================================================
-@app.command(
-    "info", help="Inspect image dimensions, color profiles, HDR tags, and metadata."
-)
-def info_cmd(
-    file: Path = typer.Argument(
-        ...,
-        help="Path to HEIF/AVIF/HEIC/JPEG/PNG image file",
-        exists=True,
-        dir_okay=False,
-        readable=True,
-    ),
-    json_output: bool = typer.Option(
-        False, "--json", "-j", help="Output machine-readable JSON format"
-    ),
-    detail: bool = typer.Option(
-        False, "--detail", "-d", help="Include detailed ICC/NCLX and metadata blocks"
-    ),
-) -> None:
-    """Inspect image dimensions, channels, bit depth, color profile, and HDR metadata."""
+def _info_single_file(file: Path, json_output: bool, detail: bool) -> None:
+    """Inspect a single image file dimensions, channels, bit depth, color profile, and HDR metadata."""
     try:
         ctx = pylibheif.HeifContext()
         ctx.read_from_file(str(file))
@@ -653,12 +648,20 @@ def info_cmd(
                     mdcv = getter()
             if mdcv:
                 hdr_info["mdcv"] = {
-                    "red_primary": mdcv.red_primary,
-                    "green_primary": mdcv.green_primary,
-                    "blue_primary": mdcv.blue_primary,
-                    "white_point": mdcv.white_point,
-                    "max_luminance": mdcv.max_luminance,
-                    "min_luminance": mdcv.min_luminance,
+                    "display_primaries_x": [
+                        mdcv.display_primaries_x[0],
+                        mdcv.display_primaries_x[1],
+                        mdcv.display_primaries_x[2],
+                    ],
+                    "display_primaries_y": [
+                        mdcv.display_primaries_y[0],
+                        mdcv.display_primaries_y[1],
+                        mdcv.display_primaries_y[2],
+                    ],
+                    "white_point_x": mdcv.white_point_x,
+                    "white_point_y": mdcv.white_point_y,
+                    "max_luminance": mdcv.max_display_mastering_luminance,
+                    "min_luminance": mdcv.min_display_mastering_luminance,
                 }
         except Exception:
             pass
@@ -732,44 +735,36 @@ def info_cmd(
         print(json.dumps(data, indent=2, ensure_ascii=False))
         return
 
-    # Rich human-readable display
     console = Console()
-    table = Table(title=f"Image Information: [bold cyan]{file.name}[/bold cyan]")
+    table = Table(
+        title=f"Image Information: [bold cyan]{file.name}[/bold cyan] (HEIF/AVIF)"
+    )
     table.add_column("Property", style="bold yellow")
     table.add_column("Value", style="green")
 
     table.add_row("Resolution", f"{handle.width} x {handle.height}")
-    table.add_row(
-        "Bit Depth",
-        f"{handle.luma_bits_per_pixel}-bit (chroma: {handle.chroma_bits_per_pixel}-bit)",
-    )
     table.add_row("Alpha Channel", "Yes" if handle.has_alpha else "No")
-    table.add_row(
-        "File Size", f"{data['size_bytes'] / 1024:.1f} KB ({data['size_bytes']} bytes)"
-    )
-    table.add_row("Images in File", f"{len(image_ids)} (primary id: {primary_id})")
+    table.add_row("Bit Depth", f"{handle.luma_bits_per_pixel}-bit (Luma)")
+    table.add_row("Total Images", f"{len(image_ids)} (Primary ID: {primary_id})")
     table.add_row("Thumbnails", str(handle.number_of_thumbnails))
-    table.add_row("Depth Map", "Yes" if handle.has_depth_image else "No")
-    if handle.has_gain_map:
-        if gm_meta_dict:
-            fmt = gm_meta_dict.get("format_type", "Gain Map")
-            headroom = gm_meta_dict.get("hdr_capacity_max", 0.0)
-            boost = gm_meta_dict.get("max_content_boost", 1.0)
-            gamma_val = gm_meta_dict.get("gamma", [1.0])[0]
-            table.add_row(
-                "Gain Map (HDR)",
-                f"Yes ({fmt}, Max: {boost:.2f}x / {headroom:.2f} EV, Gamma: {gamma_val:.2f})",
-            )
-        else:
-            table.add_row("Gain Map (HDR)", "Yes")
-    else:
-        table.add_row("Gain Map (HDR)", "No")
+    file_size = os.path.getsize(file)
+    table.add_row("File Size", f"{file_size / 1024:.1f} KB ({file_size} bytes)")
+    table.add_row(
+        "Auxiliary Images",
+        f"Depth: {'Yes' if handle.has_depth_image else 'No'} | Gain Map: {'Yes' if handle.has_gain_map else 'No'}",
+    )
 
-    prof_str = color_profile_type
-    if color_info and color_info.get("name") and color_info["name"] != "Unknown":
-        prof_str += f" ({color_info['name']})"
-    if color_info.get("is_wide_gamut"):
-        prof_str += " [bold magenta](Wide Gamut)[/bold magenta]"
+    prof_str = f"Type: {color_profile_type}"
+    if has_nclx and nclx_details:
+        prof_str += f" | Primaries: {nclx_details['color_primaries']}, Transfer: {nclx_details['transfer_characteristics']}"
+    elif has_icc:
+        desc = (
+            color_info.get("description")
+            or color_info.get("model")
+            or color_info.get("name")
+        )
+        if desc:
+            prof_str += f" ({desc})"
     table.add_row("Color Profile", prof_str)
 
     if shooting_summary:
@@ -783,17 +778,18 @@ def info_cmd(
             table.add_row("GPS Location", shooting_summary["GPS Location"])
 
     table.add_row(
-        "Metadata",
-        f"EXIF: {'Yes' if has_exif else 'No'} | XMP: {'Yes' if has_xmp else 'No'} | Blocks: {len(meta_blocks)}",
+        "Metadata Blocks",
+        f"EXIF: {'Yes' if has_exif else 'No'} | XMP: {'Yes' if has_xmp else 'No'} | Total: {len(meta_blocks)}",
     )
+
     if hdr_info:
         hdr_desc = []
         if "clli" in hdr_info:
             hdr_desc.append(
-                f"CLLI (Max: {hdr_info['clli']['max_content_light_level']} nits)"
+                f"CLLI (Max: {hdr_info['clli']['max_content_light_level']} nits, Avg: {hdr_info['clli']['max_pic_average_light_level']} nits)"
             )
         if "mdcv" in hdr_info:
-            hdr_desc.append(f"MDCV (Max: {hdr_info['mdcv']['max_luminance']} nits)")
+            hdr_desc.append(f"MDCV ({hdr_info['mdcv']['max_luminance']} nits)")
         if "amve" in hdr_info:
             hdr_desc.append(f"AMVE ({hdr_info['amve']['ambient_illumination']} lux)")
         table.add_row("HDR Metadata", ", ".join(hdr_desc))
@@ -825,24 +821,758 @@ def info_cmd(
             )
 
 
+def _get_file_info_data(file: Path, detail: bool = False) -> Dict[str, Any]:
+    """Lightweight extractor of structured image properties."""
+    try:
+        ctx = pylibheif.HeifContext()
+        ctx.read_from_file(str(file))
+        handle = ctx.get_primary_image_handle()
+        image_ids = ctx.get_list_of_top_level_image_IDs()
+        color_profile_type = str(handle.color_profile_type).split(".")[-1]
+        has_icc = color_profile_type == "Prof"
+        has_nclx = color_profile_type == "Nclx"
+        color_info: Dict[str, Any] = {}
+        try:
+            if hasattr(handle, "get_color_profile_info"):
+                color_info = handle.get_color_profile_info()
+        except Exception:
+            pass
+
+        return {
+            "file": str(file.resolve()),
+            "format": "HEIF",
+            "width": handle.width,
+            "height": handle.height,
+            "has_alpha": handle.has_alpha,
+            "bit_depth": handle.luma_bits_per_pixel,
+            "channels": 4 if handle.has_alpha else 3,
+            "total_images": len(image_ids),
+            "has_gain_map": handle.has_gain_map,
+            "color_profile": {
+                "type": color_profile_type,
+                "has_icc": has_icc,
+                "has_nclx": has_nclx,
+                "info": color_info,
+            },
+            "size_bytes": os.path.getsize(file),
+        }
+    except Exception:
+        pass
+
+    try:
+        from PIL import Image
+
+        with Image.open(str(file)) as im:
+            return {
+                "file": str(file.resolve()),
+                "format": im.format or file.suffix.lstrip(".").upper(),
+                "width": im.width,
+                "height": im.height,
+                "has_alpha": "A" in im.mode,
+                "bit_depth": 8,
+                "channels": len(im.getbands()),
+                "total_images": 1,
+                "has_gain_map": False,
+                "color_profile": {
+                    "type": "ICC" if "icc_profile" in im.info else "sRGB",
+                    "has_icc": "icc_profile" in im.info,
+                    "has_nclx": False,
+                },
+                "size_bytes": os.path.getsize(file),
+            }
+    except Exception as e:
+        return {
+            "file": str(file.resolve()),
+            "error": str(e),
+        }
+
+
+@app.command(
+    "info",
+    help="Inspect image dimensions, color profiles, HDR tags, and metadata (single file or batch).",
+)
+def info_cmd(
+    files: List[Path] = typer.Argument(
+        ...,
+        help="Path to image file(s) or directory",
+    ),
+    json_output: bool = typer.Option(
+        False, "--json", "-j", help="Output machine-readable JSON format"
+    ),
+    detail: bool = typer.Option(
+        False,
+        "--detail",
+        "-d",
+        help="Include detailed ICC/NCLX and metadata blocks",
+    ),
+    recursive: bool = typer.Option(
+        False,
+        "--recursive",
+        "-r",
+        help="Recursively discover images in directories",
+    ),
+) -> None:
+    """Inspect image dimensions, channels, bit depth, color profile, and HDR metadata."""
+    if len(files) == 1 and not files[0].is_dir():
+        f = files[0]
+        if not f.exists():
+            typer.echo(
+                f"Error: Invalid value for 'FILES...': Path '{f}' does not exist.",
+                err=True,
+            )
+            raise typer.Exit(code=2)
+        _info_single_file(f, json_output, detail)
+        return
+
+    # Multi-file or directory mode
+    valid_exts = {
+        ".heic",
+        ".heif",
+        ".avif",
+        ".hif",
+        ".jpeg",
+        ".jpg",
+        ".png",
+        ".webp",
+        ".bmp",
+        ".tiff",
+        ".tif",
+        ".jp2",
+    }
+    discovered: List[Path] = []
+    for item in files:
+        if not item.exists():
+            typer.echo(
+                f"Warning: File or directory '{item}' does not exist.",
+                err=True,
+            )
+            continue
+        if item.is_file():
+            discovered.append(item)
+        elif item.is_dir():
+            pattern = "**/*" if recursive else "*"
+            for p in sorted(item.glob(pattern)):
+                if p.is_file() and p.suffix.lower() in valid_exts:
+                    discovered.append(p)
+
+    if not discovered:
+        typer.echo("Error: No matching image files found.", err=True)
+        raise typer.Exit(code=1)
+
+    if _is_json_mode(json_output):
+        results = [_get_file_info_data(f, detail=detail) for f in discovered]
+        print(json.dumps(results, indent=2))
+    else:
+        console = Console()
+        table = Table(
+            title=f"Image Library Inspection ({len(discovered)} images)",
+            header_style="bold cyan",
+            border_style="dim",
+        )
+        table.add_column("File", style="bold", no_wrap=True)
+        table.add_column("Dimensions", justify="right")
+        table.add_column("Format")
+        table.add_column("Bit Depth", justify="center")
+        table.add_column("Channels", justify="center")
+        table.add_column("Color Profile")
+        table.add_column("HDR / Gain Map", justify="center")
+        table.add_column("Size", justify="right")
+
+        total_bytes = 0
+        for f in discovered:
+            try:
+                sz = f.stat().st_size
+                total_bytes += sz
+                info = _get_file_info_data(f, detail=False)
+                dims = f"{info.get('width', '?')}x{info.get('height', '?')}"
+                fmt = info.get("format", f.suffix.lstrip(".").upper())
+                depth = f"{info.get('bit_depth', 8)}-bit"
+                channels = str(info.get("channels", "3"))
+                profile = str(info.get("color_profile", {}).get("type", "sRGB"))
+                hdr_status = (
+                    "[bold green]Gain Map[/bold green]"
+                    if info.get("has_gain_map")
+                    else ("[cyan]HDR10[/cyan]" if info.get("hdr") else "SDR")
+                )
+                size_str = (
+                    f"{sz / 1024 / 1024:.2f} MB"
+                    if sz >= 1024 * 1024
+                    else f"{sz / 1024:.1f} KB"
+                )
+                table.add_row(
+                    f.name,
+                    dims,
+                    fmt,
+                    depth,
+                    channels,
+                    profile,
+                    hdr_status,
+                    size_str,
+                )
+            except Exception as e:
+                table.add_row(f.name, "Error", "-", "-", "-", "-", "-", str(e))
+
+        console.print(table)
+        total_size_mb = total_bytes / (1024 * 1024)
+        console.print(
+            f"[dim]Total: {len(discovered)} images, {total_size_mb:.2f} MB[/dim]"
+        )
+
+
 # =====================================================================
 # 2. convert command
-# =====================================================================
+
+
+def _convert_single_file(
+    source: Path,
+    target: Path,
+    format: Optional[str] = None,
+    quality: int = 80,
+    preset: str = "balanced",
+    lossless: bool = False,
+    threads: int = 0,
+    extract_gain_map: Optional[Path] = None,
+    render_hdr: bool = False,
+    hdr_headroom: Optional[float] = None,
+    strip_metadata: bool = False,
+    to_srgb: bool = False,
+    intent: str = "perceptual",
+    overwrite: bool = False,
+    skip_existing: bool = False,
+) -> Dict[str, Any]:
+    if target.exists():
+        if skip_existing:
+            return {
+                "status": "skipped",
+                "source": str(source.resolve()),
+                "target": str(target.resolve()),
+                "reason": "Target file already exists",
+            }
+        if not overwrite:
+            return {
+                "status": "failed",
+                "source": str(source.resolve()),
+                "target": str(target.resolve()),
+                "error": f"Error: Target file '{target}' already exists. Use --overwrite / -y to replace.",
+                "exit_code": 3,
+            }
+
+    # Resolve target format
+    tgt_ext = target.suffix.lower()
+    fmt_str = (format.lower() if format else tgt_ext.lstrip(".")).lower()
+    if fmt_str in ("jpg", "jpeg"):
+        target_fmt = "jpeg"
+    elif fmt_str in ("heic", "heif"):
+        target_fmt = "heic"
+    elif fmt_str == "avif":
+        target_fmt = "avif"
+    elif fmt_str == "png":
+        target_fmt = "png"
+    else:
+        return {
+            "status": "failed",
+            "source": str(source.resolve()),
+            "target": str(target.resolve()),
+            "error": f"Error: Unsupported target format '{fmt_str}'. Expected: heic, avif, jpeg, png.",
+            "exit_code": 2,
+        }
+
+    target.parent.mkdir(parents=True, exist_ok=True)
+    t0 = time.perf_counter()
+
+    src_ext = source.suffix.lower()
+    is_source_heif = src_ext in (".heic", ".heif", ".avif", ".hif")
+
+    try:
+        # 1. Source is HEIF/AVIF
+        if is_source_heif:
+            ctx = pylibheif.HeifContext()
+            ctx.read_from_file(str(source))
+            handle = ctx.get_primary_image_handle()
+
+            # Handle gain map extraction if requested
+            if extract_gain_map is not None:
+                if handle.has_gain_map:
+                    try:
+                        from pylibheif.pillow import to_pillow
+
+                        gm_handle = handle.get_gain_map_image_handle()
+                        gm_pil = to_pillow(gm_handle)
+                        extract_gain_map.parent.mkdir(parents=True, exist_ok=True)
+                        gm_pil.save(str(extract_gain_map))
+                        typer.echo(
+                            f"Extracted auxiliary Gain Map to '{extract_gain_map}'."
+                        )
+                    except Exception as e:
+                        typer.echo(
+                            f"Warning: Failed to extract gain map: {e}", err=True
+                        )
+                else:
+                    typer.echo(
+                        f"Warning: '{source.name}' does not contain an auxiliary Gain Map.",
+                        err=True,
+                    )
+
+            # Target is HEIF or AVIF
+            if target_fmt in ("heic", "avif"):
+                comp_fmt = (
+                    pylibheif.HeifCompressionFormat.HEVC
+                    if target_fmt == "heic"
+                    else pylibheif.HeifCompressionFormat.AV1
+                )
+                encoder = pylibheif.HeifEncoder(comp_fmt, preset=preset)
+                encoder.set_lossless(lossless)
+                if not lossless:
+                    encoder.set_lossy_quality(quality)
+
+                out_ctx = pylibheif.HeifContext()
+
+                if render_hdr and handle.has_gain_map:
+                    hdr_arr = handle.reconstruct_hdr(
+                        display_boost=hdr_headroom, output_format="srgb_uint8"
+                    )
+                    raw_img = pylibheif.HeifImage.from_buffer(
+                        hdr_arr,
+                        hdr_arr.shape[1],
+                        hdr_arr.shape[0],
+                        pylibheif.HeifColorspace.RGB,
+                        pylibheif.HeifChroma.InterleavedRGB,
+                    )
+                else:
+                    decode_opts = pylibheif.HeifDecodingOptions()
+                    if threads > 0:
+                        decode_opts.num_codec_threads = threads
+                    raw_img = handle.decode(
+                        pylibheif.HeifColorspace.RGB,
+                        pylibheif.HeifChroma.InterleavedRGB,
+                        options=decode_opts,
+                        target_colorspace="sRGB" if to_srgb else None,
+                        intent=intent,
+                    )
+
+                out_handle = encoder.encode_image(out_ctx, raw_img, preset=preset)
+
+                if handle.has_gain_map and not render_hdr and not strip_metadata:
+                    try:
+                        gm_img = handle.decode_gain_map()
+                        aux_encoder = pylibheif.HeifEncoder(comp_fmt, preset=preset)
+                        aux_handle = aux_encoder.encode_image(
+                            out_ctx, gm_img, preset=preset
+                        )
+                        gm_meta = handle.get_gain_map_metadata()
+                        urn = "urn:iso:std:iso:ts:21496-1"
+                        if gm_meta and gm_meta.format_type == "Apple":
+                            urn = "urn:com:apple:photo:2020:aux:hdrgainmap"
+                        out_ctx.assign_auxiliary_image(out_handle, aux_handle, urn)
+                    except Exception:
+                        pass
+
+                if not strip_metadata:
+                    for mid in handle.get_metadata_block_ids():
+                        mtype = handle.get_metadata_block_type(mid)
+                        mdata = handle.get_metadata_block(mid)
+                        try:
+                            if mtype.lower() == "exif":
+                                out_ctx.add_exif_metadata(out_handle, mdata)
+                            elif mtype.lower() in ("xmp", "mime"):
+                                out_ctx.add_xmp_metadata(out_handle, mdata)
+                        except Exception:
+                            pass
+
+                out_ctx.write_to_file(str(target))
+
+            else:
+                try:
+                    from PIL import Image
+                    from pylibheif.pillow import to_pillow
+                except ImportError:
+                    return {
+                        "status": "failed",
+                        "source": str(source.resolve()),
+                        "target": str(target.resolve()),
+                        "error": "Error: Converting to PNG/JPEG requires 'Pillow'. Install via: pip install 'pylibheif[pillow]'",
+                        "exit_code": 2,
+                    }
+
+                if render_hdr and handle.has_gain_map:
+                    hdr_arr = handle.reconstruct_hdr(
+                        display_boost=hdr_headroom, output_format="srgb_uint8"
+                    )
+                    pil_img = Image.fromarray(hdr_arr)
+                else:
+                    pil_img = to_pillow(
+                        handle,
+                        target_colorspace="sRGB" if to_srgb else None,
+                        intent=intent,
+                    )
+
+                save_kwargs: Dict[str, Any] = {}
+                if target_fmt == "jpeg":
+                    save_kwargs["quality"] = quality
+                    if pil_img.mode in ("RGBA", "P"):
+                        pil_img = pil_img.convert("RGB")
+                pil_img.save(str(target), **save_kwargs)
+
+        # 2. Source is standard image (PNG, JPEG, etc.)
+        else:
+            try:
+                from PIL import Image
+                from pylibheif.pillow import from_pillow
+            except ImportError:
+                return {
+                    "status": "failed",
+                    "source": str(source.resolve()),
+                    "target": str(target.resolve()),
+                    "error": "Error: Converting from PNG/JPEG requires 'Pillow'. Install via: pip install 'pylibheif[pillow]'",
+                    "exit_code": 2,
+                }
+
+            with Image.open(source) as pil_img:
+                if to_srgb:
+                    from pylibheif.color import transform_colorspace
+
+                    src_icc = pil_img.info.get("icc_profile")
+                    if src_icc:
+                        res = transform_colorspace(
+                            pil_img,
+                            src_profile=src_icc,
+                            dst_profile="sRGB",
+                            intent=intent,
+                            as_pillow=True,
+                        )
+                        if isinstance(res, Image.Image):
+                            pil_img = res
+
+                if target_fmt in ("heic", "avif"):
+                    comp_fmt = (
+                        pylibheif.HeifCompressionFormat.HEVC
+                        if target_fmt == "heic"
+                        else pylibheif.HeifCompressionFormat.AV1
+                    )
+                    encoder = pylibheif.HeifEncoder(comp_fmt, preset=preset)
+                    encoder.set_lossless(lossless)
+                    if not lossless:
+                        encoder.set_lossy_quality(quality)
+
+                    heif_img, _ = from_pillow(pil_img)
+                    out_ctx = pylibheif.HeifContext()
+                    encoder.encode_image(out_ctx, heif_img, preset=preset)
+                    out_ctx.write_to_file(str(target))
+                else:
+                    if target_fmt == "jpeg":
+                        if pil_img.mode in ("RGBA", "P"):
+                            pil_img = pil_img.convert("RGB")
+                        pil_img.save(str(target), quality=quality)
+                    else:
+                        pil_img.save(str(target))
+
+    except Exception as e:
+        return {
+            "status": "failed",
+            "source": str(source.resolve()),
+            "target": str(target.resolve()),
+            "error": f"Conversion failed: {e}",
+            "exit_code": 1,
+        }
+
+    t1 = time.perf_counter()
+    return {
+        "status": "success",
+        "source": str(source.resolve()),
+        "target": str(target.resolve()),
+        "format": target_fmt,
+        "quality": quality,
+        "preset": preset,
+        "lossless": lossless,
+        "to_srgb": to_srgb,
+        "intent": intent if to_srgb else None,
+        "target_size_bytes": os.path.getsize(target),
+        "source_size_bytes": os.path.getsize(source),
+        "duration_ms": round((t1 - t0) * 1000, 2),
+    }
+
+
+def _batch_convert_worker(args: Tuple[Any, ...]) -> Dict[str, Any]:
+    (
+        src,
+        tgt,
+        fmt,
+        quality,
+        preset,
+        lossless,
+        threads,
+        extract_gain_map,
+        render_hdr,
+        hdr_headroom,
+        strip_metadata,
+        to_srgb,
+        intent,
+        overwrite,
+        skip_existing,
+    ) = args
+    return _convert_single_file(
+        source=src,
+        target=tgt,
+        format=fmt,
+        quality=quality,
+        preset=preset,
+        lossless=lossless,
+        threads=threads,
+        extract_gain_map=extract_gain_map,
+        render_hdr=render_hdr,
+        hdr_headroom=hdr_headroom,
+        strip_metadata=strip_metadata,
+        to_srgb=to_srgb,
+        intent=intent,
+        overwrite=overwrite,
+        skip_existing=skip_existing,
+    )
+
+
+def _discover_conversion_tasks(
+    sources: List[Path],
+    out_dir: Path,
+    target_format: Optional[str],
+    recursive: bool = False,
+    ext_filter: Optional[str] = None,
+) -> List[Tuple[Path, Path, str]]:
+    tasks: List[Tuple[Path, Path, str]] = []
+
+    valid_exts = {
+        ".heic",
+        ".heif",
+        ".avif",
+        ".hif",
+        ".jpg",
+        ".jpeg",
+        ".png",
+        ".webp",
+        ".bmp",
+        ".tiff",
+        ".tif",
+        ".jp2",
+    }
+    if ext_filter:
+        allowed_exts = {
+            f".{e.strip().lstrip('.').lower()}"
+            for e in ext_filter.split(",")
+            if e.strip()
+        }
+    else:
+        allowed_exts = valid_exts
+
+    out_ext = (target_format.lower() if target_format else "jpg").lstrip(".")
+    if out_ext == "jpeg":
+        out_ext = "jpg"
+
+    for src in sources:
+        if not src.exists():
+            continue
+        if src.is_file():
+            if src.suffix.lower() in allowed_exts:
+                tgt = out_dir / f"{src.stem}.{out_ext}"
+                tasks.append((src, tgt, target_format or "jpeg"))
+        elif src.is_dir():
+            pattern = "**/*" if recursive else "*"
+            for p in sorted(src.glob(pattern)):
+                if p.is_file() and p.suffix.lower() in allowed_exts:
+                    rel = p.relative_to(src)
+                    tgt = (out_dir / rel).with_suffix(f".{out_ext}")
+                    tasks.append((p, tgt, target_format or "jpeg"))
+
+    return tasks
+
+
+def _batch_convert(
+    tasks: List[Tuple[Path, Path, str]],
+    quality: int,
+    preset: str,
+    lossless: bool,
+    threads: int,
+    render_hdr: bool,
+    hdr_headroom: Optional[float],
+    strip_metadata: bool,
+    to_srgb: bool,
+    intent: str,
+    overwrite: bool,
+    skip_existing: bool,
+    jobs: int,
+    json_output: bool,
+) -> None:
+    if not tasks:
+        typer.echo("Error: No matching image files found to convert.", err=True)
+        raise typer.Exit(code=1)
+
+    t_start = time.perf_counter()
+    task_args = [
+        (
+            src,
+            tgt,
+            fmt,
+            quality,
+            preset,
+            lossless,
+            threads,
+            None,
+            render_hdr,
+            hdr_headroom,
+            strip_metadata,
+            to_srgb,
+            intent,
+            overwrite,
+            skip_existing,
+        )
+        for src, tgt, fmt in tasks
+    ]
+
+    results: List[Dict[str, Any]] = []
+
+    if jobs > 0:
+        max_workers = jobs
+    else:
+        sched_affinity = getattr(os, "sched_getaffinity", None)
+        if sched_affinity is not None:
+            try:
+                max_workers = len(sched_affinity(0))
+            except Exception:
+                max_workers = os.cpu_count() or 4
+        else:
+            max_workers = os.cpu_count() or 4
+        max_workers = min(max_workers, 16)
+
+    max_workers = min(max_workers, len(tasks))
+
+    if json_output:
+        if max_workers <= 1:
+            for arg in task_args:
+                results.append(_batch_convert_worker(arg))
+        else:
+            with concurrent.futures.ProcessPoolExecutor(
+                max_workers=max_workers
+            ) as executor:
+                for res in executor.map(_batch_convert_worker, task_args):
+                    results.append(res)
+    else:
+        console = Console()
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[bold blue]{task.description}"),
+            BarColumn(bar_width=None),
+            TaskProgressColumn(),
+            MofNCompleteColumn(),
+            TimeElapsedColumn(),
+            TimeRemainingColumn(),
+            console=console,
+        ) as progress:
+            main_task = progress.add_task(
+                f"Converting {len(tasks)} images", total=len(tasks)
+            )
+            if max_workers <= 1:
+                for arg in task_args:
+                    res = _batch_convert_worker(arg)
+                    results.append(res)
+                    progress.advance(main_task)
+            else:
+                with concurrent.futures.ProcessPoolExecutor(
+                    max_workers=max_workers
+                ) as executor:
+                    for res in executor.map(_batch_convert_worker, task_args):
+                        results.append(res)
+                        progress.advance(main_task)
+
+    t_end = time.perf_counter()
+    elapsed = max(t_end - t_start, 0.001)
+
+    total = len(tasks)
+    succeeded = sum(1 for r in results if r.get("status") == "success")
+    skipped = sum(1 for r in results if r.get("status") == "skipped")
+    failed = sum(1 for r in results if r.get("status") == "failed")
+    fps = round(total / elapsed, 1)
+
+    bytes_orig = sum(
+        r.get("source_size_bytes", 0) for r in results if r.get("status") == "success"
+    )
+    bytes_conv = sum(
+        r.get("target_size_bytes", 0) for r in results if r.get("status") == "success"
+    )
+
+    if json_output:
+        manifest = {
+            "summary": {
+                "total": total,
+                "succeeded": succeeded,
+                "skipped": skipped,
+                "failed": failed,
+                "elapsed_seconds": round(elapsed, 3),
+                "images_per_second": fps,
+                "bytes_original": bytes_orig,
+                "bytes_converted": bytes_conv,
+                "compression_ratio": round(bytes_conv / bytes_orig, 3)
+                if bytes_orig > 0
+                else 1.0,
+            },
+            "results": results,
+        }
+        print(json.dumps(manifest, indent=2))
+    else:
+        table = Table(
+            title="Batch Conversion Summary",
+            header_style="bold cyan",
+            border_style="dim",
+        )
+        table.add_column("Metric", style="bold yellow")
+        table.add_column("Value", style="green")
+
+        table.add_row("Total Images", str(total))
+        table.add_row("Succeeded", f"[bold green]{succeeded}[/bold green]")
+        if skipped:
+            table.add_row("Skipped", f"[yellow]{skipped}[/yellow]")
+        if failed:
+            table.add_row("Failed", f"[bold red]{failed}[/bold red]")
+        table.add_row("Total Time", f"{elapsed:.2f}s ({fps} img/s)")
+
+        if bytes_orig > 0:
+            saved = bytes_orig - bytes_conv
+            ratio = (saved / bytes_orig) * 100
+            style_tag = "bold green" if ratio >= 0 else "bold red"
+            table.add_row(
+                "Storage",
+                f"{bytes_orig / (1024 * 1024):.1f} MB -> {bytes_conv / (1024 * 1024):.1f} MB "
+                f"([{style_tag}]{'-' if ratio >= 0 else '+'}{abs(ratio):.1f}%[/])",
+            )
+        console.print(table)
+
+        if failed > 0:
+            err_table = Table(
+                title="Failed Files", header_style="bold red", border_style="red"
+            )
+            err_table.add_column("Source", style="yellow")
+            err_table.add_column("Error", style="red")
+            for r in results:
+                if r.get("status") == "failed":
+                    err_table.add_row(
+                        Path(r["source"]).name, r.get("error", "Unknown error")
+                    )
+            console.print(err_table)
+
+    if failed > 0 and succeeded == 0:
+        raise typer.Exit(code=1)
+
+
 @app.command(
-    "convert", help="Convert images between HEIC, AVIF, JPEG, and PNG formats."
+    "convert",
+    help="Convert images between HEIC, AVIF, JPEG, and PNG formats (single file or batch).",
 )
 def convert_cmd(
-    source: Path = typer.Argument(
+    sources: List[Path] = typer.Argument(
         ...,
-        help="Source image path",
-        exists=True,
-        dir_okay=False,
-        readable=True,
+        help="Source image(s), input directory, or source file followed by target file.",
     ),
-    target: Path = typer.Argument(
-        ...,
-        help="Target output image path",
-        dir_okay=False,
+    out_dir: Optional[Path] = typer.Option(
+        None,
+        "--out-dir",
+        "-o",
+        help="Output directory for converted files (required when converting multiple files or a directory).",
     ),
     format: Optional[str] = typer.Option(
         None,
@@ -868,6 +1598,27 @@ def convert_cmd(
         False,
         "--lossless",
         help="Enable lossless compression",
+    ),
+    jobs: int = typer.Option(
+        0,
+        "--jobs",
+        help="Parallel worker processes for batch conversion (0 = auto-detect CPU quota)",
+    ),
+    recursive: bool = typer.Option(
+        False,
+        "--recursive",
+        "-r",
+        help="Recursively convert images in subdirectories and mirror directory structure",
+    ),
+    skip_existing: bool = typer.Option(
+        False,
+        "--skip-existing",
+        help="Skip files that already exist in the target location",
+    ),
+    ext: Optional[str] = typer.Option(
+        None,
+        "--ext",
+        help="Comma-separated extensions to include when searching directories (e.g. '.heic,.heif,.avif')",
     ),
     threads: int = typer.Option(
         0,
@@ -919,246 +1670,138 @@ def convert_cmd(
     ),
 ) -> None:
     """Convert an image between HEIC, AVIF, JPEG, and PNG formats."""
-    if target.exists() and not overwrite:
-        typer.echo(
-            f"Error: Target file '{target}' already exists. Use --overwrite / -y to replace.",
-            err=True,
+    # 1. If --out-dir is explicitly given
+    if out_dir is not None:
+        out_dir.mkdir(parents=True, exist_ok=True)
+        tasks = _discover_conversion_tasks(sources, out_dir, format, recursive, ext)
+        _batch_convert(
+            tasks,
+            quality=quality,
+            preset=preset,
+            lossless=lossless,
+            threads=threads,
+            render_hdr=render_hdr,
+            hdr_headroom=hdr_headroom,
+            strip_metadata=strip_metadata,
+            to_srgb=to_srgb,
+            intent=intent,
+            overwrite=overwrite,
+            skip_existing=skip_existing,
+            jobs=jobs,
+            json_output=json_output,
         )
-        raise typer.Exit(code=3)
+        return
 
-    # Resolve target format
-    tgt_ext = target.suffix.lower()
-    fmt_str = (format.lower() if format else tgt_ext.lstrip(".")).lower()
-    if fmt_str in ("jpg", "jpeg"):
-        target_fmt = "jpeg"
-    elif fmt_str in ("heic", "heif"):
-        target_fmt = "heic"
-    elif fmt_str == "avif":
-        target_fmt = "avif"
-    elif fmt_str == "png":
-        target_fmt = "png"
-    else:
-        typer.echo(
-            f"Error: Unsupported target format '{fmt_str}'. Expected: heic, avif, jpeg, png.",
-            err=True,
-        )
-        raise typer.Exit(code=2)
-
-    src_ext = source.suffix.lower()
-    is_source_heif = src_ext in (".heic", ".heif", ".avif", ".hif")
-
-    try:
-        # 1. Source is HEIF/AVIF
-        if is_source_heif:
-            ctx = pylibheif.HeifContext()
-            ctx.read_from_file(str(source))
-            handle = ctx.get_primary_image_handle()
-
-            # Handle gain map extraction if requested
-            if extract_gain_map is not None:
-                if handle.has_gain_map:
-                    try:
-                        from pylibheif.pillow import to_pillow
-
-                        gm_handle = handle.get_gain_map_image_handle()
-                        gm_pil = to_pillow(gm_handle)
-                        extract_gain_map.parent.mkdir(parents=True, exist_ok=True)
-                        gm_pil.save(str(extract_gain_map))
-                        typer.echo(
-                            f"Extracted auxiliary Gain Map to '{extract_gain_map}'."
-                        )
-                    except Exception as e:
-                        typer.echo(
-                            f"Warning: Failed to extract gain map: {e}", err=True
-                        )
-                else:
-                    typer.echo(
-                        f"Warning: '{source.name}' does not contain an auxiliary Gain Map.",
-                        err=True,
-                    )
-
-            # Target is HEIF or AVIF
-            if target_fmt in ("heic", "avif"):
-                comp_fmt = (
-                    pylibheif.HeifCompressionFormat.HEVC
-                    if target_fmt == "heic"
-                    else pylibheif.HeifCompressionFormat.AV1
-                )
-                encoder = pylibheif.HeifEncoder(comp_fmt, preset=preset)
-                encoder.set_lossless(lossless)
-                if not lossless:
-                    encoder.set_lossy_quality(quality)
-
-                out_ctx = pylibheif.HeifContext()
-
-                if render_hdr and handle.has_gain_map:
-                    # Reconstruct HDR into sRGB uint8 HeifImage
-                    hdr_arr = handle.reconstruct_hdr(
-                        display_boost=hdr_headroom, output_format="srgb_uint8"
-                    )
-                    raw_img = pylibheif.HeifImage.from_buffer(
-                        hdr_arr,
-                        hdr_arr.shape[1],
-                        hdr_arr.shape[0],
-                        pylibheif.HeifColorspace.RGB,
-                        pylibheif.HeifChroma.InterleavedRGB,
-                    )
-                else:
-                    # Decode handle to HeifImage
-                    decode_opts = pylibheif.HeifDecodingOptions()
-                    if threads > 0:
-                        decode_opts.num_codec_threads = threads
-                    raw_img = handle.decode(
-                        pylibheif.HeifColorspace.RGB,
-                        pylibheif.HeifChroma.InterleavedRGB,
-                        options=decode_opts,
-                        target_colorspace="sRGB" if to_srgb else None,
-                        intent=intent,
-                    )
-
-                # Encode primary image
-                out_handle = encoder.encode_image(out_ctx, raw_img, preset=preset)
-
-                # If source has gain map, not rendering HDR, and metadata not stripped -> preserve gain map
-                if handle.has_gain_map and not render_hdr and not strip_metadata:
-                    try:
-                        gm_img = handle.decode_gain_map()
-                        aux_encoder = pylibheif.HeifEncoder(comp_fmt, preset=preset)
-                        aux_handle = aux_encoder.encode_image(
-                            out_ctx, gm_img, preset=preset
-                        )
-                        gm_meta = handle.get_gain_map_metadata()
-                        urn = "urn:iso:std:iso:ts:21496-1"
-                        if gm_meta and gm_meta.format_type == "Apple":
-                            urn = "urn:com:apple:photo:2020:aux:hdrgainmap"
-                        out_ctx.assign_auxiliary_image(out_handle, aux_handle, urn)
-                    except Exception:
-                        pass
-
-                # Metadata forwarding
-                if not strip_metadata:
-                    for mid in handle.get_metadata_block_ids():
-                        mtype = handle.get_metadata_block_type(mid)
-                        mdata = handle.get_metadata_block(mid)
-                        try:
-                            if mtype.lower() == "exif":
-                                out_ctx.add_exif_metadata(out_handle, mdata)
-                            elif mtype.lower() in ("xmp", "mime"):
-                                out_ctx.add_xmp_metadata(out_handle, mdata)
-                        except Exception:
-                            pass
-
-                out_ctx.write_to_file(str(target))
-
-            else:
-                # Target is PNG or JPEG -> via Pillow
-                try:
-                    from PIL import Image
-                    from pylibheif.pillow import to_pillow
-                except ImportError:
-                    typer.echo(
-                        "Error: Converting to PNG/JPEG requires 'Pillow'. "
-                        "Install via: pip install 'pylibheif[pillow]'",
-                        err=True,
-                    )
-                    raise typer.Exit(code=2)
-
-                if render_hdr and handle.has_gain_map:
-                    hdr_arr = handle.reconstruct_hdr(
-                        display_boost=hdr_headroom, output_format="srgb_uint8"
-                    )
-                    pil_img = Image.fromarray(hdr_arr)
-                else:
-                    pil_img = to_pillow(
-                        handle,
-                        target_colorspace="sRGB" if to_srgb else None,
-                        intent=intent,
-                    )
-
-                save_kwargs: Dict[str, Any] = {}
-                if target_fmt == "jpeg":
-                    save_kwargs["quality"] = quality
-                    if pil_img.mode in ("RGBA", "P"):
-                        pil_img = pil_img.convert("RGB")
-                pil_img.save(str(target), **save_kwargs)
-
-        # 2. Source is standard image (PNG, JPEG, etc.)
+    # 2. If exactly two arguments given: check if second is directory or file
+    if len(sources) == 2:
+        src, tgt = sources[0], sources[1]
+        if src.is_dir() or (tgt.exists() and tgt.is_dir()):
+            tgt.mkdir(parents=True, exist_ok=True)
+            tasks = _discover_conversion_tasks([src], tgt, format, recursive, ext)
+            _batch_convert(
+                tasks,
+                quality=quality,
+                preset=preset,
+                lossless=lossless,
+                threads=threads,
+                render_hdr=render_hdr,
+                hdr_headroom=hdr_headroom,
+                strip_metadata=strip_metadata,
+                to_srgb=to_srgb,
+                intent=intent,
+                overwrite=overwrite,
+                skip_existing=skip_existing,
+                jobs=jobs,
+                json_output=json_output,
+            )
+            return
         else:
-            try:
-                from PIL import Image
-                from pylibheif.pillow import from_pillow
-            except ImportError:
+            # Classic single file mode: `heif convert in.heic out.jpg`
+            if not src.exists():
                 typer.echo(
-                    "Error: Converting from PNG/JPEG requires 'Pillow'. "
-                    "Install via: pip install 'pylibheif[pillow]'",
+                    f"Error: Invalid value for 'SOURCE': Path '{src}' does not exist.",
                     err=True,
                 )
                 raise typer.Exit(code=2)
+            res = _convert_single_file(
+                source=src,
+                target=tgt,
+                format=format,
+                quality=quality,
+                preset=preset,
+                lossless=lossless,
+                threads=threads,
+                extract_gain_map=extract_gain_map,
+                render_hdr=render_hdr,
+                hdr_headroom=hdr_headroom,
+                strip_metadata=strip_metadata,
+                to_srgb=to_srgb,
+                intent=intent,
+                overwrite=overwrite,
+                skip_existing=skip_existing,
+            )
+            if res["status"] == "failed":
+                typer.echo(res["error"], err=True)
+                raise typer.Exit(code=res.get("exit_code", 1))
+            elif res["status"] == "skipped":
+                typer.echo(f"Skipped '{src.name}': {res.get('reason')}")
+                return
 
-            with Image.open(source) as pil_img:
-                if to_srgb:
-                    from pylibheif.color import transform_colorspace
+            if _is_json_mode(json_output):
+                print(json.dumps(res, indent=2))
+            else:
+                target_size = float(str(res["target_size_bytes"]))
+                typer.echo(
+                    f"Successfully converted '{src.name}' -> '{tgt.name}' "
+                    f"({target_size / 1024:.1f} KB, format={res['format']})"
+                )
+            return
 
-                    src_icc = pil_img.info.get("icc_profile")
-                    if src_icc:
-                        res = transform_colorspace(
-                            pil_img,
-                            src_profile=src_icc,
-                            dst_profile="sRGB",
-                            intent=intent,
-                            as_pillow=True,
-                        )
-                        if isinstance(res, Image.Image):
-                            pil_img = res
-
-                if target_fmt in ("heic", "avif"):
-                    comp_fmt = (
-                        pylibheif.HeifCompressionFormat.HEVC
-                        if target_fmt == "heic"
-                        else pylibheif.HeifCompressionFormat.AV1
-                    )
-                    encoder = pylibheif.HeifEncoder(comp_fmt, preset=preset)
-                    encoder.set_lossless(lossless)
-                    if not lossless:
-                        encoder.set_lossy_quality(quality)
-
-                    heif_img, pil_info = from_pillow(pil_img)
-                    out_ctx = pylibheif.HeifContext()
-                    encoder.encode_image(out_ctx, heif_img, preset=preset)
-                    out_ctx.write_to_file(str(target))
-                else:
-                    if target_fmt == "jpeg":
-                        if pil_img.mode in ("RGBA", "P"):
-                            pil_img = pil_img.convert("RGB")
-                        pil_img.save(str(target), quality=quality)
-                    else:
-                        pil_img.save(str(target))
-
-    except Exception as e:
-        typer.echo(f"Conversion failed: {e}", err=True)
-        raise typer.Exit(code=1)
-
-    result_data = {
-        "status": "success",
-        "source": str(source.resolve()),
-        "target": str(target.resolve()),
-        "format": target_fmt,
-        "quality": quality,
-        "preset": preset,
-        "lossless": lossless,
-        "to_srgb": to_srgb,
-        "intent": intent if to_srgb else None,
-        "target_size_bytes": os.path.getsize(target),
-    }
-
-    if _is_json_mode(json_output):
-        print(json.dumps(result_data, indent=2))
-    else:
-        target_size = float(str(result_data["target_size_bytes"]))
-        typer.echo(
-            f"Successfully converted '{source.name}' -> '{target.name}' "
-            f"({target_size / 1024:.1f} KB, format={target_fmt})"
+    # 3. If multiple arguments given and the last one is a directory
+    if len(sources) > 2 and (sources[-1].is_dir() or not sources[-1].suffix):
+        tgt_dir = sources[-1]
+        tgt_dir.mkdir(parents=True, exist_ok=True)
+        tasks = _discover_conversion_tasks(
+            sources[:-1], tgt_dir, format, recursive, ext
         )
+        _batch_convert(
+            tasks,
+            quality=quality,
+            preset=preset,
+            lossless=lossless,
+            threads=threads,
+            render_hdr=render_hdr,
+            hdr_headroom=hdr_headroom,
+            strip_metadata=strip_metadata,
+            to_srgb=to_srgb,
+            intent=intent,
+            overwrite=overwrite,
+            skip_existing=skip_existing,
+            jobs=jobs,
+            json_output=json_output,
+        )
+        return
+
+    # 4. If single argument given:
+    if len(sources) == 1:
+        if sources[0].is_dir():
+            typer.echo(
+                "Error: When source is a directory, please specify --out-dir / -o or target directory.",
+                err=True,
+            )
+            raise typer.Exit(code=2)
+        else:
+            typer.echo(
+                "Error: Please specify target file, target directory, or --out-dir / -o.",
+                err=True,
+            )
+            raise typer.Exit(code=2)
+
+    typer.echo(
+        "Error: Converting multiple files requires an output directory (--out-dir / -o or last argument).",
+        err=True,
+    )
+    raise typer.Exit(code=2)
 
 
 # =====================================================================

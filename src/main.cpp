@@ -3,11 +3,13 @@
 #include <nanobind/stl/optional.h>
 #include <nanobind/stl/pair.h>
 #include <nanobind/stl/string.h>
+#include <nanobind/stl/tuple.h>
 #include <nanobind/stl/unordered_map.h>
 #include <nanobind/stl/vector.h>
 
 #include "context.hpp"
 #include "encoder.hpp"
+#include "gain_map_accel.hpp"
 #include "hdr_metadata.hpp"
 #include "image.hpp"
 #include "track.hpp"
@@ -645,4 +647,98 @@ NB_MODULE(_pylibheif, m) {
     m.def(
         "get_libheif_version_number", []() { return heif_get_version_number(); },
         "Get the underlying libheif library version number integer.");
+
+    // HDR Gain Map (ISO 21496-1) C++ Accelerated Kernels
+    m.def(
+        "_reconstruct_hdr_linear_cpp",
+        [](nb::ndarray<const uint8_t, nb::c_contig> sdr,
+           nb::ndarray<const uint8_t, nb::c_contig> gm, nb::ndarray<float, nb::c_contig> out,
+           std::tuple<float, float, float> g_min, std::tuple<float, float, float> g_max,
+           std::tuple<float, float, float> gamma, std::tuple<float, float, float> o_sdr,
+           std::tuple<float, float, float> o_hdr, float w_factor, bool is_monochrome) {
+            GainMapParams p;
+            p.gain_map_min[0] = std::get<0>(g_min);
+            p.gain_map_min[1] = std::get<1>(g_min);
+            p.gain_map_min[2] = std::get<2>(g_min);
+            p.gain_map_max[0] = std::get<0>(g_max);
+            p.gain_map_max[1] = std::get<1>(g_max);
+            p.gain_map_max[2] = std::get<2>(g_max);
+            p.gamma[0] = std::get<0>(gamma);
+            p.gamma[1] = std::get<1>(gamma);
+            p.gamma[2] = std::get<2>(gamma);
+            p.offset_sdr[0] = std::get<0>(o_sdr);
+            p.offset_sdr[1] = std::get<1>(o_sdr);
+            p.offset_sdr[2] = std::get<2>(o_sdr);
+            p.offset_hdr[0] = std::get<0>(o_hdr);
+            p.offset_hdr[1] = std::get<1>(o_hdr);
+            p.offset_hdr[2] = std::get<2>(o_hdr);
+            p.w_factor = w_factor;
+            p.is_monochrome = is_monochrome;
+            return reconstruct_hdr_linear_cpp(sdr, gm, out, p);
+        },
+        nb::arg("sdr"), nb::arg("gm"), nb::arg("out"), nb::arg("gain_map_min"),
+        nb::arg("gain_map_max"), nb::arg("gamma"), nb::arg("offset_sdr"), nb::arg("offset_hdr"),
+        nb::arg("w_factor"), nb::arg("is_monochrome") = false);
+
+    m.def(
+        "_reconstruct_hdr_srgb_cpp",
+        [](nb::ndarray<const uint8_t, nb::c_contig> sdr,
+           nb::ndarray<const uint8_t, nb::c_contig> gm, nb::ndarray<uint8_t, nb::c_contig> out,
+           std::tuple<float, float, float> g_min, std::tuple<float, float, float> g_max,
+           std::tuple<float, float, float> gamma, std::tuple<float, float, float> o_sdr,
+           std::tuple<float, float, float> o_hdr, float w_factor, bool is_monochrome) {
+            GainMapParams p;
+            p.gain_map_min[0] = std::get<0>(g_min);
+            p.gain_map_min[1] = std::get<1>(g_min);
+            p.gain_map_min[2] = std::get<2>(g_min);
+            p.gain_map_max[0] = std::get<0>(g_max);
+            p.gain_map_max[1] = std::get<1>(g_max);
+            p.gain_map_max[2] = std::get<2>(g_max);
+            p.gamma[0] = std::get<0>(gamma);
+            p.gamma[1] = std::get<1>(gamma);
+            p.gamma[2] = std::get<2>(gamma);
+            p.offset_sdr[0] = std::get<0>(o_sdr);
+            p.offset_sdr[1] = std::get<1>(o_sdr);
+            p.offset_sdr[2] = std::get<2>(o_sdr);
+            p.offset_hdr[0] = std::get<0>(o_hdr);
+            p.offset_hdr[1] = std::get<1>(o_hdr);
+            p.offset_hdr[2] = std::get<2>(o_hdr);
+            p.w_factor = w_factor;
+            p.is_monochrome = is_monochrome;
+            return reconstruct_hdr_srgb_cpp(sdr, gm, out, p);
+        },
+        nb::arg("sdr"), nb::arg("gm"), nb::arg("out"), nb::arg("gain_map_min"),
+        nb::arg("gain_map_max"), nb::arg("gamma"), nb::arg("offset_sdr"), nb::arg("offset_hdr"),
+        nb::arg("w_factor"), nb::arg("is_monochrome") = false);
+
+    m.def(
+        "_reconstruct_hdr_pq_cpp",
+        [](nb::ndarray<const uint8_t, nb::c_contig> sdr,
+           nb::ndarray<const uint8_t, nb::c_contig> gm, nb::ndarray<uint16_t, nb::c_contig> out,
+           std::tuple<float, float, float> g_min, std::tuple<float, float, float> g_max,
+           std::tuple<float, float, float> gamma, std::tuple<float, float, float> o_sdr,
+           std::tuple<float, float, float> o_hdr, float w_factor, bool is_monochrome) {
+            GainMapParams p;
+            p.gain_map_min[0] = std::get<0>(g_min);
+            p.gain_map_min[1] = std::get<1>(g_min);
+            p.gain_map_min[2] = std::get<2>(g_min);
+            p.gain_map_max[0] = std::get<0>(g_max);
+            p.gain_map_max[1] = std::get<1>(g_max);
+            p.gain_map_max[2] = std::get<2>(g_max);
+            p.gamma[0] = std::get<0>(gamma);
+            p.gamma[1] = std::get<1>(gamma);
+            p.gamma[2] = std::get<2>(gamma);
+            p.offset_sdr[0] = std::get<0>(o_sdr);
+            p.offset_sdr[1] = std::get<1>(o_sdr);
+            p.offset_sdr[2] = std::get<2>(o_sdr);
+            p.offset_hdr[0] = std::get<0>(o_hdr);
+            p.offset_hdr[1] = std::get<1>(o_hdr);
+            p.offset_hdr[2] = std::get<2>(o_hdr);
+            p.w_factor = w_factor;
+            p.is_monochrome = is_monochrome;
+            return reconstruct_hdr_pq_cpp(sdr, gm, out, p);
+        },
+        nb::arg("sdr"), nb::arg("gm"), nb::arg("out"), nb::arg("gain_map_min"),
+        nb::arg("gain_map_max"), nb::arg("gamma"), nb::arg("offset_sdr"), nb::arg("offset_hdr"),
+        nb::arg("w_factor"), nb::arg("is_monochrome") = false);
 }

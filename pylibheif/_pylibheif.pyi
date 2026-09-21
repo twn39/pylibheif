@@ -1058,3 +1058,39 @@ def set_default_codec_executor(
 def shutdown_default_codec_executor(
     wait: bool = False, cancel_futures: bool = True
 ) -> None: ...
+def _reconstruct_hdr_linear_cpp(
+    sdr: numpy.ndarray,
+    gm: numpy.ndarray,
+    out: numpy.ndarray,
+    gain_map_min: tuple[float, float, float],
+    gain_map_max: tuple[float, float, float],
+    gamma: tuple[float, float, float],
+    offset_sdr: tuple[float, float, float],
+    offset_hdr: tuple[float, float, float],
+    w_factor: float,
+    is_monochrome: bool = False,
+) -> bool: ...
+def _reconstruct_hdr_srgb_cpp(
+    sdr: numpy.ndarray,
+    gm: numpy.ndarray,
+    out: numpy.ndarray,
+    gain_map_min: tuple[float, float, float],
+    gain_map_max: tuple[float, float, float],
+    gamma: tuple[float, float, float],
+    offset_sdr: tuple[float, float, float],
+    offset_hdr: tuple[float, float, float],
+    w_factor: float,
+    is_monochrome: bool = False,
+) -> bool: ...
+def _reconstruct_hdr_pq_cpp(
+    sdr: numpy.ndarray,
+    gm: numpy.ndarray,
+    out: numpy.ndarray,
+    gain_map_min: tuple[float, float, float],
+    gain_map_max: tuple[float, float, float],
+    gamma: tuple[float, float, float],
+    offset_sdr: tuple[float, float, float],
+    offset_hdr: tuple[float, float, float],
+    w_factor: float,
+    is_monochrome: bool = False,
+) -> bool: ...
