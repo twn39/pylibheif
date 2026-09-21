@@ -1,11 +1,11 @@
 #pragma once
+#include <libheif/heif.h>
+#include <libheif/heif_sequences.h>
+
 #include <memory>
 #include <optional>
 #include <utility>
 #include <vector>
-
-#include <libheif/heif.h>
-#include <libheif/heif_sequences.h>
 
 #include "common.hpp"
 
@@ -38,10 +38,9 @@ class HeifTrack {
                                bool save_alpha = false);
     void encode_end_of_sequence(HeifEncoder& encoder);
 
-    std::optional<HeifImage> decode_next_image(
-        heif_colorspace colorspace = heif_colorspace_RGB,
-        heif_chroma chroma = heif_chroma_undefined,
-        const HeifDecodingOptions* options = nullptr);
+    std::optional<HeifImage> decode_next_image(heif_colorspace colorspace = heif_colorspace_RGB,
+                                               heif_chroma chroma = heif_chroma_undefined,
+                                               const HeifDecodingOptions* options = nullptr);
 
     void rewind();
 

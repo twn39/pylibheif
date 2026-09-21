@@ -107,12 +107,8 @@ class HeifDecodingOptions {
         options->output_image_nclx_profile_passthrough = val ? 1 : 0;
     }
 
-    bool get_ignore_sequence_editlist() const {
-        return options->ignore_sequence_editlist != 0;
-    }
-    void set_ignore_sequence_editlist(bool val) {
-        options->ignore_sequence_editlist = val ? 1 : 0;
-    }
+    bool get_ignore_sequence_editlist() const { return options->ignore_sequence_editlist != 0; }
+    void set_ignore_sequence_editlist(bool val) { options->ignore_sequence_editlist = val ? 1 : 0; }
 
    private:
     heif_decoding_options* options = nullptr;

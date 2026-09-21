@@ -308,8 +308,7 @@ NB_MODULE(_pylibheif, m) {
         .def_prop_rw("output_image_nclx_profile_passthrough",
                      &HeifDecodingOptions::get_output_image_nclx_profile_passthrough,
                      &HeifDecodingOptions::set_output_image_nclx_profile_passthrough)
-        .def_prop_rw("ignore_sequence_editlist",
-                     &HeifDecodingOptions::get_ignore_sequence_editlist,
+        .def_prop_rw("ignore_sequence_editlist", &HeifDecodingOptions::get_ignore_sequence_editlist,
                      &HeifDecodingOptions::set_ignore_sequence_editlist)
         .def("__repr__", [](const HeifDecodingOptions& self) {
             return "<pylibheif.HeifDecodingOptions num_codec_threads=" +
@@ -422,21 +421,22 @@ NB_MODULE(_pylibheif, m) {
              "Get list of sequence track IDs.")
         .def("get_track", &HeifContext::get_track, nb::arg("track_id") = 0,
              "Get a HeifTrack object for track_id (0 for first visual track).")
-        .def("add_visual_sequence_track", [](HeifContext& self, uint16_t width, uint16_t height,
-                                             nb::handle track_type, uint32_t timescale) {
-            uint32_t tt = static_cast<uint32_t>(heif_track_type_image_sequence);
-            if (!track_type.is_none()) {
-                if (nb::isinstance<nb::int_>(track_type)) {
-                    tt = nb::cast<uint32_t>(track_type);
-                } else if (nb::hasattr(track_type, "value")) {
-                    tt = nb::cast<uint32_t>(track_type.attr("value"));
+        .def(
+            "add_visual_sequence_track",
+            [](HeifContext& self, uint16_t width, uint16_t height, nb::handle track_type,
+               uint32_t timescale) {
+                uint32_t tt = static_cast<uint32_t>(heif_track_type_image_sequence);
+                if (!track_type.is_none()) {
+                    if (nb::isinstance<nb::int_>(track_type)) {
+                        tt = nb::cast<uint32_t>(track_type);
+                    } else if (nb::hasattr(track_type, "value")) {
+                        tt = nb::cast<uint32_t>(track_type.attr("value"));
+                    }
                 }
-            }
-            return self.add_visual_sequence_track(width, height, tt, timescale);
-        }, nb::arg("width"), nb::arg("height"),
-           nb::arg("track_type") = nb::none(),
-           nb::arg("timescale") = 1000,
-           "Add a new visual sequence track to the HEIF container.")
+                return self.add_visual_sequence_track(width, height, tt, timescale);
+            },
+            nb::arg("width"), nb::arg("height"), nb::arg("track_type") = nb::none(),
+            nb::arg("timescale") = 1000, "Add a new visual sequence track to the HEIF container.")
         .def("set_sequence_timescale", &HeifContext::set_sequence_timescale, nb::arg("timescale"),
              "Set global sequence timescale.")
         .def("set_number_of_sequence_repetitions", &HeifContext::set_number_of_sequence_repetitions,
@@ -460,14 +460,13 @@ NB_MODULE(_pylibheif, m) {
         .def_prop_ro("number_of_repetitions", &HeifTrack::number_of_repetitions)
         .def_prop_ro("resolution", &HeifTrack::resolution)
         .def_prop_ro("has_alpha_channel", &HeifTrack::has_alpha_channel)
-        .def("encode_sequence_image", &HeifTrack::encode_sequence_image,
-             nb::arg("image"), nb::arg("encoder"), nb::arg("save_alpha") = false,
+        .def("encode_sequence_image", &HeifTrack::encode_sequence_image, nb::arg("image"),
+             nb::arg("encoder"), nb::arg("save_alpha") = false,
              "Encode a single image frame into the sequence track.")
         .def("encode_end_of_sequence", &HeifTrack::encode_end_of_sequence, nb::arg("encoder"),
              "Signal the end of frame sequence to the encoder.")
         .def("decode_next_image", &HeifTrack::decode_next_image,
-             nb::arg("colorspace") = heif_colorspace_RGB,
-             nb::arg("chroma") = heif_chroma_undefined,
+             nb::arg("colorspace") = heif_colorspace_RGB, nb::arg("chroma") = heif_chroma_undefined,
              nb::arg("options") = nullptr,
              "Decode the next image frame from the track. Returns None at end of sequence.")
         .def("rewind", &HeifTrack::rewind,
@@ -583,12 +582,10 @@ NB_MODULE(_pylibheif, m) {
         });
 
     nb::class_<HeifEncoder>(m, "HeifEncoder", nb::is_weak_referenceable())
-        .def(nb::init<heif_compression_format, const std::string&>(),
-             nb::arg("format"), nb::arg("preset") = "",
-             nb::call_guard<nb::gil_scoped_release>())
-        .def(nb::init<HeifEncoderDescriptor, const std::string&>(),
-             nb::arg("descriptor"), nb::arg("preset") = "",
-             nb::call_guard<nb::gil_scoped_release>())
+        .def(nb::init<heif_compression_format, const std::string&>(), nb::arg("format"),
+             nb::arg("preset") = "", nb::call_guard<nb::gil_scoped_release>())
+        .def(nb::init<HeifEncoderDescriptor, const std::string&>(), nb::arg("descriptor"),
+             nb::arg("preset") = "", nb::call_guard<nb::gil_scoped_release>())
         .def_prop_ro("name", &HeifEncoder::name)
         .def("set_lossy_quality", &HeifEncoder::set_lossy_quality)
         .def("set_lossless", &HeifEncoder::set_lossless)
@@ -626,11 +623,14 @@ NB_MODULE(_pylibheif, m) {
 
     m.def("get_default_encoder_preset", &get_default_encoder_preset,
           "Get the global default encoder preset ('ultrafast', 'fast', 'balanced', 'quality').");
-    m.def("set_default_encoder_preset", &set_default_encoder_preset, nb::arg("preset"),
-          "Set the global default encoder preset (empty string resets to balanced or env default).");
+    m.def(
+        "set_default_encoder_preset", &set_default_encoder_preset, nb::arg("preset"),
+        "Set the global default encoder preset (empty string resets to balanced or env default).");
 
-    m.def("get_libheif_version", []() { return std::string(heif_get_version()); },
-          "Get the underlying libheif library version string.");
-    m.def("get_libheif_version_number", []() { return heif_get_version_number(); },
-          "Get the underlying libheif library version number integer.");
+    m.def(
+        "get_libheif_version", []() { return std::string(heif_get_version()); },
+        "Get the underlying libheif library version string.");
+    m.def(
+        "get_libheif_version_number", []() { return heif_get_version_number(); },
+        "Get the underlying libheif library version number integer.");
 }

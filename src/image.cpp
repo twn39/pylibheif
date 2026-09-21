@@ -677,4 +677,3 @@ uint32_t HeifImage::get_duration() const {
 }
 
 }  // namespace pylibheif
-

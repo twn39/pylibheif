@@ -60,8 +60,7 @@ void HeifTrack::encode_sequence_image(const HeifImage& image, HeifEncoder& encod
     heif_error err;
     {
         nb::gil_scoped_release release;
-        err = heif_track_encode_sequence_image(m_track.get(), image.get(), encoder.get(),
-                                               seq_opts);
+        err = heif_track_encode_sequence_image(m_track.get(), image.get(), encoder.get(), seq_opts);
     }
     if (seq_opts) {
         heif_sequence_encoding_options_release(seq_opts);

@@ -123,7 +123,8 @@ void HeifEncoder::apply_preset(const std::string& preset) {
         set_integer_parameter("speed", speed_val);
     }
 
-    // 3. Multithreading & auto-tiles concurrency optimizations for encoders that support them (e.g. AOM)
+    // 3. Multithreading & auto-tiles concurrency optimizations for encoders that support them (e.g.
+    // AOM)
     if (has_parameter("threads")) {
         int threads = get_default_num_codec_threads();
         if (threads <= 0) {

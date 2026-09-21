@@ -1,10 +1,9 @@
 #include "context.hpp"
 
-#include <nanobind/nanobind.h>  // Ensure nanobind is included for gil_scoped_release
-#include <nanobind/ndarray.h>
-
 #include <libheif/heif_brands.h>
 #include <libheif/heif_sequences.h>
+#include <nanobind/nanobind.h>  // Ensure nanobind is included for gil_scoped_release
+#include <nanobind/ndarray.h>
 
 #include "image.hpp"
 #include "track.hpp"
@@ -188,15 +187,10 @@ nb::object HeifContext::write_to_memoryview() {
     }
 
     auto* vec = new std::vector<uint8_t>(std::move(data));
-    nb::capsule owner(vec, [](void* p) noexcept {
-        delete static_cast<std::vector<uint8_t>*>(p);
-    });
+    nb::capsule owner(vec, [](void* p) noexcept { delete static_cast<std::vector<uint8_t>*>(p); });
 
-    nb::ndarray<nb::memview, const uint8_t, nb::shape<-1>, nb::c_contig> arr(
-        vec->data(),
-        { vec->size() },
-        owner
-    );
+    nb::ndarray<nb::memview, const uint8_t, nb::shape<-1>, nb::c_contig> arr(vec->data(),
+                                                                             {vec->size()}, owner);
 
     return nb::cast(arr);
 }
@@ -379,8 +373,7 @@ HeifTrack HeifContext::get_track(uint32_t track_id) {
 }
 
 HeifTrack HeifContext::add_visual_sequence_track(uint16_t width, uint16_t height,
-                                                uint32_t track_type,
-                                                uint32_t timescale) {
+                                                 uint32_t track_type, uint32_t timescale) {
     check_closed();
     heif_track_options* track_opts = heif_track_options_alloc();
     if (track_opts) {
@@ -388,13 +381,7 @@ HeifTrack HeifContext::add_visual_sequence_track(uint16_t width, uint16_t height
     }
     heif_track* out_track = nullptr;
     heif_error err = heif_context_add_visual_sequence_track(
-        state->ctx.get(),
-        width, height,
-        track_type,
-        track_opts,
-        nullptr,
-        &out_track
-    );
+        state->ctx.get(), width, height, track_type, track_opts, nullptr, &out_track);
     if (track_opts) {
         heif_track_options_release(track_opts);
     }
@@ -417,5 +404,3 @@ void HeifContext::set_number_of_sequence_repetitions(uint32_t repetitions) {
 }
 
 }  // namespace pylibheif
-
-
