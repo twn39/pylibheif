@@ -147,7 +147,7 @@ jobs:
           # we run inside the cibuildwheel test venv rather than uv implicitly trying to run in the project root venv
           CIBW_TEST_REQUIRES: pytest numpy pytest-benchmark pillow pillow-heif psutil pytest-asyncio typer rich
           CIBW_TEST_PIP_ARGS: "--pre --prefer-binary"
-          CIBW_TEST_COMMAND: python -m pytest {project}/tests -v
+          CIBW_TEST_COMMAND: python -m pytest {project}/tests -v --benchmark-skip
 
 
 
