@@ -60,7 +60,31 @@ import math
 import os
 import weakref
 import threading
-from typing import Optional, Union, List, Any, Literal, overload
+from typing import Optional, Union, List, Dict, Any, Literal, overload
+
+from .gain_map import (
+    GainMapMetadata,
+    parse_gain_map_metadata,
+    generate_gain_map_xmp,
+    srgb_to_linear,
+    linear_to_srgb,
+    linear_to_pq,
+    reconstruct_hdr,
+    URN_GAIN_MAP_ISO_21496_1,
+    URN_GAIN_MAP_APPLE,
+    URN_PORTRAIT_MATTE_APPLE,
+)
+from .color import (
+    DISPLAY_P3_ICC_BYTES,
+    SRGB_ICC_BYTES,
+    ADOBE_RGB_ICC_BYTES,
+    REC2020_ICC_BYTES,
+    RenderingIntent,
+    get_profile_info,
+    nclx_to_icc_profile,
+    resolve_profile_bytes,
+    transform_colorspace,
+)
 
 
 # Re-export all names from the C++ extension and async wrappers
@@ -126,6 +150,24 @@ __all__ = [
     "from_pillow",
     "register_pillow_opener",
     "unregister_pillow_opener",
+    "GainMapMetadata",
+    "parse_gain_map_metadata",
+    "generate_gain_map_xmp",
+    "srgb_to_linear",
+    "linear_to_srgb",
+    "linear_to_pq",
+    "reconstruct_hdr",
+    "URN_GAIN_MAP_ISO_21496_1",
+    "URN_GAIN_MAP_APPLE",
+    "URN_PORTRAIT_MATTE_APPLE",
+    "DISPLAY_P3_ICC_BYTES",
+    "SRGB_ICC_BYTES",
+    "ADOBE_RGB_ICC_BYTES",
+    "REC2020_ICC_BYTES",
+    "RenderingIntent",
+    "get_profile_info",
+    "nclx_to_icc_profile",
+    "transform_colorspace",
     "__version__",
     "__doc__",
 ]
@@ -454,8 +496,12 @@ class AsyncHeifImageHandle:
         chroma: HeifChroma = HeifChroma.InterleavedRGB,
         options: Optional[HeifDecodingOptions] = None,
         num_threads: Optional[int] = None,
+        target_colorspace: Optional[Union[str, bytes]] = None,
+        intent: Union[RenderingIntent, int, str] = RenderingIntent.PERCEPTUAL,
+        bpc: bool = True,
+        prefer_nclx: bool = False,
     ) -> HeifImage:
-        """Asynchronously decode the image."""
+        """Asynchronously decode the image with optional color space conversion."""
         return await _run_in_executor(
             self._executor,
             self._handle.decode,
@@ -463,6 +509,10 @@ class AsyncHeifImageHandle:
             chroma,
             options,
             num_threads,
+            target_colorspace,
+            intent,
+            bpc,
+            prefer_nclx,
         )
 
     def get_metadata_block_ids(self, type_filter: str = "") -> List[int]:
@@ -583,8 +633,75 @@ class AsyncHeifImageHandle:
         )
         return AsyncHeifImageHandle(handle, executor=self._executor)
 
+    def get_gain_map_metadata(self) -> Optional[GainMapMetadata]:
+        return self._handle.get_gain_map_metadata()
+
+    async def get_gain_map_metadata_async(self) -> Optional[GainMapMetadata]:
+        return await _run_in_executor(
+            self._executor, self._handle.get_gain_map_metadata
+        )
+
+    def decode_gain_map(self) -> Any:
+        return self._handle.decode_gain_map()
+
+    async def decode_gain_map_async(self) -> Any:
+        return await _run_in_executor(self._executor, self._handle.decode_gain_map)
+
+    def reconstruct_hdr(
+        self,
+        target_headroom: Optional[float] = None,
+        output_format: str = "linear",
+    ) -> Any:
+        return self._handle.reconstruct_hdr(
+            target_headroom=target_headroom, output_format=output_format
+        )
+
+    async def reconstruct_hdr_async(
+        self,
+        target_headroom: Optional[float] = None,
+        output_format: str = "linear",
+    ) -> Any:
+        return await _run_in_executor(
+            self._executor,
+            self._handle.reconstruct_hdr,
+            target_headroom,
+            output_format,
+        )
+
     async def decode_depth(self) -> Any:
         return await _run_in_executor(self._executor, self._handle.decode_depth)
+
+    def get_color_profile_bytes(self, prefer_nclx: bool = False) -> bytes:
+        return self._handle.get_color_profile_bytes(prefer_nclx=prefer_nclx)
+
+    async def get_color_profile_bytes_async(self, prefer_nclx: bool = False) -> bytes:
+        return await _run_in_executor(
+            self._executor, self._handle.get_color_profile_bytes, prefer_nclx
+        )
+
+    def get_color_profile_info(self, prefer_nclx: bool = False) -> Dict[str, Any]:
+        return self._handle.get_color_profile_info(prefer_nclx=prefer_nclx)
+
+    async def get_color_profile_info_async(self, prefer_nclx: bool = False) -> Dict[str, Any]:
+        return await _run_in_executor(
+            self._executor, self._handle.get_color_profile_info, prefer_nclx
+        )
+
+    async def decode_to_srgb(
+        self,
+        intent: Union[RenderingIntent, int, str] = RenderingIntent.PERCEPTUAL,
+        bpc: bool = True,
+        as_pillow: bool = False,
+        prefer_nclx: bool = False,
+    ) -> Any:
+        return await _run_in_executor(
+            self._executor,
+            self._handle.decode_to_srgb,
+            intent,
+            bpc,
+            as_pillow,
+            prefer_nclx,
+        )
 
 
 class AsyncHeifContext:
@@ -695,10 +812,18 @@ class AsyncHeifContext:
         handle = self._ctx.get_primary_image_handle()
         return AsyncHeifImageHandle(handle, executor=self._executor)
 
+    async def get_primary_image_handle_async(self) -> AsyncHeifImageHandle:
+        """Asynchronously get primary image handle."""
+        return await _run_in_executor(self._executor, self.get_primary_image_handle)
+
     def get_image_handle(self, id: int) -> AsyncHeifImageHandle:
         """Get async wrapper for specific image ID."""
         handle = self._ctx.get_image_handle(id)
         return AsyncHeifImageHandle(handle, executor=self._executor)
+
+    async def get_image_handle_async(self, id: int) -> AsyncHeifImageHandle:
+        """Asynchronously get image handle for specific image ID."""
+        return await _run_in_executor(self._executor, self.get_image_handle, id)
 
     def get_list_of_top_level_image_IDs(self) -> List[int]:
         return self._ctx.get_list_of_top_level_image_IDs()
@@ -787,6 +912,44 @@ class AsyncHeifContext:
             else thumbnail_image
         )
         await _run_in_executor(self._executor, self._ctx.assign_thumbnail, m, t)
+
+    def assign_auxiliary_image(
+        self,
+        master_image: Union[HeifImageHandle, AsyncHeifImageHandle],
+        auxiliary_image: Union[HeifImageHandle, AsyncHeifImageHandle],
+        auxiliary_type: str,
+    ) -> None:
+        m = (
+            master_image._handle
+            if isinstance(master_image, AsyncHeifImageHandle)
+            else master_image
+        )
+        a = (
+            auxiliary_image._handle
+            if isinstance(auxiliary_image, AsyncHeifImageHandle)
+            else auxiliary_image
+        )
+        self._ctx.assign_auxiliary_image(m, a, auxiliary_type)
+
+    async def assign_auxiliary_image_async(
+        self,
+        master_image: Union[HeifImageHandle, AsyncHeifImageHandle],
+        auxiliary_image: Union[HeifImageHandle, AsyncHeifImageHandle],
+        auxiliary_type: str,
+    ) -> None:
+        m = (
+            master_image._handle
+            if isinstance(master_image, AsyncHeifImageHandle)
+            else master_image
+        )
+        a = (
+            auxiliary_image._handle
+            if isinstance(auxiliary_image, AsyncHeifImageHandle)
+            else auxiliary_image
+        )
+        await _run_in_executor(
+            self._executor, self._ctx.assign_auxiliary_image, m, a, auxiliary_type
+        )
 
     def set_primary_image(
         self, handle: Union[HeifImageHandle, AsyncHeifImageHandle]
@@ -1194,6 +1357,79 @@ def _handle_get_gain_map_handle(self: HeifImageHandle) -> HeifImageHandle:
     return self.get_auxiliary_image_handle(ids[0])
 
 
+def _handle_get_gain_map_metadata(self: HeifImageHandle) -> Optional[GainMapMetadata]:
+    """Extract Gain Map metadata from XMP packet attached to gain map or master image."""
+    if not _handle_has_gain_map(self):
+        return None
+
+    # 1. First check gain map auxiliary handle XMP
+    try:
+        gm_handle = _handle_get_gain_map_handle(self)
+        for mid in gm_handle.get_metadata_block_ids():
+            mtype = gm_handle.get_metadata_block_type(mid).lower()
+            if "xml" in mtype or "xmp" in mtype or "mime" in mtype:
+                block = gm_handle.get_metadata_block(mid)
+                meta = parse_gain_map_metadata(block)
+                if meta is not None:
+                    return meta
+    except Exception:
+        pass
+
+    # 2. Check master handle XMP
+    try:
+        for mid in self.get_metadata_block_ids():
+            mtype = self.get_metadata_block_type(mid).lower()
+            if "xml" in mtype or "xmp" in mtype or "mime" in mtype:
+                block = self.get_metadata_block(mid)
+                meta = parse_gain_map_metadata(block)
+                if meta is not None:
+                    return meta
+    except Exception:
+        pass
+
+    # 3. Default fallback if gain map image exists but metadata is absent
+    return GainMapMetadata.from_scalar(max_boost_stops=2.0)
+
+
+def _handle_decode_gain_map(self: HeifImageHandle) -> Any:
+    """Decode primary gain map image and return as a numpy array in range [0, 1]."""
+    gm_handle = _handle_get_gain_map_handle(self)
+    decoded = gm_handle.decode(HeifColorspace.RGB, HeifChroma.InterleavedRGB)
+    plane = decoded.get_plane(HeifChannel.Interleaved)
+    import numpy as np
+
+    arr = np.asarray(plane).astype(np.float32)
+    if arr.max() > 1.0:
+        arr /= 255.0
+    return arr
+
+
+def _handle_reconstruct_hdr(
+    self: HeifImageHandle,
+    target_headroom: Optional[float] = None,
+    output_format: str = "linear",
+    display_boost: Optional[float] = None,
+) -> Any:
+    """Reconstruct an HDR image from this handle and its embedded Gain Map."""
+    if not _handle_has_gain_map(self):
+        raise ValueError("Image handle does not contain a Gain Map.")
+    sdr_img = self.decode()
+    plane = sdr_img.get_plane(HeifChannel.Interleaved)
+    import numpy as np
+
+    sdr_arr = np.asarray(plane)
+    gm_arr = _handle_decode_gain_map(self)
+    meta = _handle_get_gain_map_metadata(self)
+    return reconstruct_hdr(
+        sdr_arr,
+        gm_arr,
+        metadata=meta,
+        target_headroom=target_headroom,
+        output_format=output_format,
+        display_boost=display_boost,
+    )
+
+
 def _handle_decode_depth(self: HeifImageHandle) -> Any:
     """Decode primary depth image and return as a 2D numpy array."""
     depth_handle = self.get_primary_depth_image_handle()
@@ -1207,4 +1443,129 @@ def _handle_decode_depth(self: HeifImageHandle) -> Any:
 setattr(HeifImageHandle, "gain_map_ids", property(_handle_get_gain_map_ids))
 setattr(HeifImageHandle, "has_gain_map", property(_handle_has_gain_map))
 setattr(HeifImageHandle, "get_gain_map_handle", _handle_get_gain_map_handle)
+setattr(HeifImageHandle, "get_gain_map_image_handle", _handle_get_gain_map_handle)
+setattr(HeifImageHandle, "get_gain_map_metadata", _handle_get_gain_map_metadata)
+setattr(HeifImageHandle, "decode_gain_map", _handle_decode_gain_map)
+setattr(HeifImageHandle, "reconstruct_hdr", _handle_reconstruct_hdr)
 setattr(HeifImageHandle, "decode_depth", _handle_decode_depth)
+
+# -----------------------------------------------------------------------------
+# Color Management Extensions (LittleCMS 2)
+# -----------------------------------------------------------------------------
+
+_orig_handle_decode = HeifImageHandle.decode
+
+
+def _handle_decode(
+    self: HeifImageHandle,
+    colorspace: HeifColorspace = HeifColorspace.RGB,
+    chroma: HeifChroma = HeifChroma.InterleavedRGB,
+    options: Optional[HeifDecodingOptions] = None,
+    num_threads: Optional[int] = None,
+    target_colorspace: Optional[Union[str, bytes]] = None,
+    intent: Union[RenderingIntent, int, str] = RenderingIntent.PERCEPTUAL,
+    bpc: bool = True,
+    prefer_nclx: bool = False,
+) -> HeifImage:
+    """Decode image handle with optional LittleCMS target color space conversion."""
+    if num_threads is not None:
+        raw_img = _orig_handle_decode(self, colorspace, chroma, options, num_threads)
+    elif options is not None:
+        raw_img = _orig_handle_decode(self, colorspace, chroma, options)
+    else:
+        raw_img = _orig_handle_decode(self, colorspace, chroma)
+
+    if target_colorspace is not None:
+        plane = raw_img.get_plane(HeifChannel.Interleaved, writeable=False)
+        import numpy as np
+
+        arr = np.asarray(plane)
+        src_profile = _handle_get_color_profile_bytes(self, prefer_nclx=prefer_nclx)
+        transformed_arr = transform_colorspace(
+            arr,
+            src_profile=src_profile,
+            dst_profile=target_colorspace,
+            intent=intent,
+            bpc=bpc,
+            as_pillow=False,
+        )
+        return HeifImage.from_numpy(transformed_arr)
+
+    return raw_img
+
+
+HeifImageHandle.decode = _handle_decode
+
+
+def _handle_get_color_profile_bytes(
+    self: HeifImageHandle, prefer_nclx: bool = False
+) -> bytes:
+    """Retrieve effective ICC profile bytes according to MIAF rules."""
+    nclx = None
+    try:
+        nclx = self.get_nclx_color_profile()
+    except Exception:
+        pass
+
+    if prefer_nclx and nclx is not None:
+        synth = nclx_to_icc_profile(nclx)
+        if synth:
+            return synth
+
+    # Check raw ICC
+    try:
+        raw_icc = self.get_raw_color_profile()
+        if raw_icc and len(raw_icc) > 0:
+            return raw_icc
+    except Exception:
+        pass
+
+    # Fallback to NCLX synthesis
+    if nclx is not None:
+        synth = nclx_to_icc_profile(nclx)
+        if synth:
+            return synth
+
+    return SRGB_ICC_BYTES
+
+
+def _handle_get_color_profile_info(
+    self: HeifImageHandle, prefer_nclx: bool = False
+) -> Dict[str, Any]:
+    """Return dictionary of color profile metadata and wide gamut detection."""
+    p_bytes = _handle_get_color_profile_bytes(self, prefer_nclx=prefer_nclx)
+    return get_profile_info(p_bytes)
+
+
+def _handle_decode_to_srgb(
+    self: HeifImageHandle,
+    intent: Union[RenderingIntent, int, str] = RenderingIntent.PERCEPTUAL,
+    bpc: bool = True,
+    as_pillow: bool = False,
+    prefer_nclx: bool = False,
+) -> Any:
+    """Decode image and accurately transform pixels to sRGB color space."""
+    chroma = (
+        HeifChroma.InterleavedRGBA
+        if getattr(self, "has_alpha", False)
+        else HeifChroma.InterleavedRGB
+    )
+    raw_img = _orig_handle_decode(self, HeifColorspace.RGB, chroma)
+    plane = raw_img.get_plane(HeifChannel.Interleaved, writeable=False)
+    import numpy as np
+
+    arr = np.asarray(plane)
+    src_profile = _handle_get_color_profile_bytes(self, prefer_nclx=prefer_nclx)
+    return transform_colorspace(
+        arr,
+        src_profile=src_profile,
+        dst_profile="sRGB",
+        intent=intent,
+        bpc=bpc,
+        as_pillow=as_pillow,
+    )
+
+
+setattr(HeifImageHandle, "get_color_profile_bytes", _handle_get_color_profile_bytes)
+setattr(HeifImageHandle, "get_color_profile_info", _handle_get_color_profile_info)
+setattr(HeifImageHandle, "decode_to_srgb", _handle_decode_to_srgb)

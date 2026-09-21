@@ -3,36 +3,7 @@
 import base64
 from typing import Any, Dict, Optional, Tuple
 
-# Standard minimal Apple Display P3 ICC profile (536 bytes)
-# Used when NCLX color_primaries == 12 (Display P3) and no embedded ICC profile is present
-DISPLAY_P3_ICC_BYTES = base64.b64decode(
-    b"AAACGGFwcGwEAAAAbW50clJHQiBYWVogB+YAAQABAAAAAAAAYWNzcEFQUEwAAAAAQVBQTAAAAAAA"
-    b"AAAAAAAAAAAAAAAAAPbWAAEAAAAA0y1hcHBsAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-    b"AAAAAAAAAAAAAAAAAAAAAAAKZGVzYwAAAPwAAAAwY3BydAAAASwAAABQd3RwdAAAAXwAAAAUclhZ"
-    b"WgAAAZAAAAAUZ1hZWgAAAaQAAAAUYlhZWgAAAbgAAAAUclRSQwAAAcwAAAAgY2hhZAAAAewAAAAs"
-    b"YlRSQwAAAcwAAAAgZ1RSQwAAAcwAAAAgbWx1YwAAAAAAAAABAAAADGVuVVMAAAAUAAAAHABEAGkA"
-    b"cwBwAGwAYQB5ACAAUAAzbWx1YwAAAAAAAAABAAAADGVuVVMAAAA0AAAAHABDAG8AcAB5AHIAaQBn"
-    b"AGgAdAAgAEEAcABwAGwAZQAgAEkAbgBjAC4ALAAgADIAMAAyADJYWVogAAAAAAAA9tUAAQAAAAAA"
-    b"0y1hcHBsAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAKZGVz"
-    b"YwAAAPwAAAAwY3BydAAAASwAAABQd3RwdAAAAXwAAAAUclhZWgAAAZAAAAAUZ1hZWgAAAaQAAAAU"
-    b"YlhZWgAAAbgAAAAUclRSQwAAAcwAAAAgY2hhZAAAAewAAAAsYlRSQwAAAcwAAAAgZ1RSQwAAAcwA"
-    b"AAAg"
-)
-
-# Standard valid Display P3 binary from Apple ColorSync
-_APPLE_P3_B64 = (
-    b"AAACGGFwcGwEAAAAbW50clJHQiBYWVogB+YAAQABAAAAAAAAYWNzcEFQUEwAAAAAQVBQTAAAAAAA"
-    b"AAAAAAAAAAAAAAAAAPbWAAEAAAAA0y1hcHBsAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-    b"AAAAAAAAAAAAAAAAAAAAAAAKZGVzYwAAAPwAAAAwY3BydAAAASwAAABQd3RwdAAAAXwAAAAUclhZ"
-    b"WgAAAZAAAAAUZ1hZWgAAAaQAAAAUYlhZWgAAAbgAAAAUclRSQwAAAcwAAAAgY2hhZAAAAewAAAAs"
-    b"YlRSQwAAAcwAAAAgZ1RSQwAAAcwAAAAgbWx1YwAAAAAAAAABAAAADGVuVVMAAAAUAAAAHABEAGkA"
-    b"cwBwAGwAYQB5ACAAUAAzbWx1YwAAAAAAAAABAAAADGVuVVMAAAA0AAAAHABDAG8AcAB5AHIAaQBn"
-    b"AGgAdAAgAEEAcABwAGwAZQAgAEkAbgBjAC4ALAAgADIAMAAyADJYWVogAAAAAAAA9tUAAQAAAAAA"
-    b"0y1YWVogAAAAAAAAkdAAAD6tAAAXbFhZWiAAAAAAAACD3wAAPb////+7WFlaIAAAAAAAAEq/AACx"
-    b"NwAACrlYWVogAAAAAAAAKDgAABELAADIuXBhcmEAAAAAAAMAAAACZmYAAPKnAAANWQAAE9AAAApb"
-    b"c2YzMgAAAAAAAQxCAAAF3v//8yYAAAeTAAD9kP//+6L///2jAAAD3AAAwG4="
-)
-DISPLAY_P3_ICC_BYTES = base64.b64decode(_APPLE_P3_B64)
+from pylibheif.color import DISPLAY_P3_ICC_BYTES, nclx_to_icc_profile
 
 
 def normalize_exif_for_pillow(
@@ -149,9 +120,11 @@ def extract_metadata_to_info(handle: Any) -> Dict[str, Any]:
                     "matrix_coefficients": matrix_val,
                     "full_range_flag": bool(nclx.full_range_flag),
                 }
-                # Fallback / synthesis for Display P3 (SMPTE_EG_432_1 == 12)
-                if primaries_val == 12 and "icc_profile" not in info:
-                    info["icc_profile"] = DISPLAY_P3_ICC_BYTES
+                # Fallback / synthesis from NCLX (Display P3, Rec.2020, sRGB)
+                if "icc_profile" not in info:
+                    synth_icc = nclx_to_icc_profile(nclx)
+                    if synth_icc:
+                        info["icc_profile"] = synth_icc
     except Exception:
         pass
 
@@ -181,6 +154,15 @@ def extract_metadata_to_info(handle: Any) -> Dict[str, Any]:
     # 5. Bit Depth
     try:
         info["bit_depth"] = handle.luma_bits_per_pixel
+    except Exception:
+        pass
+
+    # 6. Gain Map (HDR)
+    try:
+        if getattr(handle, "has_gain_map", False) and hasattr(handle, "get_gain_map_metadata"):
+            gm_meta = handle.get_gain_map_metadata()
+            if gm_meta is not None:
+                info["gain_map_metadata"] = gm_meta
     except Exception:
         pass
 

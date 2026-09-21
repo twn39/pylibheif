@@ -398,6 +398,14 @@ class HeifContext:
     ) -> None:
         """Assign a thumbnail image to a master image."""
 
+    def assign_auxiliary_image(
+        self,
+        master_image: HeifImageHandle,
+        auxiliary_image: HeifImageHandle,
+        auxiliary_type: str,
+    ) -> None:
+        """Assign an auxiliary image (such as an HDR gain map) to a master image."""
+
     def set_primary_image(self, handle: HeifImageHandle) -> None:
         """Designate an image handle as the primary image of the context."""
 

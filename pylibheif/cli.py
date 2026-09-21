@@ -579,6 +579,13 @@ def info_cmd(
                 "full_range_flag": bool(nclx.full_range_flag),
             }
 
+    color_info: Dict[str, Any] = {}
+    try:
+        if hasattr(handle, "get_color_profile_info"):
+            color_info = handle.get_color_profile_info()
+    except Exception:
+        pass
+
     # HDR Metadata
     hdr_info: Dict[str, Any] = {}
     if getattr(handle, "has_content_light_level", False):
@@ -630,6 +637,16 @@ def info_cmd(
         except Exception:
             pass
 
+    # Gain Map Details
+    gm_meta_dict: Optional[Dict[str, Any]] = None
+    if handle.has_gain_map:
+        try:
+            gm_meta = handle.get_gain_map_metadata()
+            if gm_meta:
+                gm_meta_dict = gm_meta.to_dict()
+        except Exception:
+            pass
+
     data: Dict[str, Any] = {
         "file": str(file.resolve()),
         "size_bytes": os.path.getsize(file),
@@ -643,11 +660,13 @@ def info_cmd(
         "thumbnails_count": handle.number_of_thumbnails,
         "has_depth_image": handle.has_depth_image,
         "has_gain_map": handle.has_gain_map,
+        "gain_map_metadata": gm_meta_dict,
         "color_profile": {
             "type": color_profile_type,
             "has_icc": has_icc,
             "has_nclx": has_nclx,
             **({"nclx": nclx_details} if (detail and nclx_details) else {}),
+            **({"info": color_info} if color_info else {}),
         },
         "metadata_summary": {
             "has_exif": has_exif,
@@ -685,8 +704,27 @@ def info_cmd(
     table.add_row("Images in File", f"{len(image_ids)} (primary id: {primary_id})")
     table.add_row("Thumbnails", str(handle.number_of_thumbnails))
     table.add_row("Depth Map", "Yes" if handle.has_depth_image else "No")
-    table.add_row("Gain Map (HDR)", "Yes" if handle.has_gain_map else "No")
-    table.add_row("Color Profile", color_profile_type)
+    if handle.has_gain_map:
+        if gm_meta_dict:
+            fmt = gm_meta_dict.get("format_type", "Gain Map")
+            headroom = gm_meta_dict.get("hdr_capacity_max", 0.0)
+            boost = gm_meta_dict.get("max_content_boost", 1.0)
+            gamma_val = gm_meta_dict.get("gamma", [1.0])[0]
+            table.add_row(
+                "Gain Map (HDR)",
+                f"Yes ({fmt}, Max: {boost:.2f}x / {headroom:.2f} EV, Gamma: {gamma_val:.2f})",
+            )
+        else:
+            table.add_row("Gain Map (HDR)", "Yes")
+    else:
+        table.add_row("Gain Map (HDR)", "No")
+
+    prof_str = color_profile_type
+    if color_info and color_info.get("name") and color_info["name"] != "Unknown":
+        prof_str += f" ({color_info['name']})"
+    if color_info.get("is_wide_gamut"):
+        prof_str += " [bold magenta](Wide Gamut)[/bold magenta]"
+    table.add_row("Color Profile", prof_str)
 
     if shooting_summary:
         if "Camera" in shooting_summary:
@@ -787,10 +825,35 @@ def convert_cmd(
         "-t",
         help="Codec threads to use (0 = auto-detect CPU quota)",
     ),
+    extract_gain_map: Optional[Path] = typer.Option(
+        None,
+        "--extract-gain-map",
+        help="Extract the auxiliary Gain Map image to a separate file (e.g. gainmap.png)",
+    ),
+    render_hdr: bool = typer.Option(
+        False,
+        "--render-hdr",
+        help="Render tonemapped HDR appearance using Gain Map before converting",
+    ),
+    hdr_headroom: Optional[float] = typer.Option(
+        None,
+        "--hdr-headroom",
+        help="Target display HDR headroom factor (e.g. 2.0 or 4.0) for --render-hdr",
+    ),
     strip_metadata: bool = typer.Option(
         False,
         "--strip-metadata",
         help="Do not copy EXIF/XMP metadata into destination file",
+    ),
+    to_srgb: bool = typer.Option(
+        False,
+        "--to-srgb",
+        help="Transform wide-gamut colors (Display P3, BT.2020) to standard sRGB via LittleCMS 2",
+    ),
+    intent: str = typer.Option(
+        "perceptual",
+        "--intent",
+        help="ICC rendering intent: perceptual, relative, saturation, absolute",
     ),
     overwrite: bool = typer.Option(
         False,
@@ -841,6 +904,22 @@ def convert_cmd(
             ctx.read_from_file(str(source))
             handle = ctx.get_primary_image_handle()
 
+            # Handle gain map extraction if requested
+            if extract_gain_map is not None:
+                if handle.has_gain_map:
+                    try:
+                        from pylibheif.pillow import to_pillow
+
+                        gm_handle = handle.get_gain_map_image_handle()
+                        gm_pil = to_pillow(gm_handle)
+                        extract_gain_map.parent.mkdir(parents=True, exist_ok=True)
+                        gm_pil.save(str(extract_gain_map))
+                        typer.echo(f"Extracted auxiliary Gain Map to '{extract_gain_map}'.")
+                    except Exception as e:
+                        typer.echo(f"Warning: Failed to extract gain map: {e}", err=True)
+                else:
+                    typer.echo(f"Warning: '{source.name}' does not contain an auxiliary Gain Map.", err=True)
+
             # Target is HEIF or AVIF
             if target_fmt in ("heic", "avif"):
                 comp_fmt = (
@@ -854,27 +933,53 @@ def convert_cmd(
                     encoder.set_lossy_quality(quality)
 
                 out_ctx = pylibheif.HeifContext()
-                # Decode handle to HeifImage
-                decode_opts = pylibheif.HeifDecodingOptions()
-                if threads > 0:
-                    decode_opts.num_codec_threads = threads
-                raw_img = handle.decode(
-                    pylibheif.HeifColorspace.RGB,
-                    pylibheif.HeifChroma.InterleavedRGB,
-                    options=decode_opts,
-                )
 
-                # Encode
-                encoder.encode_image(out_ctx, raw_img, preset=preset)
+                if render_hdr and handle.has_gain_map:
+                    # Reconstruct HDR into sRGB uint8 HeifImage
+                    hdr_arr = handle.reconstruct_hdr(display_boost=hdr_headroom, output_format="srgb_uint8")
+                    raw_img = pylibheif.HeifImage.from_buffer(
+                        hdr_arr,
+                        hdr_arr.shape[1],
+                        hdr_arr.shape[0],
+                        pylibheif.HeifColorspace.RGB,
+                        pylibheif.HeifChroma.InterleavedRGB,
+                    )
+                else:
+                    # Decode handle to HeifImage
+                    decode_opts = pylibheif.HeifDecodingOptions()
+                    if threads > 0:
+                        decode_opts.num_codec_threads = threads
+                    raw_img = handle.decode(
+                        pylibheif.HeifColorspace.RGB,
+                        pylibheif.HeifChroma.InterleavedRGB,
+                        options=decode_opts,
+                        target_colorspace="sRGB" if to_srgb else None,
+                        intent=intent,
+                    )
+
+                # Encode primary image
+                out_handle = encoder.encode_image(out_ctx, raw_img, preset=preset)
+
+                # If source has gain map, not rendering HDR, and metadata not stripped -> preserve gain map
+                if handle.has_gain_map and not render_hdr and not strip_metadata:
+                    try:
+                        gm_img = handle.decode_gain_map()
+                        aux_encoder = pylibheif.HeifEncoder(comp_fmt, preset=preset)
+                        aux_handle = aux_encoder.encode_image(out_ctx, gm_img, preset=preset)
+                        gm_meta = handle.get_gain_map_metadata()
+                        urn = "urn:iso:std:iso:ts:21496-1"
+                        if gm_meta and gm_meta.format_type == "Apple":
+                            urn = "urn:com:apple:photo:2020:aux:hdrgainmap"
+                        out_ctx.assign_auxiliary_image(out_handle, aux_handle, urn)
+                    except Exception:
+                        pass
 
                 # Metadata forwarding
                 if not strip_metadata:
                     for mid in handle.get_metadata_block_ids():
                         mtype = handle.get_metadata_block_type(mid)
                         mdata = handle.get_metadata_block(mid)
-                        # Add to primary image if possible
                         try:
-                            out_handle = out_ctx.get_primary_image_handle()
                             if mtype.lower() == "exif":
                                 out_ctx.add_exif_metadata(out_handle, mdata)
                             elif mtype.lower() in ("xmp", "mime"):
@@ -897,7 +1002,16 @@ def convert_cmd(
                     )
                     raise typer.Exit(code=2)
 
-                pil_img = to_pillow(handle)
+                if render_hdr and handle.has_gain_map:
+                    hdr_arr = handle.reconstruct_hdr(display_boost=hdr_headroom, output_format="srgb_uint8")
+                    pil_img = Image.fromarray(hdr_arr)
+                else:
+                    pil_img = to_pillow(
+                        handle,
+                        target_colorspace="sRGB" if to_srgb else None,
+                        intent=intent,
+                    )
+
                 save_kwargs: Dict[str, Any] = {}
                 if target_fmt == "jpeg":
                     save_kwargs["quality"] = quality
@@ -919,6 +1033,19 @@ def convert_cmd(
                 raise typer.Exit(code=2)
 
             with Image.open(source) as pil_img:
+                if to_srgb:
+                    from pylibheif.color import transform_colorspace
+
+                    src_icc = pil_img.info.get("icc_profile")
+                    if src_icc:
+                        pil_img = transform_colorspace(
+                            pil_img,
+                            src_profile=src_icc,
+                            dst_profile="sRGB",
+                            intent=intent,
+                            as_pillow=True,
+                        )
+
                 if target_fmt in ("heic", "avif"):
                     comp_fmt = (
                         pylibheif.HeifCompressionFormat.HEVC
@@ -954,6 +1081,8 @@ def convert_cmd(
         "quality": quality,
         "preset": preset,
         "lossless": lossless,
+        "to_srgb": to_srgb,
+        "intent": intent if to_srgb else None,
         "target_size_bytes": os.path.getsize(target),
     }
 

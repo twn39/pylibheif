@@ -296,6 +296,28 @@ void HeifContext::assign_thumbnail(const HeifImageHandle& master_image,
     check_error(err);
 }
 
+void HeifContext::assign_auxiliary_image(const HeifImageHandle& master_image,
+                                         const HeifImageHandle& auxiliary_image,
+                                         const std::string& auxiliary_type) {
+    check_closed();
+    heif_context* ctx_ptr = state->ctx.get();
+    heif_image_handle* master_ptr = master_image.get();
+    heif_image_handle* aux_ptr = auxiliary_image.get();
+    if (!master_ptr || !aux_ptr) {
+        throw std::invalid_argument("Master and auxiliary image handles must not be null.");
+    }
+    if (auxiliary_type.empty()) {
+        throw std::invalid_argument("Auxiliary type cannot be empty.");
+    }
+    heif_error err;
+    {
+        nb::gil_scoped_release release;
+        err = heif_context_assign_auxiliary_image(ctx_ptr, master_ptr, aux_ptr,
+                                                  auxiliary_type.c_str());
+    }
+    check_error(err);
+}
+
 void HeifContext::set_primary_image(const HeifImageHandle& handle) {
     check_closed();
     heif_image_handle* h_ptr = handle.get();

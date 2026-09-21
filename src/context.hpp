@@ -66,6 +66,10 @@ class HeifContext {
     void assign_thumbnail(const HeifImageHandle& master_image,
                           const HeifImageHandle& thumbnail_image);
 
+    void assign_auxiliary_image(const HeifImageHandle& master_image,
+                                const HeifImageHandle& auxiliary_image,
+                                const std::string& auxiliary_type);
+
     void set_primary_image(const HeifImageHandle& handle);
     void set_major_brand(const std::string& brand);
     void add_compatible_brand(const std::string& brand);

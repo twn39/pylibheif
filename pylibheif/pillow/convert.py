@@ -20,6 +20,9 @@ def to_pillow(
     convert_hdr_to_8bit: bool = True,
     options: Optional[HeifDecodingOptions] = None,
     num_threads: Optional[int] = None,
+    target_colorspace: Optional[Union[str, bytes]] = None,
+    intent: Union[Any, int, str] = 0,
+    bpc: bool = True,
 ) -> Image.Image:
     """Convert a HeifImage or HeifImageHandle into a Pillow Image.Image.
 
@@ -30,6 +33,9 @@ def to_pillow(
                              If False, preserves native bit depth when possible.
         options: Optional HeifDecodingOptions for fine-grained decoder control.
         num_threads: Optional override for decoding thread count.
+        target_colorspace: Optional target color space name or ICC bytes (e.g. "sRGB", "Display P3").
+        intent: Rendering intent for color transformation.
+        bpc: Enable black point compensation.
 
     Returns:
         A PIL.Image.Image instance with EXIF, ICC, XMP and HDR metadata preserved in .info.
@@ -44,6 +50,20 @@ def to_pillow(
         heif_image = handle.decode(
             HeifColorspace.RGB, chroma, options=options, num_threads=num_threads
         )
+        # Check for Gain Map (HDR)
+        if getattr(handle, "has_gain_map", False):
+            try:
+                gm_handle = handle.get_gain_map_handle()
+                gm_decoded = gm_handle.decode(HeifColorspace.RGB, HeifChroma.InterleavedRGB)
+                gm_plane = gm_decoded.get_plane(HeifChannel.Interleaved, writeable=False)
+                gm_arr = np.asarray(gm_plane)
+                info["gain_map"] = Image.fromarray(gm_arr)
+                if hasattr(handle, "get_gain_map_metadata"):
+                    gm_meta = handle.get_gain_map_metadata()
+                    if gm_meta is not None:
+                        info["gain_map_metadata"] = gm_meta
+            except Exception:
+                pass
     elif isinstance(source, HeifImage):
         heif_image = source
     else:
@@ -64,6 +84,34 @@ def to_pillow(
     pil_image = Image.fromarray(arr)
     if info:
         pil_image.info.update(info)
+
+    if target_colorspace is not None:
+        from ..color import resolve_profile_bytes, transform_colorspace
+
+        src_profile = pil_image.info.get("icc_profile")
+        if not src_profile:
+            nclx_dict = pil_image.info.get("nclx_profile")
+            if nclx_dict:
+                from ..color import nclx_to_icc_profile
+
+                class _DummyNclx:
+                    pass
+
+                d = _DummyNclx()
+                d.color_primaries = nclx_dict.get("color_primaries", 1)
+                src_profile = nclx_to_icc_profile(d)
+
+        orig_info = dict(pil_image.info)
+        pil_image = transform_colorspace(
+            pil_image,
+            src_profile=src_profile or "sRGB",
+            dst_profile=target_colorspace,
+            intent=intent,
+            bpc=bpc,
+            as_pillow=True,
+        )
+        pil_image.info.update(orig_info)
+        pil_image.info["icc_profile"] = resolve_profile_bytes(target_colorspace)
 
     return pil_image
 
@@ -95,10 +143,11 @@ def from_pillow(
         chroma = HeifChroma.InterleavedRGB
 
     # Fast direct buffer path when bit_depth == 8 and mode is standard 8-bit RGB/RGBA
+    # Avoid im.tobytes() which allocates and copies memory for the entire image.
+    arr = np.asarray(im)
     if bit_depth == 8 and im.mode in ("RGB", "RGBA"):
-        raw_bytes = im.tobytes()
         heif_image = HeifImage.from_buffer(
-            raw_bytes,
+            arr,
             im.width,
             im.height,
             HeifColorspace.RGB,
@@ -107,7 +156,6 @@ def from_pillow(
         )
     else:
         # High bit-depth or non-standard format
-        arr = np.asarray(im)
         if arr.dtype == np.uint16:
             heif_image = HeifImage.from_numpy(arr, bit_depth=bit_depth)
         else:

@@ -403,6 +403,9 @@ NB_MODULE(_pylibheif, m) {
              "optional content type.")
         .def("assign_thumbnail", &HeifContext::assign_thumbnail, nb::arg("master_image"),
              nb::arg("thumbnail_image"), "Assign a thumbnail image to a master image.")
+        .def("assign_auxiliary_image", &HeifContext::assign_auxiliary_image,
+             nb::arg("master_image"), nb::arg("auxiliary_image"), nb::arg("auxiliary_type"),
+             "Assign an auxiliary image (such as an HDR gain map) to a master image.")
         .def("set_primary_image", &HeifContext::set_primary_image, nb::arg("handle"),
              "Designate an image handle as the primary image of the context.")
         .def("set_major_brand", &HeifContext::set_major_brand, nb::arg("brand"),

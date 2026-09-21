@@ -21,11 +21,14 @@ from .plugin import (
     unregister_heif_opener,
 )
 
+register_pillow_opener = register_heif_opener
+
 __all__ = [
     "to_pillow",
     "from_pillow",
     "HeifImageFile",
     "register_heif_opener",
+    "register_pillow_opener",
     "unregister_heif_opener",
     "DISPLAY_P3_ICC_BYTES",
     "normalize_exif_for_pillow",

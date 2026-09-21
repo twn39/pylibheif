@@ -1,7 +1,7 @@
 """Pillow ImagePlugin implementation for HEIF/AVIF image formats."""
 
 import os
-from typing import IO, Union, Optional, List
+from typing import IO, Union, Optional, List, Any, Dict
 import numpy as np
 from PIL import Image, ImageFile
 
@@ -203,6 +203,102 @@ class HeifImageFile(ImageFile.ImageFile):
         """Return the total number of frames."""
         return self._n_frames
 
+    @property
+    def has_gain_map(self) -> bool:
+        """Return True if image contains an auxiliary HDR Gain Map."""
+        return self.get_gain_map() is not None
+
+    def get_gain_map(self) -> Optional[Image.Image]:
+        """Decode and return the embedded Gain Map as a PIL Image."""
+        if "gain_map" in self.info and isinstance(self.info["gain_map"], Image.Image):
+            return self.info["gain_map"]
+        if self._handle is not None and getattr(self._handle, "has_gain_map", False):
+            gm_handle = self._handle.get_gain_map_handle()
+            gm_decoded = gm_handle.decode(HeifColorspace.RGB, HeifChroma.InterleavedRGB)
+            plane = gm_decoded.get_plane(HeifChannel.Interleaved, writeable=False)
+            arr = np.asarray(plane)
+            gm_im = Image.fromarray(arr)
+            self.info["gain_map"] = gm_im
+            return gm_im
+        return None
+
+    def render_hdr(
+        self,
+        target_headroom: Optional[float] = None,
+        output_format: str = "srgb_clip",
+        display_boost: Optional[float] = None,
+        as_pillow: bool = True,
+    ) -> Union[Image.Image, np.ndarray]:
+        """Reconstruct an HDR image using this base image and embedded Gain Map.
+
+        Args:
+            target_headroom: Headroom multiplier (e.g. 2.0 or 4.0). None for full capability.
+            output_format: 'linear' (float32/float16), 'pq' (10-bit uint16), or 'srgb_clip'.
+            display_boost: Alias for target_headroom.
+            as_pillow: If True and output_format is 'srgb_clip', returns a PIL Image.
+
+        Returns:
+            PIL Image or Numpy array containing the reconstructed HDR image.
+        """
+        from ..gain_map import reconstruct_hdr
+
+        self.load()
+        gm = self.get_gain_map()
+        if gm is None:
+            raise ValueError("Image does not contain an HDR Gain Map.")
+        meta = self.info.get("gain_map_metadata")
+        headroom = target_headroom if target_headroom is not None else display_boost
+        arr = reconstruct_hdr(
+            self,
+            gm,
+            metadata=meta,
+            target_headroom=headroom,
+            output_format=output_format,
+            display_boost=display_boost,
+        )
+        if as_pillow and output_format.lower() in ("srgb_clip", "srgb", "srgb_uint8"):
+            return Image.fromarray(arr)
+        return arr
+
+    def convert_colorspace(
+        self,
+        target_profile: Union[str, bytes] = "sRGB",
+        intent: Union[Any, int, str] = 0,
+        bpc: bool = True,
+    ) -> Image.Image:
+        """Convert this image's colors to target color space (default: sRGB).
+
+        Preserves Alpha channel, handles wide-gamut Display P3/BT.2020 accurately,
+        and returns a newly transformed PIL Image.
+        """
+        self.load()
+        src_profile = self.info.get("icc_profile")
+        if not src_profile:
+            nclx_dict = self.info.get("nclx_profile")
+            if nclx_dict:
+                from ..color import nclx_to_icc_profile
+
+                class _DummyNclx:
+                    pass
+
+                d = _DummyNclx()
+                d.color_primaries = nclx_dict.get("color_primaries", 1)
+                src_profile = nclx_to_icc_profile(d)
+
+        from ..color import resolve_profile_bytes, transform_colorspace
+
+        transformed = transform_colorspace(
+            self,
+            src_profile=src_profile or "sRGB",
+            dst_profile=target_profile,
+            intent=intent,
+            bpc=bpc,
+            as_pillow=True,
+        )
+        transformed.info.update(self.info)
+        transformed.info["icc_profile"] = resolve_profile_bytes(target_profile)
+        return transformed
+
     def close(self) -> None:
         self._frames.clear()
         self._durations.clear()
@@ -394,6 +490,45 @@ def _save(
             ctx.add_xmp_metadata(handle, bytes(xmp))
         except Exception:
             pass
+
+    # Attach Gain Map (HDR)
+    gain_map_input = encoderinfo.get("gain_map") or im.info.get("gain_map")
+    if gain_map_input is not None:
+        from ..gain_map import (
+            GainMapMetadata,
+            generate_gain_map_xmp,
+            URN_GAIN_MAP_ISO_21496_1,
+        )
+
+        if isinstance(gain_map_input, Image.Image):
+            gm_heif, _ = from_pillow(gain_map_input)
+        elif isinstance(gain_map_input, np.ndarray):
+            gm_heif = HeifImage.from_numpy(gain_map_input)
+        elif isinstance(gain_map_input, HeifImage):
+            gm_heif = gain_map_input
+        else:
+            raise TypeError(f"Unsupported gain_map type: {type(gain_map_input)}")
+
+        gm_quality = encoderinfo.get("gain_map_quality", quality)
+        gm_encoder = HeifEncoder(compression, preset=str(preset) if preset else "")
+        if lossless:
+            gm_encoder.set_lossless(True)
+        else:
+            gm_encoder.set_lossy_quality(int(gm_quality))
+
+        gm_handle = gm_encoder.encode_image(ctx, gm_heif)
+        aux_urn = encoderinfo.get("gain_map_urn") or URN_GAIN_MAP_ISO_21496_1
+        ctx.assign_auxiliary_image(handle, gm_handle, str(aux_urn))
+
+        gm_meta = encoderinfo.get("gain_map_metadata") or im.info.get("gain_map_metadata")
+        if gm_meta is not None:
+            if isinstance(gm_meta, dict):
+                gm_meta = GainMapMetadata(**gm_meta)
+            xmp_bytes = generate_gain_map_xmp(gm_meta)
+            try:
+                ctx.add_xmp_metadata(gm_handle, xmp_bytes)
+            except Exception:
+                pass
 
     if hasattr(fp, "write"):
         ctx.write_to_stream(fp)
