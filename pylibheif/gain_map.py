@@ -650,7 +650,7 @@ def reconstruct_hdr(
     metadata: Optional[GainMapMetadata] = None,
     target_headroom: Optional[float] = None,
     output_format: str = "linear",
-    dtype: np.dtype = np.float32,
+    dtype: Any = np.float32,
     display_boost: Optional[float] = None,
 ) -> np.ndarray:
     """Reconstruct an HDR image from an SDR base image, Gain Map, and ISO 21496-1 metadata.

@@ -1,9 +1,8 @@
 """Metadata utilities for synchronizing EXIF, ICC, XMP and HDR metadata with Pillow."""
 
-import base64
 from typing import Any, Dict, Optional, Tuple
 
-from pylibheif.color import DISPLAY_P3_ICC_BYTES, nclx_to_icc_profile
+from pylibheif.color import nclx_to_icc_profile
 
 
 def normalize_exif_for_pillow(

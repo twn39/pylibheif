@@ -11,10 +11,8 @@ Covers:
 
 from __future__ import annotations
 
-import io
 import json
 from pathlib import Path
-from typing import Any
 
 import numpy as np
 import pytest
@@ -31,7 +29,7 @@ from pylibheif.gain_map import (
 
 try:
     from PIL import Image
-    from pylibheif.pillow import from_pillow, register_pillow_opener, to_pillow
+    from pylibheif.pillow import register_pillow_opener
     from pylibheif.pillow.plugin import HeifImageFile
 
     register_pillow_opener()
@@ -318,6 +316,7 @@ def test_pillow_save_and_load_gain_map(tmp_path: Path) -> None:
 
     # 6. Render HDR
     hdr_pil = opened_im.render_hdr(display_boost=2.0)
+    assert isinstance(hdr_pil, Image.Image)
     assert hdr_pil.size == (80, 80)
     assert hdr_pil.mode == "RGB"
 

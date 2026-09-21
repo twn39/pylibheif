@@ -191,8 +191,10 @@ def test_pillow_convert_colorspace():
     bio.seek(0)
 
     # Open with Pillow
+    from pylibheif.pillow.plugin import HeifImageFile
+
     pil_im = Image.open(bio)
-    assert hasattr(pil_im, "convert_colorspace")
+    assert isinstance(pil_im, HeifImageFile)
     converted = pil_im.convert_colorspace("sRGB")
     assert isinstance(converted, Image.Image)
     assert converted.size == (24, 24)

@@ -437,9 +437,10 @@ class HeifContext:
         self,
         width: int,
         height: int,
-        format: HeifCompressionFormat = HeifCompressionFormat.AV1,
+        track_type: Optional[Union[HeifTrackType, int]] = None,
+        timescale: int = 1000,
     ) -> HeifTrack:
-        """Add a visual sequence track to the context for encoding."""
+        """Add a new visual sequence track to the HEIF container."""
 
     def set_sequence_timescale(self, timescale: int) -> None:
         """Set the sequence timescale (ticks per second)."""
@@ -467,6 +468,10 @@ class HeifImageHandle:
         chroma: HeifChroma = HeifChroma.InterleavedRGB,
         options: HeifDecodingOptions | None = None,
         num_threads: int | None = None,
+        target_colorspace: str | bytes | None = None,
+        intent: Any = 0,
+        bpc: bool = True,
+        prefer_nclx: bool = False,
     ) -> HeifImage: ...
     def get_image_tiling(
         self, process_transformations: bool = True
@@ -500,6 +505,24 @@ class HeifImageHandle:
     @property
     def gain_map_ids(self) -> list[int]: ...
     def get_gain_map_handle(self) -> HeifImageHandle: ...
+    def get_gain_map_image_handle(self) -> HeifImageHandle: ...
+    def get_gain_map_metadata(self) -> Any: ...
+    def decode_gain_map(self) -> Any: ...
+    def reconstruct_hdr(
+        self,
+        target_headroom: float | None = None,
+        output_format: str = "linear",
+        display_boost: float | None = None,
+    ) -> Any: ...
+    def get_color_profile_bytes(self, prefer_nclx: bool = False) -> bytes: ...
+    def get_color_profile_info(self, prefer_nclx: bool = False) -> dict[str, Any]: ...
+    def decode_to_srgb(
+        self,
+        intent: Any = 0,
+        bpc: bool = True,
+        as_pillow: bool = False,
+        prefer_nclx: bool = False,
+    ) -> Any: ...
     def decode_depth(self) -> numpy.ndarray: ...
     @property
     def number_of_thumbnails(self) -> int: ...

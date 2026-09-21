@@ -219,8 +219,9 @@ def get_profile_info(profile: Union[bytes, str]) -> Dict[str, Any]:
             info["color_space"] = p_obj.profile.xcolor_space.strip()
         if hasattr(p_obj.profile, "connection_space"):
             info["pcs"] = p_obj.profile.connection_space.strip()
-        if hasattr(p_obj.profile, "copyright"):
-            info["copyright"] = p_obj.profile.copyright.strip()
+        c = getattr(p_obj.profile, "copyright", None)
+        if c is not None:
+            info["copyright"] = str(c).strip()
     except Exception:
         # Fallback to direct ICC binary header inspection
         if len(p_bytes) >= 128:
@@ -258,18 +259,20 @@ def _get_cached_transform(
 
     src_p = ImageCms.ImageCmsProfile(io.BytesIO(src_bytes))
     dst_p = ImageCms.ImageCmsProfile(io.BytesIO(dst_bytes))
-    flags = 0
-    if bpc:
-        # cmsFLAGS_BLACKPOINTCOMPENSATION = 0x2000 in LittleCMS
-        flags |= 0x2000
+    intent_val: Any = (
+        ImageCms.Intent(intent) if hasattr(ImageCms, "Intent") else intent
+    )
+    flags_val: Any = (
+        ImageCms.Flags.BLACKPOINTCOMPENSATION if bpc else ImageCms.Flags.NONE
+    ) if hasattr(ImageCms, "Flags") else (0x2000 if bpc else 0)
 
     return ImageCms.buildTransform(
         src_p,
         dst_p,
         in_mode,
         out_mode,
-        renderingIntent=intent,
-        flags=flags,
+        renderingIntent=intent_val,
+        flags=flags_val,
     )
 
 

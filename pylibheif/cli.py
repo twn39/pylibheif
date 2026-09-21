@@ -1038,13 +1038,15 @@ def convert_cmd(
 
                     src_icc = pil_img.info.get("icc_profile")
                     if src_icc:
-                        pil_img = transform_colorspace(
+                        res = transform_colorspace(
                             pil_img,
                             src_profile=src_icc,
                             dst_profile="sRGB",
                             intent=intent,
                             as_pillow=True,
                         )
+                        if isinstance(res, Image.Image):
+                            pil_img = res
 
                 if target_fmt in ("heic", "avif"):
                     comp_fmt = (
@@ -1062,12 +1064,12 @@ def convert_cmd(
                     encoder.encode_image(out_ctx, heif_img, preset=preset)
                     out_ctx.write_to_file(str(target))
                 else:
-                    save_kwargs = {}
                     if target_fmt == "jpeg":
-                        save_kwargs["quality"] = quality
                         if pil_img.mode in ("RGBA", "P"):
                             pil_img = pil_img.convert("RGB")
-                    pil_img.save(str(target), **save_kwargs)
+                        pil_img.save(str(target), quality=quality)
+                    else:
+                        pil_img.save(str(target))
 
     except Exception as e:
         typer.echo(f"Conversion failed: {e}", err=True)

@@ -8,9 +8,9 @@ if importlib.util.find_spec("PIL") is None:
         "Please install it via: pip install 'pylibheif[pillow]' or pip install pillow"
     )
 
+from ..color import DISPLAY_P3_ICC_BYTES
 from .convert import from_pillow, to_pillow
 from .metadata import (
-    DISPLAY_P3_ICC_BYTES,
     extract_metadata_to_info,
     normalize_exif_for_pillow,
     pack_exif_for_heif,

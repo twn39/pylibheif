@@ -1,17 +1,13 @@
 import io
 import pytest
-import numpy as np
 from PIL import Image
 
 from pylibheif import (
     HeifContext,
     HeifImage,
     HeifEncoder,
-    HeifTrack,
     HeifTrackType,
     HeifCompressionFormat,
-    HeifColorspace,
-    HeifChroma,
     AsyncHeifContext,
     register_pillow_opener,
 )
@@ -194,8 +190,8 @@ def test_pillow_animated_avif_roundtrip():
     # Read back with Pillow
     buf.seek(0)
     im = Image.open(buf)
-    assert im.is_animated is True
-    assert im.n_frames == 3
+    assert getattr(im, "is_animated", False) is True
+    assert getattr(im, "n_frames", 1) == 3
     assert im.tell() == 0
     assert im.info["loop"] == 0
     assert im.info["duration"] == 100
@@ -203,6 +199,7 @@ def test_pillow_animated_avif_roundtrip():
     # Check frame 0 pixel
     im.load()
     p0 = im.getpixel((10, 10))
+    assert isinstance(p0, tuple)
     assert abs(p0[0] - 255) < 15 and p0[1] < 15 and p0[2] < 15
 
     # Seek to frame 1
@@ -211,6 +208,7 @@ def test_pillow_animated_avif_roundtrip():
     assert im.info["duration"] == 150
     im.load()
     p1 = im.getpixel((10, 10))
+    assert isinstance(p1, tuple)
     assert p1[0] < 15 and abs(p1[1] - 255) < 15 and p1[2] < 15
 
     # Seek to frame 2
@@ -219,6 +217,7 @@ def test_pillow_animated_avif_roundtrip():
     assert im.info["duration"] == 200
     im.load()
     p2 = im.getpixel((10, 10))
+    assert isinstance(p2, tuple)
     assert p2[0] < 15 and p2[1] < 15 and abs(p2[2] - 255) < 15
 
     # Seek back to frame 0
@@ -226,6 +225,7 @@ def test_pillow_animated_avif_roundtrip():
     assert im.tell() == 0
     im.load()
     p0_again = im.getpixel((10, 10))
+    assert isinstance(p0_again, tuple)
     assert abs(p0_again[0] - 255) < 15
 
     # Seek out of bounds raises EOFError
@@ -253,13 +253,14 @@ def test_pillow_animated_rgba_avif():
     buf.seek(0)
 
     im = Image.open(buf)
-    assert im.is_animated is True
-    assert im.n_frames == 2
+    assert getattr(im, "is_animated", False) is True
+    assert getattr(im, "n_frames", 1) == 2
     assert im.mode == "RGBA"
 
     im.seek(0)
     im.load()
     p0 = im.getpixel((5, 5))
+    assert isinstance(p0, tuple)
     assert p0[3] > 0  # Alpha channel is preserved
 
     im.close()
@@ -280,6 +281,6 @@ def test_non_sequence_file_safety():
 
     buf.seek(0)
     pil_img = Image.open(buf)
-    assert pil_img.is_animated is False
-    assert pil_img.n_frames == 1
+    assert getattr(pil_img, "is_animated", False) is False
+    assert getattr(pil_img, "n_frames", 1) == 1
     pil_img.close()

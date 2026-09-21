@@ -1,7 +1,6 @@
 """Tests for primary image designation, container brands customization, and lock-free preset concurrency."""
 
 import concurrent.futures
-import io
 import pytest
 import numpy as np
 
@@ -12,8 +11,6 @@ from pylibheif import (
     HeifImage,
     HeifEncoder,
     HeifCompressionFormat,
-    HeifColorspace,
-    HeifChroma,
 )
 
 
@@ -30,7 +27,7 @@ def test_set_primary_image():
     img1 = make_test_image(80, 60, 50)
     img2 = make_test_image(40, 30, 200)
 
-    h1 = encoder.encode_image(ctx, img1)
+    _ = encoder.encode_image(ctx, img1)
     h2 = encoder.encode_image(ctx, img2)
 
     # Initial primary is the first image added (80x60)
@@ -66,7 +63,7 @@ async def test_async_set_primary_image():
     img1 = make_test_image(64, 64, 100)
     img2 = make_test_image(32, 32, 220)
 
-    h1 = encoder.encode_image(ctx, img1)
+    _ = encoder.encode_image(ctx, img1)
     h2 = encoder.encode_image(ctx, img2)
 
     async_ctx = AsyncHeifContext(ctx)

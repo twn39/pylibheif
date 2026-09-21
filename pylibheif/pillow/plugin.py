@@ -1,7 +1,7 @@
 """Pillow ImagePlugin implementation for HEIF/AVIF image formats."""
 
 import os
-from typing import IO, Union, Optional, List, Any, Dict
+from typing import IO, Union, Optional, List, Any
 import numpy as np
 from PIL import Image, ImageFile
 
@@ -12,6 +12,7 @@ from .._pylibheif import (
     HeifCompressionFormat,
     HeifContext,
     HeifEncoder,
+    HeifImage,
     HeifImageHandle,
     HeifTrackType,
 )
@@ -279,7 +280,7 @@ class HeifImageFile(ImageFile.ImageFile):
                 from ..color import nclx_to_icc_profile
 
                 class _DummyNclx:
-                    pass
+                    color_primaries: Any = 1
 
                 d = _DummyNclx()
                 d.color_primaries = nclx_dict.get("color_primaries", 1)
@@ -295,9 +296,11 @@ class HeifImageFile(ImageFile.ImageFile):
             bpc=bpc,
             as_pillow=True,
         )
-        transformed.info.update(self.info)
-        transformed.info["icc_profile"] = resolve_profile_bytes(target_profile)
-        return transformed
+        if isinstance(transformed, Image.Image):
+            transformed.info.update(self.info)
+            transformed.info["icc_profile"] = resolve_profile_bytes(target_profile)
+            return transformed
+        return Image.fromarray(transformed)
 
     def close(self) -> None:
         self._frames.clear()
@@ -371,7 +374,7 @@ def _save(
     elif (save_all or getattr(im, "is_animated", False)) and getattr(im, "n_frames", 1) > 1:
         all_frames = []
         curr = im.tell()
-        for i in range(im.n_frames):
+        for i in range(getattr(im, "n_frames", 1)):
             im.seek(i)
             all_frames.append(im.copy())
         im.seek(curr)

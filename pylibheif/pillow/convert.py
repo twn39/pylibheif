@@ -95,14 +95,14 @@ def to_pillow(
                 from ..color import nclx_to_icc_profile
 
                 class _DummyNclx:
-                    pass
+                    color_primaries: Any = 1
 
                 d = _DummyNclx()
                 d.color_primaries = nclx_dict.get("color_primaries", 1)
                 src_profile = nclx_to_icc_profile(d)
 
         orig_info = dict(pil_image.info)
-        pil_image = transform_colorspace(
+        res = transform_colorspace(
             pil_image,
             src_profile=src_profile or "sRGB",
             dst_profile=target_colorspace,
@@ -110,8 +110,10 @@ def to_pillow(
             bpc=bpc,
             as_pillow=True,
         )
-        pil_image.info.update(orig_info)
-        pil_image.info["icc_profile"] = resolve_profile_bytes(target_colorspace)
+        if isinstance(res, Image.Image):
+            pil_image = res
+            pil_image.info.update(orig_info)
+            pil_image.info["icc_profile"] = resolve_profile_bytes(target_colorspace)
 
     return pil_image
 

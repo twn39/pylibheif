@@ -167,6 +167,7 @@ __all__ = [
     "RenderingIntent",
     "get_profile_info",
     "nclx_to_icc_profile",
+    "resolve_profile_bytes",
     "transform_colorspace",
     "__version__",
     "__doc__",
@@ -1012,8 +1013,7 @@ class AsyncHeifContext:
         timescale: int = 1000,
     ) -> "AsyncHeifTrack":
         """Add a visual sequence track to the context for encoding."""
-        tt = track_type.value if hasattr(track_type, "value") else track_type
-        track = self._ctx.add_visual_sequence_track(width, height, tt, timescale)
+        track = self._ctx.add_visual_sequence_track(width, height, track_type, timescale)
         return AsyncHeifTrack(track, executor=self._executor)
 
     async def add_visual_sequence_track_async(
@@ -1024,13 +1024,12 @@ class AsyncHeifContext:
         timescale: int = 1000,
     ) -> "AsyncHeifTrack":
         """Asynchronously add a visual sequence track."""
-        tt = track_type.value if hasattr(track_type, "value") else track_type
         track = await _run_in_executor(
             self._executor,
             self._ctx.add_visual_sequence_track,
             width,
             height,
-            tt,
+            track_type,
             timescale,
         )
         return AsyncHeifTrack(track, executor=self._executor)
