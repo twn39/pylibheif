@@ -302,9 +302,13 @@ def _handle_decode_to_srgb(
 
 def install_handle_extensions() -> None:
     """Attach dynamic convenience properties and methods to C++ classes."""
-    HeifEncoder.parameters = property(get_encoder_parameters)
-    HeifImageHandle.thumbnails = property(
-        lambda self: [self.get_thumbnail(tid) for tid in self.get_thumbnail_ids()]
+    setattr(HeifEncoder, "parameters", property(get_encoder_parameters))
+    setattr(
+        HeifImageHandle,
+        "thumbnails",
+        property(
+            lambda self: [self.get_thumbnail(tid) for tid in self.get_thumbnail_ids()]
+        ),
     )
     setattr(HeifImageHandle, "to_pillow", to_pillow)
     setattr(HeifImage, "to_pillow", to_pillow)

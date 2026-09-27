@@ -53,7 +53,6 @@ from ._pylibheif import (
     get_libheif_version_number,
     set_default_encoder_preset,
     set_default_num_threads,
-    __doc__,
 )
 
 __version__ = "1.24.0"

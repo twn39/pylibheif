@@ -273,7 +273,8 @@ def test_pillow_depth_map_passthrough_and_lifecycle():
 
     # Trigger im.load() (ensuring context is NOT closed early)
     im.load()
-    assert im.getpixel((0, 0))[:3] == (120, 120, 120)
+    px = im.getpixel((0, 0))
+    assert isinstance(px, tuple) and px[:3] == (120, 120, 120)
 
     # Decode depth map AFTER im.load()
     depth_arr = depth.decode()
