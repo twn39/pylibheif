@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import enum
 import functools
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -229,6 +229,14 @@ class DepthMap:
 
         return norm_arr
 
+    def decode_image(self) -> Any:
+        """Decode depth image and return as a native HeifImage instance."""
+        from ._pylibheif import HeifChroma, HeifColorspace
+
+        return self._aux_handle.decode(
+            HeifColorspace.Monochrome, HeifChroma.Monochrome
+        )
+
     def to_metric_depth(self) -> Optional[np.ndarray]:
         """Compute true physical metric distance matrix Z (in meters) as float32.
 
@@ -266,11 +274,18 @@ class DepthMap:
 
         return None
 
-    def to_pillow(self, colormap: Optional[str] = "turbo") -> Any:
+    def to_pillow(
+        self,
+        colormap: Optional[str] = "turbo",
+        size: Optional[Tuple[int, int]] = None,
+        resample: Any = None,
+    ) -> Any:
         """Render depth map as a Pillow Image with zero external dependencies.
 
         Args:
             colormap: 'turbo' (default, high contrast), 'inferno', 'viridis', or 'grayscale'/'none'.
+            size: Optional (width, height) to resize the output depth image to match master image dimensions.
+            resample: Optional PIL resampling filter (defaults to BILINEAR if size is specified).
         """
         try:
             from PIL import Image
@@ -287,17 +302,23 @@ class DepthMap:
         if cmap_lower in ("turbo", "google_turbo"):
             p_img = img.convert("P")
             p_img.putpalette(TURBO_PALETTE)
-            return p_img.convert("RGB")
+            res = p_img.convert("RGB")
         elif cmap_lower == "inferno":
             p_img = img.convert("P")
             p_img.putpalette(INFERNO_PALETTE)
-            return p_img.convert("RGB")
+            res = p_img.convert("RGB")
         elif cmap_lower == "viridis":
             p_img = img.convert("P")
             p_img.putpalette(VIRIDIS_PALETTE)
-            return p_img.convert("RGB")
+            res = p_img.convert("RGB")
         else:
-            return img
+            res = img
+
+        if size is not None and (res.width, res.height) != size:
+            resample_filter = resample if resample is not None else Image.Resampling.BILINEAR
+            res = res.resize(size, resample=resample_filter)
+
+        return res
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialize depth map metadata to dictionary."""
@@ -327,14 +348,26 @@ def extract_depth_map(handle: Any) -> Optional[DepthMap]:
     if handle is None:
         return None
     try:
-        if not getattr(handle, "has_depth_image", False):
-            return None
-        ids = handle.get_depth_image_ids()
-        if not ids:
-            return None
-        item_id = ids[0]
-        aux_handle = handle.get_depth_image_handle(item_id)
-        return DepthMap(master_handle=handle, aux_handle=aux_handle, item_id=item_id)
+        # 1. Standard HEIF depth track query
+        if getattr(handle, "has_depth_image", False):
+            ids = handle.get_depth_image_ids()
+            if ids:
+                item_id = ids[0]
+                aux_handle = handle.get_depth_image_handle(item_id)
+                return DepthMap(master_handle=handle, aux_handle=aux_handle, item_id=item_id)
+
+        # 2. Auxiliary track query for standard MPEG depth or Apple depth URNs
+        if hasattr(handle, "get_auxiliary_image_ids"):
+            for aid in handle.get_auxiliary_image_ids():
+                aux_h = handle.get_auxiliary_image_handle(aid)
+                atype = aux_h.get_auxiliary_type().lower()
+                if (
+                    "depth" in atype
+                    or "auxid:1" in atype
+                    or "disparity" in atype
+                ):
+                    return DepthMap(master_handle=handle, aux_handle=aux_h, item_id=aid)
+        return None
     except Exception:
         return None
 
@@ -451,6 +484,16 @@ class AsyncDepthMap:
             invert_if_disparity,
         )
 
+    def decode_image(self) -> Any:
+        return self._sync_depth_map.decode_image()
+
+    async def decode_image_async(self) -> Any:
+        from ._concurrency import _run_in_executor
+
+        return await _run_in_executor(
+            self._executor, self._sync_depth_map.decode_image
+        )
+
     def to_metric_depth(self) -> Optional[np.ndarray]:
         return self._sync_depth_map.to_metric_depth()
 
@@ -461,14 +504,30 @@ class AsyncDepthMap:
             self._executor, self._sync_depth_map.to_metric_depth
         )
 
-    def to_pillow(self, colormap: Optional[str] = "turbo") -> Any:
-        return self._sync_depth_map.to_pillow(colormap=colormap)
+    def to_pillow(
+        self,
+        colormap: Optional[str] = "turbo",
+        size: Optional[Tuple[int, int]] = None,
+        resample: Any = None,
+    ) -> Any:
+        return self._sync_depth_map.to_pillow(
+            colormap=colormap, size=size, resample=resample
+        )
 
-    async def to_pillow_async(self, colormap: Optional[str] = "turbo") -> Any:
+    async def to_pillow_async(
+        self,
+        colormap: Optional[str] = "turbo",
+        size: Optional[Tuple[int, int]] = None,
+        resample: Any = None,
+    ) -> Any:
         from ._concurrency import _run_in_executor
 
         return await _run_in_executor(
-            self._executor, self._sync_depth_map.to_pillow, colormap
+            self._executor,
+            self._sync_depth_map.to_pillow,
+            colormap,
+            size,
+            resample,
         )
 
     def to_dict(self) -> Dict[str, Any]:

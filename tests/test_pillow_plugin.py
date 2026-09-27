@@ -235,3 +235,79 @@ def test_multi_frame_support():
     # Seek out of bounds
     with pytest.raises(EOFError):
         im.seek(2)
+
+
+def test_pillow_depth_map_passthrough_and_lifecycle():
+    """Test that Image.open populates depth_map in info and context is safely held after load()."""
+    register_heif_opener()
+
+    # Create synthetic image with auxiliary depth channel
+    ctx = pylibheif.HeifContext()
+    enc = pylibheif.HeifEncoder(pylibheif.HeifCompressionFormat.HEVC)
+
+    master_img = pylibheif.HeifImage(64, 48, pylibheif.HeifColorspace.RGB, pylibheif.HeifChroma.InterleavedRGB)
+    master_img.add_plane(pylibheif.HeifChannel.Interleaved, 64, 48, 8)
+    master_plane = np.asarray(master_img.get_plane(pylibheif.HeifChannel.Interleaved))
+    master_plane.fill(120)
+
+    depth_img = pylibheif.HeifImage(32, 24, pylibheif.HeifColorspace.Monochrome, pylibheif.HeifChroma.Monochrome)
+    depth_img.add_plane(pylibheif.HeifChannel.Y, 32, 24, 8)
+    depth_plane = np.asarray(depth_img.get_plane(pylibheif.HeifChannel.Y))
+    depth_plane.fill(80)
+
+    m_handle = enc.encode_image(ctx, master_img)
+    d_handle = enc.encode_image(ctx, depth_img)
+    ctx.assign_auxiliary_image(m_handle, d_handle, "urn:mpeg:hevc:2015:auxid:1")
+
+    data = ctx.write_to_bytes()
+
+    # Open via Pillow
+    im = Image.open(io.BytesIO(data))
+    assert im.info.get("has_depth_image") is True
+    assert "depth_map" in im.info
+    assert "depth_metadata" in im.info
+
+    depth = im.info["depth_map"]
+    assert depth.width == 32
+    assert depth.height == 24
+
+    # Trigger im.load() (ensuring context is NOT closed early)
+    im.load()
+    assert im.getpixel((0, 0))[:3] == (120, 120, 120)
+
+    # Decode depth map AFTER im.load()
+    depth_arr = depth.decode()
+    assert depth_arr.shape == (24, 32)
+    assert depth_arr[0, 0] == 80
+
+    # Test to_pillow with colormap and resizing to master image size (64, 48)
+    depth_pil = depth.to_pillow(colormap="turbo", size=im.size)
+    assert depth_pil.size == (64, 48)
+    assert depth_pil.mode == "RGB"
+
+    # Clean close
+    im.close()
+
+
+def test_pillow_save_depth_map_roundtrip():
+    """Test saving an image with depth_map via Pillow's Image.save()."""
+    register_heif_opener()
+
+    base = Image.new("RGB", (64, 64), (100, 200, 50))
+    depth = Image.new("L", (32, 32), 160)
+
+    out_buf = io.BytesIO()
+    base.save(out_buf, format="HEIF", depth_map=depth, quality=90)
+    out_buf.seek(0)
+
+    # Re-open and verify depth_map is attached
+    reopened = Image.open(out_buf)
+    assert reopened.info.get("has_depth_image") is True
+    assert "depth_map" in reopened.info
+
+    reopened_depth = reopened.info["depth_map"]
+    assert reopened_depth.width == 32
+    assert reopened_depth.height == 32
+    arr = reopened_depth.decode()
+    assert arr.shape == (32, 32)
+    reopened.close()

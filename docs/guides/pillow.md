@@ -88,19 +88,53 @@ img.save(
 
 ---
 
-## Auxiliary Image Extraction (Depth & Gain Maps)
+## Auxiliary Image Extraction & Saving (Depth & Gain Maps)
 
-HEIF files often bundle auxiliary tracks such as depth maps or Apple HDR gain maps. When using Pillow:
+HEIF files often bundle auxiliary tracks such as metric depth maps, Apple portrait segmentation masks, or HDR gain maps. When using Pillow, these auxiliary channels are accessible directly on `img.info`:
 
 ```python
 with Image.open("portrait.heic") as img:
-    # Check for depth map
-    if "depth_image" in img.info:
-        depth_pil = img.info["depth_image"]
-        depth_pil.save("depth.png")
+    # 1. Check for Depth Map
+    if img.info.get("has_depth_image"):
+        depth = img.info["depth_map"]
+        print(f"Depth dimensions: {depth.width}x{depth.height}")
+        print("Depth metadata:", img.info.get("depth_metadata"))
 
-    # Check for gain map
-    if "gain_map" in img.info:
+        # Convert to real-world metric depth (float32 meters) if calibrated
+        if depth.info and depth.info.has_metric_depth:
+            metric_depth = depth.to_metric_depth()
+
+        # Render high-contrast scientific pseudocolor (Turbo colormap)
+        # Automatically resize to match master photo dimensions (size=img.size)
+        depth_pil = depth.to_pillow(colormap="turbo", size=img.size)
+        depth_pil.save("depth_turbo.png")
+
+    # 2. Check for Apple Portrait Matte (hair/subject segmentation alpha)
+    if img.info.get("has_portrait_matte"):
+        matte = img.info["portrait_matte"]
+        matte_pil = matte.to_pillow(colormap="grayscale", size=img.size)
+        matte_pil.save("portrait_matte.png")
+
+    # 3. Check for HDR Gain Map
+    if img.info.get("has_gain_map") or "gain_map" in img.info:
         gain_map_pil = img.info["gain_map"]
         gain_map_pil.save("gain_map.png")
+```
+
+### Saving with Auxiliary Depth Maps
+
+You can save an image with an embedded depth map or portrait matte directly through `img.save()`:
+
+```python
+base_image = Image.open("portrait.png")
+depth_map = Image.open("depth_map.png").convert("L")
+
+# Save as HEIC with auxiliary depth track
+base_image.save(
+    "output_with_depth.heic",
+    format="HEIF",
+    quality=85,
+    depth_map=depth_map,
+    depth_map_quality=80
+)
 ```

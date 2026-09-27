@@ -167,4 +167,23 @@ def extract_metadata_to_info(handle: Any) -> Dict[str, Any]:
     except Exception:
         pass
 
+    # 7. Depth Map & Portrait Matte Detection
+    try:
+        depth_map_obj = getattr(handle, "depth_map", None)
+        if depth_map_obj is not None:
+            info["has_depth_image"] = True
+            info["depth_map"] = depth_map_obj
+            info["depth_metadata"] = depth_map_obj.to_dict()
+        else:
+            info["has_depth_image"] = False
+
+        portrait_matte_obj = getattr(handle, "portrait_matte", None)
+        if portrait_matte_obj is not None:
+            info["has_portrait_matte"] = True
+            info["portrait_matte"] = portrait_matte_obj
+        else:
+            info["has_portrait_matte"] = False
+    except Exception:
+        pass
+
     return info

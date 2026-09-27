@@ -75,6 +75,27 @@ def to_pillow(
                         info["gain_map_metadata"] = gm_meta
             except Exception:
                 pass
+
+        # Check for Depth Map
+        try:
+            depth_obj = getattr(handle, "depth_map", None)
+            if depth_obj is not None:
+                info["depth_map"] = depth_obj
+                info["depth_metadata"] = depth_obj.to_dict()
+                info["has_depth_image"] = True
+            else:
+                info["has_depth_image"] = False
+        except Exception:
+            pass
+
+        # Check for Portrait Matte
+        portrait_matte_obj = getattr(handle, "portrait_matte", None)
+        if portrait_matte_obj is not None:
+            try:
+                info["portrait_matte"] = portrait_matte_obj
+                info["has_portrait_matte"] = True
+            except Exception:
+                pass
     elif isinstance(source, HeifImage):
         heif_image = source
         has_alpha = bool(

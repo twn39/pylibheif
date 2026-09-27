@@ -241,7 +241,9 @@ class HeifImageFile(ImageFile.ImageFile):
             self.im = im.im
 
             # If single-frame, context and handle can be deterministically released
-            if not self.is_animated:
+            # ONLY IF no auxiliary channels (depth_map, portrait_matte) are held in info
+            has_aux = bool(self.info.get("has_depth_image") or self.info.get("has_portrait_matte"))
+            if not self.is_animated and not has_aux:
                 self._handle = None
                 if self._ctx is not None:
                     try:
@@ -643,6 +645,81 @@ def _save(
                 ctx.add_xmp_metadata(gm_handle, xmp_bytes)
             except Exception:
                 pass
+
+    # Attach Depth Map (Auxiliary Track)
+    depth_input = encoderinfo.get("depth_map") or im.info.get("depth_map")
+    if depth_input is not None:
+        if isinstance(depth_input, Image.Image):
+            if depth_input.mode in ("L", "I;16", "I"):
+                arr_d = np.asarray(depth_input)
+                depth_heif = HeifImage(
+                    depth_input.width,
+                    depth_input.height,
+                    HeifColorspace.Monochrome,
+                    HeifChroma.Monochrome,
+                )
+                b_depth = 16 if arr_d.dtype == np.uint16 else 8
+                depth_heif.add_plane(HeifChannel.Y, depth_input.width, depth_input.height, b_depth)
+                p = depth_heif.get_plane(HeifChannel.Y)
+                np.asarray(p)[:] = arr_d
+            else:
+                depth_heif, _ = from_pillow(depth_input)
+        elif isinstance(depth_input, np.ndarray):
+            if depth_input.ndim == 2:
+                h_d, w_d = depth_input.shape
+                depth_heif = HeifImage(
+                    w_d,
+                    h_d,
+                    HeifColorspace.Monochrome,
+                    HeifChroma.Monochrome,
+                )
+                b_depth = 16 if depth_input.dtype == np.uint16 else 8
+                depth_heif.add_plane(HeifChannel.Y, w_d, h_d, b_depth)
+                p = depth_heif.get_plane(HeifChannel.Y)
+                np.asarray(p)[:] = depth_input
+            else:
+                depth_heif = HeifImage.from_numpy(depth_input)
+        elif hasattr(depth_input, "decode_image"):
+            depth_heif = depth_input.decode_image()
+        elif isinstance(depth_input, HeifImage):
+            depth_heif = depth_input
+        else:
+            raise TypeError(f"Unsupported depth_map type: {type(depth_input)}")
+
+        depth_quality = encoderinfo.get("depth_map_quality", quality)
+        depth_encoder = HeifEncoder(compression, preset=str(preset) if preset else "")
+        if lossless:
+            depth_encoder.set_lossless(True)
+        else:
+            depth_encoder.set_lossy_quality(int(depth_quality))
+
+        depth_handle = depth_encoder.encode_image(ctx, depth_heif)
+        depth_urn = encoderinfo.get("depth_urn") or "urn:mpeg:hevc:2015:auxid:1"
+        ctx.assign_auxiliary_image(handle, depth_handle, str(depth_urn))
+
+    # Attach Portrait Matte (Auxiliary Track)
+    matte_input = encoderinfo.get("portrait_matte") or im.info.get("portrait_matte")
+    if matte_input is not None:
+        if isinstance(matte_input, Image.Image):
+            matte_heif, _ = from_pillow(matte_input)
+        elif isinstance(matte_input, np.ndarray):
+            matte_heif = HeifImage.from_numpy(matte_input)
+        elif hasattr(matte_input, "decode_image"):
+            matte_heif = matte_input.decode_image()
+        elif isinstance(matte_input, HeifImage):
+            matte_heif = matte_input
+        else:
+            raise TypeError(f"Unsupported portrait_matte type: {type(matte_input)}")
+
+        matte_encoder = HeifEncoder(compression, preset=str(preset) if preset else "")
+        if lossless:
+            matte_encoder.set_lossless(True)
+        else:
+            matte_encoder.set_lossy_quality(int(quality))
+
+        matte_handle = matte_encoder.encode_image(ctx, matte_heif)
+        matte_urn = encoderinfo.get("portrait_matte_urn") or "urn:com:apple:photo:2018:aux:portraitmatte"
+        ctx.assign_auxiliary_image(handle, matte_handle, str(matte_urn))
 
     if isinstance(fp, io.BytesIO):
         mv = ctx.write_to_memoryview()
