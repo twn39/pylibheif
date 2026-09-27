@@ -58,6 +58,9 @@ heif convert input.jpg output.heic --preset balanced --quality 85
 
 # Convert with specific color space conversion
 heif convert input.heic output.png --srgb
+
+# Extract embedded depth map or portrait matte alongside conversion
+heif convert input.heic output.jpg --extract-depth depth_map.png
 ```
 
 ### Supported Speed Presets

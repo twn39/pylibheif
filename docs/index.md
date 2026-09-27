@@ -19,6 +19,9 @@ Built on C++17 and [`nanobind`](https://nanobind.readthedocs.io/), `pylibheif` a
   - Full NCLX color primatives, transfer characteristics, and matrix coefficients parsing.
   - ICC profile extraction, validation, and synthesis (sRGB, Display P3, Adobe RGB, Rec.2020).
   - ISO 21496-1 and Apple Ultra HDR Gain Map decoding, metadata parsing, and tone-mapping reconstruction.
+- 📐 **Depth Maps & Auxiliary Imagery**:
+  - First-class `DepthMap` domain entity with metric distance conversion (ISO/IEC 23008-12 / ITU-T H.265).
+  - Microsecond zero-dependency pseudocolor colormaps (Turbo, Inferno, Viridis) and Apple portrait matte extraction.
 - 🖼️ **First-Class Pillow Integration**:
   - Transparent opener and saver plugin (`register_pillow_opener()`).
   - Seamless bidirectional array conversions (`to_pillow()` / `from_pillow()`).

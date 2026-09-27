@@ -11,39 +11,50 @@ This tutorial demonstrates how to read, visualize, process, and write auxiliary 
 
 ## 1. Extracting and Visualizing Depth Maps
 
-When Apple iPhones take photos in Portrait Mode, the depth map is stored as an auxiliary channel with `urn:mpeg:hevc:2015:auxid:1` (or Apple's proprietary portrait depth URN).
+`pylibheif` provides a first-class `DepthMap` domain entity accessible directly on image handles via `handle.depth_map`. It encapsulates decoding, physical unit conversion (ISO/IEC 23008-12 / ITU-T H.265), and microsecond pseudocolor visualization without requiring OpenCV or Matplotlib.
 
 ```python
 import pylibheif
 import numpy as np
-from PIL import Image
 
 ctx = pylibheif.HeifContext()
 ctx.read_from_file("portrait_photo.heic")
 master_handle = ctx.get_primary_image_handle()
 
-# Check for depth map
-if master_handle.has_depth_image:
-    print("Found portrait depth map!")
-    
-    # Retrieve depth handle
-    depth_handle = master_handle.get_depth_image_handle()
+# Check for depth map via domain property
+if master_handle.depth_map is not None:
+    depth = master_handle.depth_map
     print(f"Master size: {master_handle.width}x{master_handle.height}")
-    print(f"Depth size:  {depth_handle.width}x{depth_handle.height}")
+    print(f"Depth size:  {depth.info.width}x{depth.info.height}")
+    print(f"Bit depth:   {depth.info.bit_depth} bits")
+    print(f"Type:        {depth.representation_type.name}")
 
-    # Decode depth map to monochrome pixel plane
-    depth_image = depth_handle.decode(
-        pylibheif.HeifColorspace.Monochrome,
-        pylibheif.HeifChroma.Monochrome
-    )
-    
-    # Zero-copy conversion into a NumPy 2D array
-    depth_plane = depth_image.get_plane(pylibheif.HeifChannel.Y)
-    depth_array = np.asarray(depth_plane)
-    
-    # Save as grayscale visualization image
-    depth_vis = Image.fromarray(depth_array)
-    depth_vis.save("extracted_depth.png")
+    # Inspect physical metric depth range (if calibrated metadata is present)
+    if depth.info.has_metric_depth:
+        print(f"Physical range: {depth.info.near_distance:.2f}m ~ {depth.info.far_distance:.2f}m")
+        # Convert to real-world metric distance in meters (float32 2D ndarray)
+        metric_depth = depth.to_metric_depth()
+        print(f"Center pixel distance: {metric_depth[depth.info.height // 2, depth.info.width // 2]:.2f} meters")
+
+    # 1. Decode to normalized float32 [0.0, 1.0] NumPy array (0=closest, 1=farthest)
+    depth_array = depth.decode(normalize=True)
+
+    # 2. Render directly to a PIL Image with high-contrast scientific pseudocolor
+    # Supported colormaps: "turbo" (default), "inferno", "viridis", "grayscale"
+    # Zero external dependencies: uses precomputed 768-byte palette LUT (<0.1ms)
+    depth_pil = depth.to_pillow(colormap="turbo")
+    depth_pil.save("extracted_depth_turbo.png")
+```
+
+### Apple Portrait Matte Masks
+
+For photos captured on iPhones with Apple portrait segmentation, access the alpha subject matte directly via `handle.portrait_matte`:
+
+```python
+if master_handle.portrait_matte is not None:
+    matte_image = master_handle.portrait_matte.decode()
+    matte_pil = master_handle.portrait_matte.to_pillow(colormap="grayscale")
+    matte_pil.save("portrait_matte.png")
 ```
 
 ---
@@ -64,21 +75,20 @@ master = ctx.get_primary_image_handle()
 color_img = master.decode(pylibheif.HeifColorspace.RGB, pylibheif.HeifChroma.InterleavedRGB24)
 color_array = np.asarray(color_img.get_plane(pylibheif.HeifChannel.Interleaved))
 
-# 2. Decode depth map and resize to match color dimensions
-depth = master.get_depth_image_handle()
-depth_img = depth.decode(pylibheif.HeifColorspace.Monochrome, pylibheif.HeifChroma.Monochrome)
-depth_array = np.asarray(depth_img.get_plane(pylibheif.HeifChannel.Y))
+# 2. Decode normalized depth map directly using DepthMap entity
+# Returns float32 array in [0.0, 1.0] where 0.0=foreground, 1.0=background
+depth_array = master.depth_map.decode(normalize=True)
 depth_resized = cv2.resize(depth_array, (master.width, master.height))
 
 # 3. Create depth-of-field blur mask
-# Pixels further away (lower/higher depth values depending on camera) receive more blur
-blurred_bg = cv2.GaussianBlur(color_array, (25, 25), 0)
+# Pixels further away (higher normalized values) receive full Gaussian blur
+blurred_bg = cv2.GaussianBlur(color_array, (31, 31), 0)
 
-# Normalize depth mask to 0.0 - 1.0 float
-alpha_mask = (depth_resized.astype(np.float32) / 255.0)[:, :, np.newaxis]
+# Reshape mask for 3-channel alpha blending
+alpha_mask = depth_resized[:, :, np.newaxis]
 
 # Alpha blend: in-focus foreground + blurred background
-bokeh_result = (color_array * alpha_mask + blurred_bg * (1.0 - alpha_mask)).astype(np.uint8)
+bokeh_result = (color_array * (1.0 - alpha_mask) + blurred_bg * alpha_mask).astype(np.uint8)
 
 cv2.imwrite("portrait_bokeh.jpg", cv2.cvtColor(bokeh_result, cv2.COLOR_RGB2BGR))
 ```

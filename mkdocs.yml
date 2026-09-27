@@ -97,5 +97,6 @@ nav:
       - Encoders & Presets: api/encoder.md
       - Asynchronous API: api/async.md
       - Color & Gain Map: api/color.md
+      - Depth & Auxiliary: api/depth.md
       - Pillow Extensions: api/pillow.md
       - Exceptions: api/errors.md
