@@ -21,9 +21,9 @@ from .color import (
     transform_colorspace,
 )
 from .gain_map import (
+    GainMap,
     GainMapMetadata,
-    parse_gain_map_metadata,
-    reconstruct_hdr,
+    extract_gain_map,
 )
 
 # --- Pillow (PIL) Interoperability ---
@@ -95,14 +95,19 @@ def unregister_pillow_opener() -> None:
 # Attach convenience methods to C++ classes
 
 
+def _handle_get_gain_map(self: HeifImageHandle) -> Optional[GainMap]:
+    """Retrieve the primary GainMap domain entity, or None if absent."""
+    return extract_gain_map(self)
+
+
 def _handle_get_gain_map_ids(self: HeifImageHandle) -> List[int]:
     """Find all auxiliary image IDs corresponding to HDR Gain Maps."""
     gain_ids = []
     for aid in self.get_auxiliary_image_ids():
         try:
             aux_handle = self.get_auxiliary_image_handle(aid)
-            atype = aux_handle.get_auxiliary_type()
-            if "gainmap" in atype.lower() or "21496" in atype:
+            atype = aux_handle.get_auxiliary_type().lower()
+            if "gainmap" in atype or "21496" in atype or "hdrgainmap" in atype:
                 gain_ids.append(aid)
         except Exception:
             pass
@@ -110,61 +115,30 @@ def _handle_get_gain_map_ids(self: HeifImageHandle) -> List[int]:
 
 
 def _handle_has_gain_map(self: HeifImageHandle) -> bool:
-    return len(_handle_get_gain_map_ids(self)) > 0
+    """Return True if image handle has an associated Gain Map."""
+    return self.gain_map is not None
 
 
 def _handle_get_gain_map_handle(self: HeifImageHandle) -> HeifImageHandle:
-    ids = _handle_get_gain_map_ids(self)
-    if not ids:
+    """Return auxiliary image handle for the Gain Map."""
+    gm = self.gain_map
+    if gm is None:
         raise ValueError("Image handle does not contain a Gain Map")
-    return self.get_auxiliary_image_handle(ids[0])
+    return gm.aux_handle
 
 
 def _handle_get_gain_map_metadata(self: HeifImageHandle) -> Optional[GainMapMetadata]:
     """Extract Gain Map metadata from XMP packet attached to gain map or master image."""
-    if not _handle_has_gain_map(self):
-        return None
-
-    # 1. First check gain map auxiliary handle XMP
-    try:
-        gm_handle = _handle_get_gain_map_handle(self)
-        for mid in gm_handle.get_metadata_block_ids():
-            mtype = gm_handle.get_metadata_block_type(mid).lower()
-            if "xml" in mtype or "xmp" in mtype or "mime" in mtype:
-                block = gm_handle.get_metadata_block(mid)
-                meta = parse_gain_map_metadata(block)
-                if meta is not None:
-                    return meta
-    except Exception:
-        pass
-
-    # 2. Check master handle XMP
-    try:
-        for mid in self.get_metadata_block_ids():
-            mtype = self.get_metadata_block_type(mid).lower()
-            if "xml" in mtype or "xmp" in mtype or "mime" in mtype:
-                block = self.get_metadata_block(mid)
-                meta = parse_gain_map_metadata(block)
-                if meta is not None:
-                    return meta
-    except Exception:
-        pass
-
-    # 3. Default fallback if gain map image exists but metadata is absent
-    return GainMapMetadata.from_scalar(max_boost_stops=2.0)
+    gm = self.gain_map
+    return gm.metadata if gm is not None else None
 
 
 def _handle_decode_gain_map(self: HeifImageHandle) -> Any:
     """Decode primary gain map image and return as a numpy array in range [0, 1]."""
-    gm_handle = _handle_get_gain_map_handle(self)
-    decoded = gm_handle.decode(HeifColorspace.RGB, HeifChroma.InterleavedRGB)
-    plane = decoded.get_plane(HeifChannel.Interleaved)
-    import numpy as np
-
-    arr = np.asarray(plane).astype(np.float32)
-    if arr.max() > 1.0:
-        arr /= 255.0
-    return arr
+    gm = self.gain_map
+    if gm is None:
+        raise ValueError("Image handle does not contain a Gain Map")
+    return gm.decode()
 
 
 def _handle_reconstruct_hdr(
@@ -174,19 +148,10 @@ def _handle_reconstruct_hdr(
     display_boost: Optional[float] = None,
 ) -> Any:
     """Reconstruct an HDR image from this handle and its embedded Gain Map."""
-    if not _handle_has_gain_map(self):
+    gm = self.gain_map
+    if gm is None:
         raise ValueError("Image handle does not contain a Gain Map.")
-    sdr_img = self.decode()
-    plane = sdr_img.get_plane(HeifChannel.Interleaved)
-    import numpy as np
-
-    sdr_arr = np.asarray(plane)
-    gm_arr = _handle_decode_gain_map(self)
-    meta = _handle_get_gain_map_metadata(self)
-    return reconstruct_hdr(
-        sdr_arr,
-        gm_arr,
-        metadata=meta,
+    return gm.reconstruct(
         target_headroom=target_headroom,
         output_format=output_format,
         display_boost=display_boost,
@@ -332,6 +297,7 @@ def install_handle_extensions() -> None:
     setattr(HeifImage, "to_pillow", to_pillow)
     setattr(HeifImage, "from_pillow", staticmethod(from_pillow))
 
+    setattr(HeifImageHandle, "gain_map", property(_handle_get_gain_map))
     setattr(HeifImageHandle, "gain_map_ids", property(_handle_get_gain_map_ids))
     setattr(HeifImageHandle, "has_gain_map", property(_handle_has_gain_map))
     setattr(HeifImageHandle, "get_gain_map_handle", _handle_get_gain_map_handle)

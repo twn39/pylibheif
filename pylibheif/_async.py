@@ -25,7 +25,7 @@ from ._pylibheif import (
     HeifTrackType,
 )
 from .color import RenderingIntent
-from .gain_map import GainMapMetadata
+from .gain_map import AsyncGainMap, GainMapMetadata, extract_async_gain_map
 
 class AsyncHeifImageHandle:
     """Async wrapper for HeifImageHandle."""
@@ -232,52 +232,73 @@ class AsyncHeifImageHandle:
         return self._handle.get_depth_representation_info(id)
 
     @property
+    def gain_map(self) -> Optional[AsyncGainMap]:
+        """Asynchronous GainMap domain entity, or None if no gain map exists."""
+        return extract_async_gain_map(self)
+
+    @property
     def has_gain_map(self) -> bool:
-        return getattr(self._handle, "has_gain_map", False)
+        return self.gain_map is not None
 
     def get_gain_map_handle(self) -> "AsyncHeifImageHandle":
-        handle = self._handle.get_gain_map_handle()
-        return AsyncHeifImageHandle(handle, executor=self._executor)
+        gm = self.gain_map
+        if gm is None:
+            raise ValueError("Image handle does not contain a Gain Map")
+        return gm.aux_handle
 
     async def get_gain_map_handle_async(self) -> "AsyncHeifImageHandle":
-        handle = await _run_in_executor(
-            self._executor, self._handle.get_gain_map_handle
-        )
-        return AsyncHeifImageHandle(handle, executor=self._executor)
+        return self.get_gain_map_handle()
 
     def get_gain_map_metadata(self) -> Optional[GainMapMetadata]:
-        return self._handle.get_gain_map_metadata()
+        gm = self.gain_map
+        return gm.metadata if gm is not None else None
 
     async def get_gain_map_metadata_async(self) -> Optional[GainMapMetadata]:
-        return await _run_in_executor(
-            self._executor, self._handle.get_gain_map_metadata
-        )
+        gm = self.gain_map
+        if gm is None:
+            return None
+        return await gm.get_metadata_async()
 
     def decode_gain_map(self) -> Any:
-        return self._handle.decode_gain_map()
+        gm = self.gain_map
+        if gm is None:
+            raise ValueError("Image handle does not contain a Gain Map")
+        return gm.decode()
 
     async def decode_gain_map_async(self) -> Any:
-        return await _run_in_executor(self._executor, self._handle.decode_gain_map)
+        gm = self.gain_map
+        if gm is None:
+            raise ValueError("Image handle does not contain a Gain Map")
+        return await gm.decode_async()
 
     def reconstruct_hdr(
         self,
         target_headroom: Optional[float] = None,
         output_format: str = "linear",
+        display_boost: Optional[float] = None,
     ) -> Any:
-        return self._handle.reconstruct_hdr(
-            target_headroom=target_headroom, output_format=output_format
+        gm = self.gain_map
+        if gm is None:
+            raise ValueError("Image handle does not contain a Gain Map")
+        return gm.reconstruct(
+            target_headroom=target_headroom,
+            output_format=output_format,
+            display_boost=display_boost,
         )
 
     async def reconstruct_hdr_async(
         self,
         target_headroom: Optional[float] = None,
         output_format: str = "linear",
+        display_boost: Optional[float] = None,
     ) -> Any:
-        return await _run_in_executor(
-            self._executor,
-            self._handle.reconstruct_hdr,
-            target_headroom,
-            output_format,
+        gm = self.gain_map
+        if gm is None:
+            raise ValueError("Image handle does not contain a Gain Map")
+        return await gm.reconstruct_async(
+            target_headroom=target_headroom,
+            output_format=output_format,
+            display_boost=display_boost,
         )
 
     async def decode_depth(self) -> Any:

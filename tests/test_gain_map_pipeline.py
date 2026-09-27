@@ -404,3 +404,77 @@ def test_cli_info_and_convert_gain_map(tmp_path: Path) -> None:
     assert convert_res.exit_code == 0
     assert target_jpg.exists()
     assert extracted_gm.exists()
+
+
+@pytest.mark.asyncio
+async def test_gain_map_domain_entity_and_accessor(tmp_path: Path) -> None:
+    """Test standardized GainMap & AsyncGainMap domain entities and handle.gain_map accessor."""
+    out_file = tmp_path / "test_domain_gm.heic"
+
+    ctx = pylibheif.HeifContext()
+    enc = pylibheif.HeifEncoder(pylibheif.HeifCompressionFormat.HEVC)
+    sdr_img = pylibheif.HeifImage(64, 64, pylibheif.HeifColorspace.RGB, pylibheif.HeifChroma.InterleavedRGB)
+    sdr_img.add_plane(pylibheif.HeifChannel.Interleaved, 64, 64, 8)
+    master_handle = enc.encode_image(ctx, sdr_img, preset="ultrafast")
+
+    gm_img = pylibheif.HeifImage(32, 32, pylibheif.HeifColorspace.RGB, pylibheif.HeifChroma.InterleavedRGB)
+    gm_img.add_plane(pylibheif.HeifChannel.Interleaved, 32, 32, 8)
+    meta = GainMapMetadata(gain_map_max=(2.0, 2.0, 2.0))
+    aux_handle = enc.encode_image(ctx, gm_img, preset="ultrafast")
+    ctx.assign_auxiliary_image(master_handle, aux_handle, pylibheif.URN_GAIN_MAP_ISO_21496_1)
+    ctx.add_xmp_metadata(master_handle, meta.to_xmp("ISO"))
+
+    ctx.write_to_file(str(out_file))
+
+    # Synchronous verification
+    read_ctx = pylibheif.HeifContext()
+    read_ctx.read_from_file(str(out_file))
+    primary = read_ctx.get_primary_image_handle()
+
+    gm = primary.gain_map
+    assert gm is not None
+    assert gm.width == 32
+    assert gm.height == 32
+    assert gm.is_iso_standard is True
+    assert gm.is_apple_format is False
+    assert "pylibheif.GainMap" in repr(gm)
+    assert gm.master_handle is primary
+    assert gm.aux_handle is not None
+
+    # Cached metadata check
+    assert gm.metadata is not None
+    assert abs(gm.metadata.gain_map_max[0] - 2.0) < 1e-4
+
+    # Decode and reconstruct via domain entity
+    gm_arr = gm.decode()
+    assert gm_arr.shape == (32, 32, 3)
+
+    hdr_arr = gm.reconstruct(output_format="srgb_clip", display_boost=2.0)
+    assert hdr_arr.shape == (64, 64, 3)
+    assert hdr_arr.dtype == np.uint8
+
+    if HAS_PILLOW:
+        pil_im = gm.reconstruct_to_pillow(display_boost=2.0)
+        assert pil_im.size == (64, 64)
+
+    # Asynchronous verification
+    actx = pylibheif.AsyncHeifContext()
+    await actx.read_from_file(str(out_file))
+    aprimary = actx.get_primary_image_handle()
+
+    agm = aprimary.gain_map
+    assert agm is not None
+    assert agm.width == 32
+    assert agm.height == 32
+    assert agm.is_iso_standard is True
+    assert "pylibheif.AsyncGainMap" in repr(agm)
+
+    async_meta = await agm.get_metadata_async()
+    assert abs(async_meta.gain_map_max[0] - 2.0) < 1e-4
+
+    async_gm_arr = await agm.decode_async()
+    assert async_gm_arr.shape == (32, 32, 3)
+
+    async_hdr = await agm.reconstruct_async(output_format="srgb_clip", display_boost=2.0)
+    assert async_hdr.shape == (64, 64, 3)
+

@@ -10,7 +10,9 @@ Provides end-to-end support for:
 
 from __future__ import annotations
 
+import functools
 import math
+import struct
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional, Tuple, Union
@@ -169,8 +171,59 @@ class GainMapMetadata:
         return generate_gain_map_xmp(self, format_type=fmt)
 
 
+def parse_iso_21496_1_binary(data: bytes) -> Optional[GainMapMetadata]:
+    """Parse ISO 21496-1 binary metadata payload if present."""
+    if not isinstance(data, (bytes, bytearray, memoryview)):
+        return None
+    raw = bytes(data)
+    prefix = b"urn:iso:std:iso:ts:21496-1\x00"
+    if raw.startswith(prefix):
+        raw = raw[len(prefix) :]
+    elif raw.startswith(b"urn:iso:std:iso:ts:21496-1"):
+        raw = raw[len(b"urn:iso:std:iso:ts:21496-1") :].lstrip(b"\x00")
+
+    if len(raw) < 5:
+        return None
+    try:
+        # Header: min_writer_version (2B), min_reader_version (2B), flags (1B)
+        writer_ver, reader_ver, flags = struct.unpack_from(">HHB", raw, 0)
+        if reader_ver > 10:
+            return None
+        is_mono = bool(flags & 0x01)
+        offset = 5
+
+        def read_rational() -> float:
+            nonlocal offset
+            if offset + 8 > len(raw):
+                return 1.0
+            num, den = struct.unpack_from(">iI", raw, offset)
+            offset += 8
+            return float(num) / float(den) if den != 0 else 0.0
+
+        channels = 1 if is_mono else 3
+        g_min = [read_rational() for _ in range(channels)]
+        g_max = [read_rational() for _ in range(channels)]
+        gamma = [read_rational() for _ in range(channels)]
+        o_sdr = [read_rational() for _ in range(channels)]
+        o_hdr = [read_rational() for _ in range(channels)]
+        c_min = read_rational()
+        c_max = read_rational()
+        return GainMapMetadata(
+            gain_map_min=_to_tuple3(g_min),
+            gain_map_max=_to_tuple3(g_max),
+            gamma=_to_tuple3(gamma),
+            offset_sdr=_to_tuple3(o_sdr),
+            offset_hdr=_to_tuple3(o_hdr),
+            hdr_capacity_min=c_min,
+            hdr_capacity_max=c_max,
+            standard="iso_21496_1",
+        )
+    except Exception:
+        return None
+
+
 def parse_gain_map_metadata(xmp_data: Union[bytes, str]) -> Optional[GainMapMetadata]:
-    """Parse Gain Map metadata from XMP bytes or XML string.
+    """Parse Gain Map metadata from XMP bytes, binary box payload, or XML string.
 
     Supports:
     - ISO 21496-1 (urn:iso:std:iso:ts:21496-1 or http://iso.org/gainmap/1.0/)
@@ -178,6 +231,9 @@ def parse_gain_map_metadata(xmp_data: Union[bytes, str]) -> Optional[GainMapMeta
     - Adobe Ultra HDR (http://ns.adobe.com/hdr-gain-map/1.0/)
     """
     if isinstance(xmp_data, bytes):
+        bin_meta = parse_iso_21496_1_binary(xmp_data)
+        if bin_meta is not None:
+            return bin_meta
         try:
             xmp_str = xmp_data.decode("utf-8", errors="ignore")
         except Exception:
@@ -971,3 +1027,345 @@ def reconstruct_hdr(
         raise ValueError(
             f"Unknown output_format '{output_format}'. Choose 'linear', 'linear_float16', 'pq', or 'srgb_clip'."
         )
+
+
+# =========================================================================
+# Domain Entity & Accessor: GainMap & AsyncGainMap
+# =========================================================================
+
+
+def extract_gain_map_metadata(
+    aux_handle: Any, master_handle: Any = None
+) -> Optional[GainMapMetadata]:
+    """Extract Gain Map metadata from auxiliary handle or master image handle.
+
+    Searches across XMP, XML MIME items, and ISO 21496-1 binary metadata blocks.
+    """
+    # 1. First check auxiliary handle
+    if aux_handle is not None:
+        try:
+            for mid in aux_handle.get_metadata_block_ids():
+                mtype = aux_handle.get_metadata_block_type(mid).lower()
+                if (
+                    "xml" in mtype
+                    or "xmp" in mtype
+                    or "mime" in mtype
+                    or "21496" in mtype
+                    or "tmap" in mtype
+                ):
+                    block = aux_handle.get_metadata_block(mid)
+                    meta = parse_gain_map_metadata(block)
+                    if meta is not None:
+                        return meta
+        except Exception:
+            pass
+
+    # 2. Check master handle
+    if master_handle is not None:
+        try:
+            for mid in master_handle.get_metadata_block_ids():
+                mtype = master_handle.get_metadata_block_type(mid).lower()
+                if (
+                    "xml" in mtype
+                    or "xmp" in mtype
+                    or "mime" in mtype
+                    or "21496" in mtype
+                    or "tmap" in mtype
+                ):
+                    block = master_handle.get_metadata_block(mid)
+                    meta = parse_gain_map_metadata(block)
+                    if meta is not None:
+                        return meta
+        except Exception:
+            pass
+
+    return None
+
+
+class GainMap:
+    """High-Dynamic Range (HDR) Gain Map domain entity.
+
+    Encapsulates the auxiliary gain map image, ISO 21496-1 / Apple HDRGainMap metadata,
+    and tone-mapping / HDR reconstruction methods.
+
+    Maintains a strong reference to the master HeifImageHandle to guarantee
+    memory safety and prevent premature garbage collection of native C++ handles.
+    """
+
+    def __init__(
+        self,
+        master_handle: Any,
+        aux_handle: Any,
+        aux_id: int,
+        urn: str,
+    ) -> None:
+        self._master_handle = master_handle
+        self._aux_handle = aux_handle
+        self._aux_id = aux_id
+        self._urn = urn
+
+    @property
+    def master_handle(self) -> Any:
+        """The parent/master image handle (SDR base rendition)."""
+        return self._master_handle
+
+    @property
+    def aux_handle(self) -> Any:
+        """The auxiliary image handle containing the gain map pixel payload."""
+        return self._aux_handle
+
+    @property
+    def aux_id(self) -> int:
+        """The auxiliary item ID."""
+        return self._aux_id
+
+    @property
+    def urn(self) -> str:
+        """The auxiliary type URN."""
+        return self._urn
+
+    @property
+    def width(self) -> int:
+        """Width of the gain map auxiliary image."""
+        return self._aux_handle.width
+
+    @property
+    def height(self) -> int:
+        """Height of the gain map auxiliary image."""
+        return self._aux_handle.height
+
+    @property
+    def is_iso_standard(self) -> bool:
+        """True if auxiliary item matches ISO 21496-1 standard."""
+        return "21496" in self._urn or "iso" in self._urn.lower()
+
+    @property
+    def is_apple_format(self) -> bool:
+        """True if auxiliary item matches Apple HDRGainMap format."""
+        return "apple" in self._urn.lower() or "hdrgainmap" in self._urn.lower()
+
+    @functools.cached_property
+    def metadata(self) -> GainMapMetadata:
+        """Gain Map metadata parsed lazily from XMP or binary metadata blocks."""
+        meta = extract_gain_map_metadata(self._aux_handle, self._master_handle)
+        if meta is not None:
+            return meta
+        return GainMapMetadata.from_scalar(max_boost_stops=2.0)
+
+    def decode(self) -> np.ndarray:
+        """Decode primary gain map auxiliary image as a float32 numpy array in range [0, 1]."""
+        if _C is not None:
+            colorspace = _C.HeifColorspace.RGB
+            chroma = _C.HeifChroma.InterleavedRGB
+            channel = _C.HeifChannel.Interleaved
+        else:
+            from ._pylibheif import HeifChannel, HeifChroma, HeifColorspace
+
+            colorspace = HeifColorspace.RGB
+            chroma = HeifChroma.InterleavedRGB
+            channel = HeifChannel.Interleaved
+
+        decoded = self._aux_handle.decode(colorspace, chroma)
+        plane = decoded.get_plane(channel)
+        arr = np.asarray(plane).astype(np.float32)
+        if arr.max() > 1.0:
+            arr /= 255.0
+        return arr
+
+    def reconstruct(
+        self,
+        target_headroom: Optional[float] = None,
+        output_format: str = "linear",
+        display_boost: Optional[float] = None,
+    ) -> np.ndarray:
+        """Reconstruct an HDR image by applying this gain map onto the master image."""
+        sdr_img = self._master_handle.decode()
+        if _C is not None:
+            channel = _C.HeifChannel.Interleaved
+        else:
+            from ._pylibheif import HeifChannel
+
+            channel = HeifChannel.Interleaved
+
+        plane = sdr_img.get_plane(channel)
+        sdr_arr = np.asarray(plane)
+        gm_arr = self.decode()
+        return reconstruct_hdr(
+            sdr_arr,
+            gm_arr,
+            metadata=self.metadata,
+            target_headroom=target_headroom,
+            output_format=output_format,
+            display_boost=display_boost,
+        )
+
+    def reconstruct_to_pillow(
+        self,
+        target_headroom: Optional[float] = None,
+        display_boost: Optional[float] = None,
+    ) -> Any:
+        """Reconstruct HDR image and return as a Pillow Image (sRGB view)."""
+        try:
+            from PIL import Image
+        except ImportError as e:
+            raise ImportError(
+                "reconstruct_to_pillow() requires Pillow. Install via `pip install 'pylibheif[pillow]'`"
+            ) from e
+
+        rgb_arr = self.reconstruct(
+            target_headroom=target_headroom,
+            output_format="srgb_clip",
+            display_boost=display_boost,
+        )
+        return Image.fromarray(rgb_arr)
+
+    def __repr__(self) -> str:
+        return (
+            f"<pylibheif.GainMap size={self.width}x{self.height} "
+            f"urn='{self.urn}' standard='{self.metadata.standard}'>"
+        )
+
+
+def extract_gain_map(handle: Any) -> Optional[GainMap]:
+    """Inspect a HeifImageHandle and return a GainMap entity if present, or None."""
+    if handle is None:
+        return None
+    try:
+        aux_ids = handle.get_auxiliary_image_ids()
+    except Exception:
+        return None
+
+    for aid in aux_ids:
+        try:
+            aux_handle = handle.get_auxiliary_image_handle(aid)
+            atype = aux_handle.get_auxiliary_type()
+            atype_l = atype.lower()
+            if "gainmap" in atype_l or "21496" in atype_l or "hdrgainmap" in atype_l:
+                return GainMap(
+                    master_handle=handle,
+                    aux_handle=aux_handle,
+                    aux_id=aid,
+                    urn=atype,
+                )
+        except Exception:
+            continue
+    return None
+
+
+class AsyncGainMap:
+    """Asynchronous HDR Gain Map domain entity attached to AsyncHeifImageHandle."""
+
+    def __init__(
+        self,
+        master_handle: Any,
+        sync_gain_map: GainMap,
+        executor: Any = None,
+    ) -> None:
+        self._master_handle = master_handle
+        self._sync_gain_map = sync_gain_map
+        self._executor = executor
+
+    @property
+    def master_handle(self) -> Any:
+        return self._master_handle
+
+    @property
+    def aux_handle(self) -> Any:
+        from ._async import AsyncHeifImageHandle
+
+        return AsyncHeifImageHandle(
+            self._sync_gain_map.aux_handle, executor=self._executor
+        )
+
+    @property
+    def aux_id(self) -> int:
+        return self._sync_gain_map.aux_id
+
+    @property
+    def urn(self) -> str:
+        return self._sync_gain_map.urn
+
+    @property
+    def width(self) -> int:
+        return self._sync_gain_map.width
+
+    @property
+    def height(self) -> int:
+        return self._sync_gain_map.height
+
+    @property
+    def is_iso_standard(self) -> bool:
+        return self._sync_gain_map.is_iso_standard
+
+    @property
+    def is_apple_format(self) -> bool:
+        return self._sync_gain_map.is_apple_format
+
+    @property
+    def metadata(self) -> GainMapMetadata:
+        return self._sync_gain_map.metadata
+
+    async def get_metadata_async(self) -> GainMapMetadata:
+        from ._concurrency import _run_in_executor
+
+        return await _run_in_executor(
+            self._executor, lambda: self._sync_gain_map.metadata
+        )
+
+    def decode(self) -> np.ndarray:
+        return self._sync_gain_map.decode()
+
+    async def decode_async(self) -> np.ndarray:
+        from ._concurrency import _run_in_executor
+
+        return await _run_in_executor(self._executor, self._sync_gain_map.decode)
+
+    def reconstruct(
+        self,
+        target_headroom: Optional[float] = None,
+        output_format: str = "linear",
+        display_boost: Optional[float] = None,
+    ) -> np.ndarray:
+        return self._sync_gain_map.reconstruct(
+            target_headroom=target_headroom,
+            output_format=output_format,
+            display_boost=display_boost,
+        )
+
+    async def reconstruct_async(
+        self,
+        target_headroom: Optional[float] = None,
+        output_format: str = "linear",
+        display_boost: Optional[float] = None,
+    ) -> np.ndarray:
+        from ._concurrency import _run_in_executor
+
+        return await _run_in_executor(
+            self._executor,
+            self._sync_gain_map.reconstruct,
+            target_headroom,
+            output_format,
+            display_boost,
+        )
+
+    def __repr__(self) -> str:
+        return (
+            f"<pylibheif.AsyncGainMap size={self.width}x{self.height} "
+            f"urn='{self.urn}'>"
+        )
+
+
+def extract_async_gain_map(async_handle: Any) -> Optional[AsyncGainMap]:
+    """Extract an AsyncGainMap from an AsyncHeifImageHandle if present."""
+    if async_handle is None:
+        return None
+    sync_handle = getattr(async_handle, "_handle", async_handle)
+    sync_gm = extract_gain_map(sync_handle)
+    if sync_gm is None:
+        return None
+    executor = getattr(async_handle, "_executor", None)
+    return AsyncGainMap(
+        master_handle=async_handle,
+        sync_gain_map=sync_gm,
+        executor=executor,
+    )

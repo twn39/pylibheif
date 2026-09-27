@@ -87,10 +87,13 @@ from ._async import (
 
 # Gain map & HDR metadata
 from .gain_map import (
+    AsyncGainMap,
+    GainMap,
     GainMapMetadata,
     URN_GAIN_MAP_APPLE,
     URN_GAIN_MAP_ISO_21496_1,
     URN_PORTRAIT_MATTE_APPLE,
+    extract_gain_map,
     generate_gain_map_xmp,
     linear_to_pq,
     linear_to_srgb,
@@ -192,6 +195,9 @@ __all__ = [
     "from_pillow",
     "register_pillow_opener",
     "unregister_pillow_opener",
+    "GainMap",
+    "AsyncGainMap",
+    "extract_gain_map",
     "GainMapMetadata",
     "parse_gain_map_metadata",
     "generate_gain_map_xmp",
