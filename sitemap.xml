@@ -48,4 +48,24 @@
          <loc>https://twn39.github.io/pylibheif/guides/streaming-io/</loc>
          <lastmod>2026-09-27</lastmod>
     </url>
+    <url>
+         <loc>https://twn39.github.io/pylibheif/tutorials/animated-sequences/</loc>
+         <lastmod>2026-09-27</lastmod>
+    </url>
+    <url>
+         <loc>https://twn39.github.io/pylibheif/tutorials/batch-conversion/</loc>
+         <lastmod>2026-09-27</lastmod>
+    </url>
+    <url>
+         <loc>https://twn39.github.io/pylibheif/tutorials/depth-maps-auxiliary/</loc>
+         <lastmod>2026-09-27</lastmod>
+    </url>
+    <url>
+         <loc>https://twn39.github.io/pylibheif/tutorials/fastapi-streaming/</loc>
+         <lastmod>2026-09-27</lastmod>
+    </url>
+    <url>
+         <loc>https://twn39.github.io/pylibheif/tutorials/hdr-gain-maps/</loc>
+         <lastmod>2026-09-27</lastmod>
+    </url>
 </urlset>
