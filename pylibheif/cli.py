@@ -691,6 +691,15 @@ def _info_single_file(file: Path, json_output: bool, detail: bool) -> None:
         except Exception:
             pass
 
+    # Depth Map Details
+    depth_dict: Optional[Dict[str, Any]] = None
+    dm = getattr(handle, "depth_map", None)
+    if dm is not None:
+        try:
+            depth_dict = dm.to_dict()
+        except Exception:
+            pass
+
     data: Dict[str, Any] = {
         "file": str(file.resolve()),
         "size_bytes": os.path.getsize(file),
@@ -703,6 +712,7 @@ def _info_single_file(file: Path, json_output: bool, detail: bool) -> None:
         "primary_image_id": primary_id,
         "thumbnails_count": handle.number_of_thumbnails,
         "has_depth_image": handle.has_depth_image,
+        "depth_metadata": depth_dict,
         "has_gain_map": handle.has_gain_map,
         "gain_map_metadata": gm_meta_dict,
         "color_profile": {
@@ -749,9 +759,13 @@ def _info_single_file(file: Path, json_output: bool, detail: bool) -> None:
     table.add_row("Thumbnails", str(handle.number_of_thumbnails))
     file_size = os.path.getsize(file)
     table.add_row("File Size", f"{file_size / 1024:.1f} KB ({file_size} bytes)")
+    if dm is not None and dm.has_metric_info:
+        depth_str = f"Yes ({dm.z_near:.2f}m ~ {dm.z_far:.2f}m)"
+    else:
+        depth_str = "Yes" if handle.has_depth_image else "No"
     table.add_row(
         "Auxiliary Images",
-        f"Depth: {'Yes' if handle.has_depth_image else 'No'} | Gain Map: {'Yes' if handle.has_gain_map else 'No'}",
+        f"Depth: {depth_str} | Gain Map: {'Yes' if handle.has_gain_map else 'No'}",
     )
 
     prof_str = f"Type: {color_profile_type}"
@@ -1032,6 +1046,7 @@ def _convert_single_file(
     lossless: bool = False,
     threads: int = 0,
     extract_gain_map: Optional[Path] = None,
+    extract_depth: Optional[Path] = None,
     render_hdr: bool = False,
     hdr_headroom: Optional[float] = None,
     strip_metadata: bool = False,
@@ -1110,6 +1125,27 @@ def _convert_single_file(
                 else:
                     typer.echo(
                         f"Warning: '{source.name}' does not contain an auxiliary Gain Map.",
+                        err=True,
+                    )
+
+            # Handle depth map extraction if requested
+            if extract_depth is not None:
+                dm = getattr(handle, "depth_map", None)
+                if dm is not None:
+                    try:
+                        dm_pil = dm.to_pillow(colormap="grayscale")
+                        extract_depth.parent.mkdir(parents=True, exist_ok=True)
+                        dm_pil.save(str(extract_depth))
+                        typer.echo(
+                            f"Extracted auxiliary Depth Map to '{extract_depth}'."
+                        )
+                    except Exception as e:
+                        typer.echo(
+                            f"Warning: Failed to extract depth map: {e}", err=True
+                        )
+                else:
+                    typer.echo(
+                        f"Warning: '{source.name}' does not contain an auxiliary Depth Map.",
                         err=True,
                     )
 
@@ -1631,6 +1667,11 @@ def convert_cmd(
         "--extract-gain-map",
         help="Extract the auxiliary Gain Map image to a separate file (e.g. gainmap.png)",
     ),
+    extract_depth: Optional[Path] = typer.Option(
+        None,
+        "--extract-depth",
+        help="Extract the auxiliary Depth Map image to a separate file (e.g. depth.png)",
+    ),
     render_hdr: bool = typer.Option(
         False,
         "--render-hdr",
@@ -1732,6 +1773,7 @@ def convert_cmd(
                 lossless=lossless,
                 threads=threads,
                 extract_gain_map=extract_gain_map,
+                extract_depth=extract_depth,
                 render_hdr=render_hdr,
                 hdr_headroom=hdr_headroom,
                 strip_metadata=strip_metadata,

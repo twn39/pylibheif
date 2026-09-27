@@ -4,6 +4,8 @@ from __future__ import annotations
 import concurrent.futures
 from typing import Any, Dict, List, Literal, Optional, Union, overload
 
+import numpy as np
+
 from ._concurrency import _run_in_executor
 from ._pylibheif import (
     HeifAmbientViewingEnvironment,
@@ -25,6 +27,7 @@ from ._pylibheif import (
     HeifTrackType,
 )
 from .color import RenderingIntent
+from .depth import AsyncDepthMap, extract_async_depth_map, extract_portrait_matte
 from .gain_map import AsyncGainMap, GainMapMetadata, extract_async_gain_map
 
 class AsyncHeifImageHandle:
@@ -301,8 +304,26 @@ class AsyncHeifImageHandle:
             display_boost=display_boost,
         )
 
+    @property
+    def depth_map(self) -> Optional[AsyncDepthMap]:
+        """Asynchronous DepthMap domain entity, or None if no depth image exists."""
+        return extract_async_depth_map(self)
+
+    @property
+    def portrait_matte(self) -> Optional[np.ndarray]:
+        """Apple Portrait Matte (foreground segmentation alpha mask), or None."""
+        return extract_portrait_matte(self._handle)
+
+    async def get_portrait_matte_async(self) -> Optional[np.ndarray]:
+        return await _run_in_executor(
+            self._executor, extract_portrait_matte, self._handle
+        )
+
     async def decode_depth(self) -> Any:
-        return await _run_in_executor(self._executor, self._handle.decode_depth)
+        dm = self.depth_map
+        if dm is None:
+            raise RuntimeError("Image handle does not contain any depth images")
+        return await dm.decode_async()
 
     def get_color_profile_bytes(self, prefer_nclx: bool = False) -> bytes:
         return self._handle.get_color_profile_bytes(prefer_nclx=prefer_nclx)

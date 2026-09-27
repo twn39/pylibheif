@@ -20,6 +20,11 @@ from .color import (
     nclx_to_icc_profile,
     transform_colorspace,
 )
+from .depth import (
+    DepthMap,
+    extract_depth_map,
+    extract_portrait_matte,
+)
 from .gain_map import (
     GainMap,
     GainMapMetadata,
@@ -158,14 +163,22 @@ def _handle_reconstruct_hdr(
     )
 
 
+def _handle_get_depth_map(self: HeifImageHandle) -> Optional[DepthMap]:
+    """Retrieve the primary DepthMap domain entity, or None if absent."""
+    return extract_depth_map(self)
+
+
+def _handle_get_portrait_matte(self: HeifImageHandle) -> Optional[Any]:
+    """Extract Apple Portrait Matte (segmentation foreground alpha mask) if present."""
+    return extract_portrait_matte(self)
+
+
 def _handle_decode_depth(self: HeifImageHandle) -> Any:
     """Decode primary depth image and return as a 2D numpy array."""
-    depth_handle = self.get_primary_depth_image_handle()
-    decoded = depth_handle.decode(HeifColorspace.Monochrome, HeifChroma.Monochrome)
-    plane = decoded.get_plane(HeifChannel.Y)
-    import numpy as np
-
-    return np.asarray(plane)
+    dm = self.depth_map
+    if dm is None:
+        raise RuntimeError("Image handle does not contain any depth images")
+    return dm.decode()
 
 
 
@@ -305,6 +318,8 @@ def install_handle_extensions() -> None:
     setattr(HeifImageHandle, "get_gain_map_metadata", _handle_get_gain_map_metadata)
     setattr(HeifImageHandle, "decode_gain_map", _handle_decode_gain_map)
     setattr(HeifImageHandle, "reconstruct_hdr", _handle_reconstruct_hdr)
+    setattr(HeifImageHandle, "depth_map", property(_handle_get_depth_map))
+    setattr(HeifImageHandle, "portrait_matte", property(_handle_get_portrait_matte))
     setattr(HeifImageHandle, "decode_depth", _handle_decode_depth)
 
     setattr(HeifImageHandle, "decode", _handle_decode)

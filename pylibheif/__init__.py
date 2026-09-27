@@ -85,6 +85,15 @@ from ._async import (
     AsyncHeifTrack,
 )
 
+# Depth map & representation
+from .depth import (
+    AsyncDepthMap,
+    DepthMap,
+    DepthRepresentationType,
+    extract_depth_map,
+    extract_portrait_matte,
+)
+
 # Gain map & HDR metadata
 from .gain_map import (
     AsyncGainMap,
@@ -195,6 +204,11 @@ __all__ = [
     "from_pillow",
     "register_pillow_opener",
     "unregister_pillow_opener",
+    "DepthMap",
+    "AsyncDepthMap",
+    "DepthRepresentationType",
+    "extract_depth_map",
+    "extract_portrait_matte",
     "GainMap",
     "AsyncGainMap",
     "extract_gain_map",
