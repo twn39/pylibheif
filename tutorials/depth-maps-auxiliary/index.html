@@ -783,6 +783,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="1. Extracting and Visualizing Depth Maps">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#apple-portrait-matte-masks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Apple Portrait Matte Masks
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1052,6 +1069,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../api/depth/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Depth & Auxiliary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../api/pillow/" class="md-nav__link">
         
   
@@ -1143,6 +1188,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="1. Extracting and Visualizing Depth Maps">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#apple-portrait-matte-masks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Apple Portrait Matte Masks
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1195,103 +1257,109 @@
 <p>This tutorial demonstrates how to read, visualize, process, and write auxiliary depth tracks.</p>
 <hr />
 <h2 id="1-extracting-and-visualizing-depth-maps">1. Extracting and Visualizing Depth Maps<a class="headerlink" href="#1-extracting-and-visualizing-depth-maps" title="Permanent link">&para;</a></h2>
-<p>When Apple iPhones take photos in Portrait Mode, the depth map is stored as an auxiliary channel with <code>urn:mpeg:hevc:2015:auxid:1</code> (or Apple's proprietary portrait depth URN).</p>
+<p><code>pylibheif</code> provides a first-class <code>DepthMap</code> domain entity accessible directly on image handles via <code>handle.depth_map</code>. It encapsulates decoding, physical unit conversion (ISO/IEC 23008-12 / ITU-T H.265), and microsecond pseudocolor visualization without requiring OpenCV or Matplotlib.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">pylibheif</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">PIL</span><span class="w"> </span><span class="kn">import</span> <span class="n">Image</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">ctx</span> <span class="o">=</span> <span class="n">pylibheif</span><span class="o">.</span><span class="n">HeifContext</span><span class="p">()</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">ctx</span><span class="o">.</span><span class="n">read_from_file</span><span class="p">(</span><span class="s2">&quot;portrait_photo.heic&quot;</span><span class="p">)</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">master_handle</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">get_primary_image_handle</span><span class="p">()</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="c1"># Check for depth map</span>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="k">if</span> <span class="n">master_handle</span><span class="o">.</span><span class="n">has_depth_image</span><span class="p">:</span>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Found portrait depth map!&quot;</span><span class="p">)</span>
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    <span class="c1"># Retrieve depth handle</span>
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    <span class="n">depth_handle</span> <span class="o">=</span> <span class="n">master_handle</span><span class="o">.</span><span class="n">get_depth_image_handle</span><span class="p">()</span>
-</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Master size: </span><span class="si">{</span><span class="n">master_handle</span><span class="o">.</span><span class="n">width</span><span class="si">}</span><span class="s2">x</span><span class="si">{</span><span class="n">master_handle</span><span class="o">.</span><span class="n">height</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Depth size:  </span><span class="si">{</span><span class="n">depth_handle</span><span class="o">.</span><span class="n">width</span><span class="si">}</span><span class="s2">x</span><span class="si">{</span><span class="n">depth_handle</span><span class="o">.</span><span class="n">height</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>
-</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>    <span class="c1"># Decode depth map to monochrome pixel plane</span>
-</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>    <span class="n">depth_image</span> <span class="o">=</span> <span class="n">depth_handle</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span>
-</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>        <span class="n">pylibheif</span><span class="o">.</span><span class="n">HeifColorspace</span><span class="o">.</span><span class="n">Monochrome</span><span class="p">,</span>
-</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>        <span class="n">pylibheif</span><span class="o">.</span><span class="n">HeifChroma</span><span class="o">.</span><span class="n">Monochrome</span>
-</span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>    <span class="p">)</span>
-</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>
-</span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>    <span class="c1"># Zero-copy conversion into a NumPy 2D array</span>
-</span><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>    <span class="n">depth_plane</span> <span class="o">=</span> <span class="n">depth_image</span><span class="o">.</span><span class="n">get_plane</span><span class="p">(</span><span class="n">pylibheif</span><span class="o">.</span><span class="n">HeifChannel</span><span class="o">.</span><span class="n">Y</span><span class="p">)</span>
-</span><span id="__span-0-26"><a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>    <span class="n">depth_array</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">depth_plane</span><span class="p">)</span>
-</span><span id="__span-0-27"><a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>
-</span><span id="__span-0-28"><a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>    <span class="c1"># Save as grayscale visualization image</span>
-</span><span id="__span-0-29"><a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>    <span class="n">depth_vis</span> <span class="o">=</span> <span class="n">Image</span><span class="o">.</span><span class="n">fromarray</span><span class="p">(</span><span class="n">depth_array</span><span class="p">)</span>
-</span><span id="__span-0-30"><a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>    <span class="n">depth_vis</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;extracted_depth.png&quot;</span><span class="p">)</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">ctx</span> <span class="o">=</span> <span class="n">pylibheif</span><span class="o">.</span><span class="n">HeifContext</span><span class="p">()</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">ctx</span><span class="o">.</span><span class="n">read_from_file</span><span class="p">(</span><span class="s2">&quot;portrait_photo.heic&quot;</span><span class="p">)</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">master_handle</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">get_primary_image_handle</span><span class="p">()</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="c1"># Check for depth map via domain property</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="k">if</span> <span class="n">master_handle</span><span class="o">.</span><span class="n">depth_map</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="n">depth</span> <span class="o">=</span> <span class="n">master_handle</span><span class="o">.</span><span class="n">depth_map</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Master size: </span><span class="si">{</span><span class="n">master_handle</span><span class="o">.</span><span class="n">width</span><span class="si">}</span><span class="s2">x</span><span class="si">{</span><span class="n">master_handle</span><span class="o">.</span><span class="n">height</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Depth size:  </span><span class="si">{</span><span class="n">depth</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">width</span><span class="si">}</span><span class="s2">x</span><span class="si">{</span><span class="n">depth</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">height</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Bit depth:   </span><span class="si">{</span><span class="n">depth</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">bit_depth</span><span class="si">}</span><span class="s2"> bits&quot;</span><span class="p">)</span>
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Type:        </span><span class="si">{</span><span class="n">depth</span><span class="o">.</span><span class="n">representation_type</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>    <span class="c1"># Inspect physical metric depth range (if calibrated metadata is present)</span>
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>    <span class="k">if</span> <span class="n">depth</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">has_metric_depth</span><span class="p">:</span>
+</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Physical range: </span><span class="si">{</span><span class="n">depth</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">near_distance</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">m ~ </span><span class="si">{</span><span class="n">depth</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">far_distance</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">m&quot;</span><span class="p">)</span>
+</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>        <span class="c1"># Convert to real-world metric distance in meters (float32 2D ndarray)</span>
+</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>        <span class="n">metric_depth</span> <span class="o">=</span> <span class="n">depth</span><span class="o">.</span><span class="n">to_metric_depth</span><span class="p">()</span>
+</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Center pixel distance: </span><span class="si">{</span><span class="n">metric_depth</span><span class="p">[</span><span class="n">depth</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">height</span><span class="w"> </span><span class="o">//</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="n">depth</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">width</span><span class="w"> </span><span class="o">//</span><span class="w"> </span><span class="mi">2</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> meters&quot;</span><span class="p">)</span>
+</span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>
+</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>    <span class="c1"># 1. Decode to normalized float32 [0.0, 1.0] NumPy array (0=closest, 1=farthest)</span>
+</span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>    <span class="n">depth_array</span> <span class="o">=</span> <span class="n">depth</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="n">normalize</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>
+</span><span id="__span-0-26"><a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>    <span class="c1"># 2. Render directly to a PIL Image with high-contrast scientific pseudocolor</span>
+</span><span id="__span-0-27"><a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>    <span class="c1"># Supported colormaps: &quot;turbo&quot; (default), &quot;inferno&quot;, &quot;viridis&quot;, &quot;grayscale&quot;</span>
+</span><span id="__span-0-28"><a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>    <span class="c1"># Zero external dependencies: uses precomputed 768-byte palette LUT (&lt;0.1ms)</span>
+</span><span id="__span-0-29"><a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>    <span class="n">depth_pil</span> <span class="o">=</span> <span class="n">depth</span><span class="o">.</span><span class="n">to_pillow</span><span class="p">(</span><span class="n">colormap</span><span class="o">=</span><span class="s2">&quot;turbo&quot;</span><span class="p">)</span>
+</span><span id="__span-0-30"><a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>    <span class="n">depth_pil</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;extracted_depth_turbo.png&quot;</span><span class="p">)</span>
+</span></code></pre></div>
+<h3 id="apple-portrait-matte-masks">Apple Portrait Matte Masks<a class="headerlink" href="#apple-portrait-matte-masks" title="Permanent link">&para;</a></h3>
+<p>For photos captured on iPhones with Apple portrait segmentation, access the alpha subject matte directly via <code>handle.portrait_matte</code>:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">if</span> <span class="n">master_handle</span><span class="o">.</span><span class="n">portrait_matte</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="n">matte_image</span> <span class="o">=</span> <span class="n">master_handle</span><span class="o">.</span><span class="n">portrait_matte</span><span class="o">.</span><span class="n">decode</span><span class="p">()</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="n">matte_pil</span> <span class="o">=</span> <span class="n">master_handle</span><span class="o">.</span><span class="n">portrait_matte</span><span class="o">.</span><span class="n">to_pillow</span><span class="p">(</span><span class="n">colormap</span><span class="o">=</span><span class="s2">&quot;grayscale&quot;</span><span class="p">)</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="n">matte_pil</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;portrait_matte.png&quot;</span><span class="p">)</span>
 </span></code></pre></div>
 <hr />
 <h2 id="2-applying-synthetic-bokeh-blur-using-depth">2. Applying Synthetic Bokeh Blur Using Depth<a class="headerlink" href="#2-applying-synthetic-bokeh-blur-using-depth" title="Permanent link">&para;</a></h2>
 <p>Using OpenCV and the decoded depth map, you can dynamically apply Gaussian blur to background pixels based on their camera distance:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">cv2</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="kn">import</span><span class="w"> </span><span class="nn">pylibheif</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="c1"># 1. Decode master image (RGB)</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="n">ctx</span> <span class="o">=</span> <span class="n">pylibheif</span><span class="o">.</span><span class="n">HeifContext</span><span class="p">()</span>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="n">ctx</span><span class="o">.</span><span class="n">read_from_file</span><span class="p">(</span><span class="s2">&quot;portrait_photo.heic&quot;</span><span class="p">)</span>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="n">master</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">get_primary_image_handle</span><span class="p">()</span>
-</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="n">color_img</span> <span class="o">=</span> <span class="n">master</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="n">pylibheif</span><span class="o">.</span><span class="n">HeifColorspace</span><span class="o">.</span><span class="n">RGB</span><span class="p">,</span> <span class="n">pylibheif</span><span class="o">.</span><span class="n">HeifChroma</span><span class="o">.</span><span class="n">InterleavedRGB24</span><span class="p">)</span>
-</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="n">color_array</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">color_img</span><span class="o">.</span><span class="n">get_plane</span><span class="p">(</span><span class="n">pylibheif</span><span class="o">.</span><span class="n">HeifChannel</span><span class="o">.</span><span class="n">Interleaved</span><span class="p">))</span>
-</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>
-</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="c1"># 2. Decode depth map and resize to match color dimensions</span>
-</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="n">depth</span> <span class="o">=</span> <span class="n">master</span><span class="o">.</span><span class="n">get_depth_image_handle</span><span class="p">()</span>
-</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="n">depth_img</span> <span class="o">=</span> <span class="n">depth</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="n">pylibheif</span><span class="o">.</span><span class="n">HeifColorspace</span><span class="o">.</span><span class="n">Monochrome</span><span class="p">,</span> <span class="n">pylibheif</span><span class="o">.</span><span class="n">HeifChroma</span><span class="o">.</span><span class="n">Monochrome</span><span class="p">)</span>
-</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="n">depth_array</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">depth_img</span><span class="o">.</span><span class="n">get_plane</span><span class="p">(</span><span class="n">pylibheif</span><span class="o">.</span><span class="n">HeifChannel</span><span class="o">.</span><span class="n">Y</span><span class="p">))</span>
-</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="n">depth_resized</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">resize</span><span class="p">(</span><span class="n">depth_array</span><span class="p">,</span> <span class="p">(</span><span class="n">master</span><span class="o">.</span><span class="n">width</span><span class="p">,</span> <span class="n">master</span><span class="o">.</span><span class="n">height</span><span class="p">))</span>
-</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>
-</span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="c1"># 3. Create depth-of-field blur mask</span>
-</span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="c1"># Pixels further away (lower/higher depth values depending on camera) receive more blur</span>
-</span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="n">blurred_bg</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">GaussianBlur</span><span class="p">(</span><span class="n">color_array</span><span class="p">,</span> <span class="p">(</span><span class="mi">25</span><span class="p">,</span> <span class="mi">25</span><span class="p">),</span> <span class="mi">0</span><span class="p">)</span>
-</span><span id="__span-1-21"><a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>
-</span><span id="__span-1-22"><a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="c1"># Normalize depth mask to 0.0 - 1.0 float</span>
-</span><span id="__span-1-23"><a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a><span class="n">alpha_mask</span> <span class="o">=</span> <span class="p">(</span><span class="n">depth_resized</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span> <span class="o">/</span> <span class="mf">255.0</span><span class="p">)[:,</span> <span class="p">:,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span>
-</span><span id="__span-1-24"><a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>
-</span><span id="__span-1-25"><a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a><span class="c1"># Alpha blend: in-focus foreground + blurred background</span>
-</span><span id="__span-1-26"><a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a><span class="n">bokeh_result</span> <span class="o">=</span> <span class="p">(</span><span class="n">color_array</span> <span class="o">*</span> <span class="n">alpha_mask</span> <span class="o">+</span> <span class="n">blurred_bg</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">alpha_mask</span><span class="p">))</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">)</span>
-</span><span id="__span-1-27"><a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a>
-</span><span id="__span-1-28"><a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a><span class="n">cv2</span><span class="o">.</span><span class="n">imwrite</span><span class="p">(</span><span class="s2">&quot;portrait_bokeh.jpg&quot;</span><span class="p">,</span> <span class="n">cv2</span><span class="o">.</span><span class="n">cvtColor</span><span class="p">(</span><span class="n">bokeh_result</span><span class="p">,</span> <span class="n">cv2</span><span class="o">.</span><span class="n">COLOR_RGB2BGR</span><span class="p">))</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">cv2</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="kn">import</span><span class="w"> </span><span class="nn">pylibheif</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="c1"># 1. Decode master image (RGB)</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">ctx</span> <span class="o">=</span> <span class="n">pylibheif</span><span class="o">.</span><span class="n">HeifContext</span><span class="p">()</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">ctx</span><span class="o">.</span><span class="n">read_from_file</span><span class="p">(</span><span class="s2">&quot;portrait_photo.heic&quot;</span><span class="p">)</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="n">master</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">get_primary_image_handle</span><span class="p">()</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="n">color_img</span> <span class="o">=</span> <span class="n">master</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="n">pylibheif</span><span class="o">.</span><span class="n">HeifColorspace</span><span class="o">.</span><span class="n">RGB</span><span class="p">,</span> <span class="n">pylibheif</span><span class="o">.</span><span class="n">HeifChroma</span><span class="o">.</span><span class="n">InterleavedRGB24</span><span class="p">)</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="n">color_array</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">color_img</span><span class="o">.</span><span class="n">get_plane</span><span class="p">(</span><span class="n">pylibheif</span><span class="o">.</span><span class="n">HeifChannel</span><span class="o">.</span><span class="n">Interleaved</span><span class="p">))</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="c1"># 2. Decode normalized depth map directly using DepthMap entity</span>
+</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="c1"># Returns float32 array in [0.0, 1.0] where 0.0=foreground, 1.0=background</span>
+</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="n">depth_array</span> <span class="o">=</span> <span class="n">master</span><span class="o">.</span><span class="n">depth_map</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="n">normalize</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="n">depth_resized</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">resize</span><span class="p">(</span><span class="n">depth_array</span><span class="p">,</span> <span class="p">(</span><span class="n">master</span><span class="o">.</span><span class="n">width</span><span class="p">,</span> <span class="n">master</span><span class="o">.</span><span class="n">height</span><span class="p">))</span>
+</span><span id="__span-2-16"><a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>
+</span><span id="__span-2-17"><a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="c1"># 3. Create depth-of-field blur mask</span>
+</span><span id="__span-2-18"><a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="c1"># Pixels further away (higher normalized values) receive full Gaussian blur</span>
+</span><span id="__span-2-19"><a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a><span class="n">blurred_bg</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">GaussianBlur</span><span class="p">(</span><span class="n">color_array</span><span class="p">,</span> <span class="p">(</span><span class="mi">31</span><span class="p">,</span> <span class="mi">31</span><span class="p">),</span> <span class="mi">0</span><span class="p">)</span>
+</span><span id="__span-2-20"><a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a>
+</span><span id="__span-2-21"><a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a><span class="c1"># Reshape mask for 3-channel alpha blending</span>
+</span><span id="__span-2-22"><a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a><span class="n">alpha_mask</span> <span class="o">=</span> <span class="n">depth_resized</span><span class="p">[:,</span> <span class="p">:,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span>
+</span><span id="__span-2-23"><a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a>
+</span><span id="__span-2-24"><a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a><span class="c1"># Alpha blend: in-focus foreground + blurred background</span>
+</span><span id="__span-2-25"><a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a><span class="n">bokeh_result</span> <span class="o">=</span> <span class="p">(</span><span class="n">color_array</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">alpha_mask</span><span class="p">)</span> <span class="o">+</span> <span class="n">blurred_bg</span> <span class="o">*</span> <span class="n">alpha_mask</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">)</span>
+</span><span id="__span-2-26"><a id="__codelineno-2-26" name="__codelineno-2-26" href="#__codelineno-2-26"></a>
+</span><span id="__span-2-27"><a id="__codelineno-2-27" name="__codelineno-2-27" href="#__codelineno-2-27"></a><span class="n">cv2</span><span class="o">.</span><span class="n">imwrite</span><span class="p">(</span><span class="s2">&quot;portrait_bokeh.jpg&quot;</span><span class="p">,</span> <span class="n">cv2</span><span class="o">.</span><span class="n">cvtColor</span><span class="p">(</span><span class="n">bokeh_result</span><span class="p">,</span> <span class="n">cv2</span><span class="o">.</span><span class="n">COLOR_RGB2BGR</span><span class="p">))</span>
 </span></code></pre></div>
 <hr />
 <h2 id="3-writing-auxiliary-images-assign_auxiliary_image">3. Writing Auxiliary Images (<code>assign_auxiliary_image</code>)<a class="headerlink" href="#3-writing-auxiliary-images-assign_auxiliary_image" title="Permanent link">&para;</a></h2>
 <p><code>pylibheif</code> provides <code>ctx.assign_auxiliary_image()</code> to attach any custom encoded image (e.g. depth map, matte mask) as an auxiliary track to a master image:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">pylibheif</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="c1"># Setup context &amp; HEVC encoder</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">ctx</span> <span class="o">=</span> <span class="n">pylibheif</span><span class="o">.</span><span class="n">HeifContext</span><span class="p">()</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">encoder</span> <span class="o">=</span> <span class="n">pylibheif</span><span class="o">.</span><span class="n">HeifEncoder</span><span class="p">(</span><span class="n">pylibheif</span><span class="o">.</span><span class="n">HeifCompressionFormat</span><span class="o">.</span><span class="n">HEVC</span><span class="p">)</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="c1"># 1. Encode primary master image (RGB 1920x1080)</span>
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="n">master_img</span> <span class="o">=</span> <span class="n">pylibheif</span><span class="o">.</span><span class="n">HeifImage</span><span class="p">(</span><span class="n">pylibheif</span><span class="o">.</span><span class="n">HeifColorspace</span><span class="o">.</span><span class="n">RGB</span><span class="p">,</span> <span class="n">pylibheif</span><span class="o">.</span><span class="n">HeifChroma</span><span class="o">.</span><span class="n">InterleavedRGB24</span><span class="p">,</span> <span class="mi">1920</span><span class="p">,</span> <span class="mi">1080</span><span class="p">)</span>
-</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="n">master_img</span><span class="o">.</span><span class="n">add_plane</span><span class="p">(</span><span class="n">pylibheif</span><span class="o">.</span><span class="n">HeifChannel</span><span class="o">.</span><span class="n">Interleaved</span><span class="p">,</span> <span class="mi">1920</span><span class="p">,</span> <span class="mi">1080</span><span class="p">,</span> <span class="mi">8</span><span class="p">)</span>
-</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="c1"># (Fill master_img with pixel data...)</span>
-</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="n">master_handle</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">encode_image</span><span class="p">(</span><span class="n">master_img</span><span class="p">,</span> <span class="n">encoder</span><span class="p">)</span>
-</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>
-</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="c1"># 2. Encode auxiliary depth map (Monochrome 960x540)</span>
-</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="n">depth_img</span> <span class="o">=</span> <span class="n">pylibheif</span><span class="o">.</span><span class="n">HeifImage</span><span class="p">(</span><span class="n">pylibheif</span><span class="o">.</span><span class="n">HeifColorspace</span><span class="o">.</span><span class="n">Monochrome</span><span class="p">,</span> <span class="n">pylibheif</span><span class="o">.</span><span class="n">HeifChroma</span><span class="o">.</span><span class="n">Monochrome</span><span class="p">,</span> <span class="mi">960</span><span class="p">,</span> <span class="mi">540</span><span class="p">)</span>
-</span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="n">depth_img</span><span class="o">.</span><span class="n">add_plane</span><span class="p">(</span><span class="n">pylibheif</span><span class="o">.</span><span class="n">HeifChannel</span><span class="o">.</span><span class="n">Y</span><span class="p">,</span> <span class="mi">960</span><span class="p">,</span> <span class="mi">540</span><span class="p">,</span> <span class="mi">8</span><span class="p">)</span>
-</span><span id="__span-2-16"><a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="c1"># (Fill depth_img with depth data...)</span>
-</span><span id="__span-2-17"><a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="n">depth_handle</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">encode_image</span><span class="p">(</span><span class="n">depth_img</span><span class="p">,</span> <span class="n">encoder</span><span class="p">)</span>
-</span><span id="__span-2-18"><a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a>
-</span><span id="__span-2-19"><a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a><span class="c1"># 3. Assign as auxiliary track</span>
-</span><span id="__span-2-20"><a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a><span class="c1"># The auxiliary image is automatically marked as hidden (infe.hidden_item=true)</span>
-</span><span id="__span-2-21"><a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a><span class="c1"># and linked via standard &#39;auxl&#39; and &#39;auxC&#39; reference boxes.</span>
-</span><span id="__span-2-22"><a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a><span class="n">ctx</span><span class="o">.</span><span class="n">assign_auxiliary_image</span><span class="p">(</span>
-</span><span id="__span-2-23"><a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a>    <span class="n">master_image</span><span class="o">=</span><span class="n">master_handle</span><span class="p">,</span>
-</span><span id="__span-2-24"><a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a>    <span class="n">auxiliary_image</span><span class="o">=</span><span class="n">depth_handle</span><span class="p">,</span>
-</span><span id="__span-2-25"><a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a>    <span class="n">auxiliary_type</span><span class="o">=</span><span class="s2">&quot;urn:mpeg:hevc:2015:auxid:1&quot;</span>
-</span><span id="__span-2-26"><a id="__codelineno-2-26" name="__codelineno-2-26" href="#__codelineno-2-26"></a><span class="p">)</span>
-</span><span id="__span-2-27"><a id="__codelineno-2-27" name="__codelineno-2-27" href="#__codelineno-2-27"></a>
-</span><span id="__span-2-28"><a id="__codelineno-2-28" name="__codelineno-2-28" href="#__codelineno-2-28"></a><span class="c1"># 4. Save container</span>
-</span><span id="__span-2-29"><a id="__codelineno-2-29" name="__codelineno-2-29" href="#__codelineno-2-29"></a><span class="n">ctx</span><span class="o">.</span><span class="n">write_to_file</span><span class="p">(</span><span class="s2">&quot;output_with_depth.heic&quot;</span><span class="p">)</span>
-</span><span id="__span-2-30"><a id="__codelineno-2-30" name="__codelineno-2-30" href="#__codelineno-2-30"></a><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Saved HEIF image with embedded auxiliary depth track!&quot;</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">pylibheif</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="c1"># Setup context &amp; HEVC encoder</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">ctx</span> <span class="o">=</span> <span class="n">pylibheif</span><span class="o">.</span><span class="n">HeifContext</span><span class="p">()</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">encoder</span> <span class="o">=</span> <span class="n">pylibheif</span><span class="o">.</span><span class="n">HeifEncoder</span><span class="p">(</span><span class="n">pylibheif</span><span class="o">.</span><span class="n">HeifCompressionFormat</span><span class="o">.</span><span class="n">HEVC</span><span class="p">)</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="c1"># 1. Encode primary master image (RGB 1920x1080)</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="n">master_img</span> <span class="o">=</span> <span class="n">pylibheif</span><span class="o">.</span><span class="n">HeifImage</span><span class="p">(</span><span class="n">pylibheif</span><span class="o">.</span><span class="n">HeifColorspace</span><span class="o">.</span><span class="n">RGB</span><span class="p">,</span> <span class="n">pylibheif</span><span class="o">.</span><span class="n">HeifChroma</span><span class="o">.</span><span class="n">InterleavedRGB24</span><span class="p">,</span> <span class="mi">1920</span><span class="p">,</span> <span class="mi">1080</span><span class="p">)</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="n">master_img</span><span class="o">.</span><span class="n">add_plane</span><span class="p">(</span><span class="n">pylibheif</span><span class="o">.</span><span class="n">HeifChannel</span><span class="o">.</span><span class="n">Interleaved</span><span class="p">,</span> <span class="mi">1920</span><span class="p">,</span> <span class="mi">1080</span><span class="p">,</span> <span class="mi">8</span><span class="p">)</span>
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="c1"># (Fill master_img with pixel data...)</span>
+</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="n">master_handle</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">encode_image</span><span class="p">(</span><span class="n">master_img</span><span class="p">,</span> <span class="n">encoder</span><span class="p">)</span>
+</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>
+</span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="c1"># 2. Encode auxiliary depth map (Monochrome 960x540)</span>
+</span><span id="__span-3-14"><a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="n">depth_img</span> <span class="o">=</span> <span class="n">pylibheif</span><span class="o">.</span><span class="n">HeifImage</span><span class="p">(</span><span class="n">pylibheif</span><span class="o">.</span><span class="n">HeifColorspace</span><span class="o">.</span><span class="n">Monochrome</span><span class="p">,</span> <span class="n">pylibheif</span><span class="o">.</span><span class="n">HeifChroma</span><span class="o">.</span><span class="n">Monochrome</span><span class="p">,</span> <span class="mi">960</span><span class="p">,</span> <span class="mi">540</span><span class="p">)</span>
+</span><span id="__span-3-15"><a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="n">depth_img</span><span class="o">.</span><span class="n">add_plane</span><span class="p">(</span><span class="n">pylibheif</span><span class="o">.</span><span class="n">HeifChannel</span><span class="o">.</span><span class="n">Y</span><span class="p">,</span> <span class="mi">960</span><span class="p">,</span> <span class="mi">540</span><span class="p">,</span> <span class="mi">8</span><span class="p">)</span>
+</span><span id="__span-3-16"><a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="c1"># (Fill depth_img with depth data...)</span>
+</span><span id="__span-3-17"><a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="n">depth_handle</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">encode_image</span><span class="p">(</span><span class="n">depth_img</span><span class="p">,</span> <span class="n">encoder</span><span class="p">)</span>
+</span><span id="__span-3-18"><a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a>
+</span><span id="__span-3-19"><a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a><span class="c1"># 3. Assign as auxiliary track</span>
+</span><span id="__span-3-20"><a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a><span class="c1"># The auxiliary image is automatically marked as hidden (infe.hidden_item=true)</span>
+</span><span id="__span-3-21"><a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a><span class="c1"># and linked via standard &#39;auxl&#39; and &#39;auxC&#39; reference boxes.</span>
+</span><span id="__span-3-22"><a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a><span class="n">ctx</span><span class="o">.</span><span class="n">assign_auxiliary_image</span><span class="p">(</span>
+</span><span id="__span-3-23"><a id="__codelineno-3-23" name="__codelineno-3-23" href="#__codelineno-3-23"></a>    <span class="n">master_image</span><span class="o">=</span><span class="n">master_handle</span><span class="p">,</span>
+</span><span id="__span-3-24"><a id="__codelineno-3-24" name="__codelineno-3-24" href="#__codelineno-3-24"></a>    <span class="n">auxiliary_image</span><span class="o">=</span><span class="n">depth_handle</span><span class="p">,</span>
+</span><span id="__span-3-25"><a id="__codelineno-3-25" name="__codelineno-3-25" href="#__codelineno-3-25"></a>    <span class="n">auxiliary_type</span><span class="o">=</span><span class="s2">&quot;urn:mpeg:hevc:2015:auxid:1&quot;</span>
+</span><span id="__span-3-26"><a id="__codelineno-3-26" name="__codelineno-3-26" href="#__codelineno-3-26"></a><span class="p">)</span>
+</span><span id="__span-3-27"><a id="__codelineno-3-27" name="__codelineno-3-27" href="#__codelineno-3-27"></a>
+</span><span id="__span-3-28"><a id="__codelineno-3-28" name="__codelineno-3-28" href="#__codelineno-3-28"></a><span class="c1"># 4. Save container</span>
+</span><span id="__span-3-29"><a id="__codelineno-3-29" name="__codelineno-3-29" href="#__codelineno-3-29"></a><span class="n">ctx</span><span class="o">.</span><span class="n">write_to_file</span><span class="p">(</span><span class="s2">&quot;output_with_depth.heic&quot;</span><span class="p">)</span>
+</span><span id="__span-3-30"><a id="__codelineno-3-30" name="__codelineno-3-30" href="#__codelineno-3-30"></a><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Saved HEIF image with embedded auxiliary depth track!&quot;</span><span class="p">)</span>
 </span></code></pre></div>
 
 
