@@ -110,3 +110,13 @@ graph TD
     # Check supported codecs and platform capabilities
     heif doctor
     ```
+
+---
+
+## Practical Tutorials & Cookbooks
+
+- 🚀 [FastAPI Cloud Streaming](tutorials/fastapi-streaming.md): Zero-disk, in-memory HEIC upload & AVIF transcoding microservice.
+- 🌈 [HDR Gain Maps & ISO 21496-1](tutorials/hdr-gain-maps.md): Decoding, metadata extraction, and HDR reconstruction from iPhone & Ultra HDR photos.
+- 🔍 [Depth Maps & Synthetic Bokeh](tutorials/depth-maps-auxiliary.md): Extracting portrait depth channels and applying depth-of-field blurs.
+- ⚡ [High-Speed Batch Conversion](tutorials/batch-conversion.md): Async coroutine pipelines with Rich terminal progress bars.
+- 🎞️ [Animated HEIF/AVIF Sequences](tutorials/animated-sequences.md): Creating variable frame rate animations.

@@ -86,6 +86,12 @@ nav:
       - Color Science & HDR: guides/color-hdr.md
       - Streaming & Zero-Copy I/O: guides/streaming-io.md
       - Command-Line Interface (CLI): guides/cli.md
+  - Tutorials & Recipes:
+      - FastAPI Cloud Streaming: tutorials/fastapi-streaming.md
+      - HDR Gain Maps & ISO 21496-1: tutorials/hdr-gain-maps.md
+      - Depth Maps & Synthetic Bokeh: tutorials/depth-maps-auxiliary.md
+      - High-Speed Batch Conversion: tutorials/batch-conversion.md
+      - Animated HEIF/AVIF Sequences: tutorials/animated-sequences.md
   - API Reference:
       - Core & Context: api/core.md
       - Encoders & Presets: api/encoder.md
