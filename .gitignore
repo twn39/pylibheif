@@ -1,50 +1,76 @@
-# Python-generated files
+# Python packaging & distribution
 __pycache__/
 *.py[oc]
+*.pyo
+*.pyd
 build/
 dist/
 wheels/
-*.egg-info
+*.egg-info/
+*.whl
 
 # Virtual environments
-.venv
+.venv/
+venv/
+env/
+ENV/
 
-# CMake build files
+# Documentation builds
+site/
+
+# Build system & CMake/Ninja/scikit-build artifacts
 build_*/
 CMakeFiles/
 CMakeCache.txt
 cmake_install.cmake
 Makefile
+.cmake/
+.ninja_deps
+.ninja_log
+.skbuild-info.json
+CMakeInit.txt
+CPackConfig.cmake
+CPackSourceConfig.cmake
+build.ninja
+compile_commands.json
+_skbuild/
 
-# IDE files
+# Compiled extensions & binary objects
+*.so
+*.dylib
+*.dll
+*.a
+*.o
+
+# IDE & Editor files
 .idea/
 .vscode/
 *.swp
 *.swo
 *~
+*.bak
 
-# Compiled extensions
-*.so
-*.dylib
-*.pyd
-
-# OS files
+# Operating System files
 .DS_Store
+.DS_Store?
+._*
 Thumbs.db
+ehthumbs.db
 
-# Test output files
+# Testing, QA & Benchmarks
 images/output_*
-
-# Lock files (optional, comment out if you want to track)
-# uv.lock
-
-.cache
+tests/output_*
+output/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.benchmarks/
+.coverage
+htmlcov/
+.cache/
 pylibheif_audit.md
-docs
-# Graphify output
+
+# AI / Tooling artifacts
 graphify-out/
-.agents
-.codex
-.mypy_cache
-.ruff_cache
-.pytest_cache
+.agents/
+.codex/

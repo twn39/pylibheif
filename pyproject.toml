@@ -35,6 +35,12 @@ dependencies = [
 
 [project.optional-dependencies]
 pillow = ["pillow>=10.0.0"]
+docs = [
+    "mkdocs>=1.5.0",
+    "mkdocs-material>=9.5.0",
+    "mkdocstrings[python]>=0.24.0",
+    "pymdown-extensions>=10.7.0",
+]
 all = ["pillow>=10.0.0"]
 
 [project.scripts]
@@ -45,7 +51,7 @@ pylibheif = "pylibheif.cli:main"
 [project.urls]
 Homepage = "https://github.com/twn39/pylibheif"
 Repository = "https://github.com/twn39/pylibheif"
-Documentation = "https://github.com/twn39/pylibheif#readme"
+Documentation = "https://twn39.github.io/pylibheif/"
 Issues = "https://github.com/twn39/pylibheif/issues"
 
 
