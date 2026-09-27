@@ -1,0 +1,3474 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="High-performance Python bindings for libheif (HEIC/AVIF/JPEG2000) using nanobind">
+      
+      
+        <meta name="author" content="Curry Tang">
+      
+      
+        <link rel="canonical" href="https://twn39.github.io/pylibheif/api/color/">
+      
+      
+        <link rel="prev" href="../async/">
+      
+      
+        <link rel="next" href="../pillow/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Color & Gain Map - pylibheif</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#color-gain-map-api" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="pylibheif" class="md-header__button md-logo" aria-label="pylibheif" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            pylibheif
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Color & Gain Map
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/twn39/pylibheif" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    twn39/pylibheif
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Overview
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../getting-started/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Getting Started
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../guides/pillow/" class="md-tabs__link">
+          
+  
+  
+  User Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../core/" class="md-tabs__link">
+          
+  
+  
+  API Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="pylibheif" class="md-nav__button md-logo" aria-label="pylibheif" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    pylibheif
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/twn39/pylibheif" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    twn39/pylibheif
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/pillow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pillow Integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/color-hdr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Color Science & HDR
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/streaming-io/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Streaming & Zero-Copy I/O
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Command-Line Interface (CLI)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../core/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core & Context
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../encoder/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Encoders & Presets
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../async/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Asynchronous API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Color & Gain Map
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Color & Gain Map
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#nclx-color-profile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        NCLX Color Profile
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pylibheif.HeifColorProfileNclx" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HeifColorProfileNclx
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="HeifColorProfileNclx">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.HeifColorProfileNclx.__module__" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        __module__
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.HeifColorProfileNclx.color_primaries" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        color_primaries
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.HeifColorProfileNclx.color_primary_blue_x" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        color_primary_blue_x
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.HeifColorProfileNclx.color_primary_blue_y" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        color_primary_blue_y
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.HeifColorProfileNclx.color_primary_green_x" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        color_primary_green_x
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.HeifColorProfileNclx.color_primary_green_y" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        color_primary_green_y
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.HeifColorProfileNclx.color_primary_red_x" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        color_primary_red_x
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.HeifColorProfileNclx.color_primary_red_y" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        color_primary_red_y
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.HeifColorProfileNclx.color_primary_white_x" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        color_primary_white_x
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.HeifColorProfileNclx.color_primary_white_y" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        color_primary_white_y
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.HeifColorProfileNclx.full_range_flag" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        full_range_flag
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.HeifColorProfileNclx.matrix_coefficients" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        matrix_coefficients
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.HeifColorProfileNclx.transfer_characteristics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        transfer_characteristics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.HeifColorProfileNclx.__new__" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        __new__
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.HeifColorProfileNclx.__repr__" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        __repr__
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gain-map-metadata" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Gain Map Metadata
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pylibheif.gain_map.GainMapMetadata" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GainMapMetadata
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="GainMapMetadata">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.gain_map.GainMapMetadata.__annotations__" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        __annotations__
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.gain_map.GainMapMetadata.__dataclass_fields__" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        __dataclass_fields__
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.gain_map.GainMapMetadata.__doc__" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        __doc__
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.gain_map.GainMapMetadata.__match_args__" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        __match_args__
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.gain_map.GainMapMetadata.__module__" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        __module__
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.gain_map.GainMapMetadata.__weakref__" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        __weakref__
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.gain_map.GainMapMetadata.base_rendition_is_hdr" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        base_rendition_is_hdr
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.gain_map.GainMapMetadata.format_type" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        format_type
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.gain_map.GainMapMetadata.hdr_capacity_max" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        hdr_capacity_max
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.gain_map.GainMapMetadata.hdr_capacity_min" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        hdr_capacity_min
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.gain_map.GainMapMetadata.is_monochrome" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        is_monochrome
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.gain_map.GainMapMetadata.max_content_boost" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        max_content_boost
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.gain_map.GainMapMetadata.standard" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        standard
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.gain_map.GainMapMetadata.from_scalar" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        from_scalar
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.gain_map.GainMapMetadata.from_xmp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        from_xmp
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.gain_map.GainMapMetadata.to_dict" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        to_dict
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.gain_map.GainMapMetadata.to_xmp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        to_xmp
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#color-management-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Color Management Functions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pylibheif.color.transform_colorspace" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        transform_colorspace
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pylibheif.color.nclx_to_icc_profile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        nclx_to_icc_profile
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pylibheif.color.get_profile_info" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        get_profile_info
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#hdr-reconstruction-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HDR Reconstruction Functions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pylibheif.gain_map.reconstruct_hdr" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        reconstruct_hdr
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pylibheif.gain_map.parse_gain_map_metadata" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        parse_gain_map_metadata
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pillow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pillow Extensions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Exceptions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#nclx-color-profile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        NCLX Color Profile
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pylibheif.HeifColorProfileNclx" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HeifColorProfileNclx
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="HeifColorProfileNclx">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.HeifColorProfileNclx.__module__" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        __module__
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.HeifColorProfileNclx.color_primaries" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        color_primaries
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.HeifColorProfileNclx.color_primary_blue_x" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        color_primary_blue_x
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.HeifColorProfileNclx.color_primary_blue_y" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        color_primary_blue_y
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.HeifColorProfileNclx.color_primary_green_x" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        color_primary_green_x
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.HeifColorProfileNclx.color_primary_green_y" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        color_primary_green_y
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.HeifColorProfileNclx.color_primary_red_x" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        color_primary_red_x
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.HeifColorProfileNclx.color_primary_red_y" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        color_primary_red_y
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.HeifColorProfileNclx.color_primary_white_x" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        color_primary_white_x
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.HeifColorProfileNclx.color_primary_white_y" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        color_primary_white_y
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.HeifColorProfileNclx.full_range_flag" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        full_range_flag
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.HeifColorProfileNclx.matrix_coefficients" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        matrix_coefficients
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.HeifColorProfileNclx.transfer_characteristics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        transfer_characteristics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.HeifColorProfileNclx.__new__" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        __new__
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.HeifColorProfileNclx.__repr__" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        __repr__
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gain-map-metadata" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Gain Map Metadata
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pylibheif.gain_map.GainMapMetadata" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GainMapMetadata
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="GainMapMetadata">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.gain_map.GainMapMetadata.__annotations__" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        __annotations__
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.gain_map.GainMapMetadata.__dataclass_fields__" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        __dataclass_fields__
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.gain_map.GainMapMetadata.__doc__" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        __doc__
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.gain_map.GainMapMetadata.__match_args__" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        __match_args__
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.gain_map.GainMapMetadata.__module__" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        __module__
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.gain_map.GainMapMetadata.__weakref__" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        __weakref__
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.gain_map.GainMapMetadata.base_rendition_is_hdr" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        base_rendition_is_hdr
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.gain_map.GainMapMetadata.format_type" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        format_type
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.gain_map.GainMapMetadata.hdr_capacity_max" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        hdr_capacity_max
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.gain_map.GainMapMetadata.hdr_capacity_min" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        hdr_capacity_min
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.gain_map.GainMapMetadata.is_monochrome" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        is_monochrome
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.gain_map.GainMapMetadata.max_content_boost" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        max_content_boost
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.gain_map.GainMapMetadata.standard" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        standard
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.gain_map.GainMapMetadata.from_scalar" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        from_scalar
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.gain_map.GainMapMetadata.from_xmp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        from_xmp
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.gain_map.GainMapMetadata.to_dict" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        to_dict
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pylibheif.gain_map.GainMapMetadata.to_xmp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        to_xmp
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#color-management-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Color Management Functions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pylibheif.color.transform_colorspace" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        transform_colorspace
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pylibheif.color.nclx_to_icc_profile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        nclx_to_icc_profile
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pylibheif.color.get_profile_info" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        get_profile_info
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#hdr-reconstruction-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HDR Reconstruction Functions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pylibheif.gain_map.reconstruct_hdr" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        reconstruct_hdr
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pylibheif.gain_map.parse_gain_map_metadata" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        parse_gain_map_metadata
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="color-gain-map-api">Color &amp; Gain Map API<a class="headerlink" href="#color-gain-map-api" title="Permanent link">&para;</a></h1>
+<p>Color management, NCLX parameters, ICC profile synthesis, and ISO 21496-1 / Apple HDR Gain Map processing.</p>
+<hr />
+<h2 id="nclx-color-profile">NCLX Color Profile<a class="headerlink" href="#nclx-color-profile" title="Permanent link">&para;</a></h2>
+
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="pylibheif.HeifColorProfileNclx" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">pylibheif.HeifColorProfileNclx</span>
+
+
+<a href="#pylibheif.HeifColorProfileNclx" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">HeifColorProfileNclx</span><span class="p">()</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+
+
+        <p><strong>init</strong>(self, color_primaries: pylibheif._pylibheif.HeifColorPrimaries, transfer_characteristics: pylibheif._pylibheif.HeifTransferCharacteristics, matrix_coefficients: pylibheif._pylibheif.HeifMatrixCoefficients, full_range_flag: bool) -&gt; None</p>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="pylibheif.HeifColorProfileNclx.__module__" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">__module__</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
+  </span>
+
+<a href="#pylibheif.HeifColorProfileNclx.__module__" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="vm">__module__</span> <span class="o">=</span> <span class="s1">&#39;pylibheif._pylibheif&#39;</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>str(object='') -&gt; str
+str(bytes_or_buffer[, encoding[, errors]]) -&gt; str</p>
+<p>Create a new string object from the given object. If encoding or
+errors is specified, then the object must expose a data buffer
+that will be decoded using the given encoding and error handler.
+Otherwise, returns the result of object.<strong>str</strong>() (if defined)
+or repr(object).
+encoding defaults to sys.getdefaultencoding().
+errors defaults to 'strict'.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="pylibheif.HeifColorProfileNclx.color_primaries" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">color_primaries</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#pylibheif.HeifColorProfileNclx.color_primaries" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">color_primaries</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>(self) -&gt; pylibheif._pylibheif.HeifColorPrimaries</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="pylibheif.HeifColorProfileNclx.color_primary_blue_x" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">color_primary_blue_x</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#pylibheif.HeifColorProfileNclx.color_primary_blue_x" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">color_primary_blue_x</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>(self) -&gt; float</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="pylibheif.HeifColorProfileNclx.color_primary_blue_y" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">color_primary_blue_y</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#pylibheif.HeifColorProfileNclx.color_primary_blue_y" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">color_primary_blue_y</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>(self) -&gt; float</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="pylibheif.HeifColorProfileNclx.color_primary_green_x" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">color_primary_green_x</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#pylibheif.HeifColorProfileNclx.color_primary_green_x" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">color_primary_green_x</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>(self) -&gt; float</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="pylibheif.HeifColorProfileNclx.color_primary_green_y" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">color_primary_green_y</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#pylibheif.HeifColorProfileNclx.color_primary_green_y" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">color_primary_green_y</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>(self) -&gt; float</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="pylibheif.HeifColorProfileNclx.color_primary_red_x" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">color_primary_red_x</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#pylibheif.HeifColorProfileNclx.color_primary_red_x" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">color_primary_red_x</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>(self) -&gt; float</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="pylibheif.HeifColorProfileNclx.color_primary_red_y" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">color_primary_red_y</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#pylibheif.HeifColorProfileNclx.color_primary_red_y" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">color_primary_red_y</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>(self) -&gt; float</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="pylibheif.HeifColorProfileNclx.color_primary_white_x" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">color_primary_white_x</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#pylibheif.HeifColorProfileNclx.color_primary_white_x" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">color_primary_white_x</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>(self) -&gt; float</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="pylibheif.HeifColorProfileNclx.color_primary_white_y" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">color_primary_white_y</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#pylibheif.HeifColorProfileNclx.color_primary_white_y" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">color_primary_white_y</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>(self) -&gt; float</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="pylibheif.HeifColorProfileNclx.full_range_flag" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">full_range_flag</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#pylibheif.HeifColorProfileNclx.full_range_flag" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">full_range_flag</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>(self) -&gt; bool</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="pylibheif.HeifColorProfileNclx.matrix_coefficients" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">matrix_coefficients</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#pylibheif.HeifColorProfileNclx.matrix_coefficients" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">matrix_coefficients</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>(self) -&gt; pylibheif._pylibheif.HeifMatrixCoefficients</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="pylibheif.HeifColorProfileNclx.transfer_characteristics" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">transfer_characteristics</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#pylibheif.HeifColorProfileNclx.transfer_characteristics" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">transfer_characteristics</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>(self) -&gt; pylibheif._pylibheif.HeifTransferCharacteristics</p>
+
+    </div>
+
+</div>
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="pylibheif.HeifColorProfileNclx.__new__" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">__new__</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-builtin"><code>builtin</code></small>
+  </span>
+
+<a href="#pylibheif.HeifColorProfileNclx.__new__" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">__new__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Create and return a new object.  See help(type) for accurate signature.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="pylibheif.HeifColorProfileNclx.__repr__" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">__repr__</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-method descriptor"><code>method descriptor</code></small>
+  </span>
+
+<a href="#pylibheif.HeifColorProfileNclx.__repr__" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">__repr__</span><span class="p">()</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p><strong>repr</strong>(self) -&gt; str</p>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div><hr />
+<h2 id="gain-map-metadata">Gain Map Metadata<a class="headerlink" href="#gain-map-metadata" title="Permanent link">&para;</a></h2>
+
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="pylibheif.gain_map.GainMapMetadata" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">pylibheif.gain_map.GainMapMetadata</span>
+
+
+<a href="#pylibheif.gain_map.GainMapMetadata" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">GainMapMetadata</span><span class="p">(</span><span class="n">gain_map_min</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">factory</span><span class="o">&gt;</span><span class="p">,</span> <span class="n">gain_map_max</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">factory</span><span class="o">&gt;</span><span class="p">,</span> <span class="n">gamma</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">factory</span><span class="o">&gt;</span><span class="p">,</span> <span class="n">offset_sdr</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">factory</span><span class="o">&gt;</span><span class="p">,</span> <span class="n">offset_hdr</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">factory</span><span class="o">&gt;</span><span class="p">,</span> <span class="n">hdr_capacity_min</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">hdr_capacity_max</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">2.0</span><span class="p">,</span> <span class="n">base_rendition_is_hdr</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">standard</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;dual&#39;</span><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+
+
+        <p>Gain Map metadata according to ISO 21496-1 &amp; Apple HDRGainMap standards.</p>
+
+
+<p><span class="doc-section-title">Attributes:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td><code><span title="pylibheif.gain_map.GainMapMetadata.gain_map_min">gain_map_min</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Minimum boost in log2 scale (stops), per channel (R, G, B).</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="pylibheif.gain_map.GainMapMetadata.gain_map_max">gain_map_max</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Maximum boost in log2 scale (stops), per channel (R, G, B).
+          For example, 2.0 corresponds to 4x (2^2) maximum brightness boost.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="pylibheif.gain_map.GainMapMetadata.gamma">gamma</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Exponent applied to the normalized gain map value, per channel (R, G, B).</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="pylibheif.gain_map.GainMapMetadata.offset_sdr">offset_sdr</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>SDR offset to avoid division by zero and handle dark levels, per channel.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="pylibheif.gain_map.GainMapMetadata.offset_hdr">offset_hdr</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>HDR offset to avoid negative values and handle dark levels, per channel.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><a class="autorefs autorefs-internal" title="hdr_capacity_min
+
+
+  
+      class-attribute
+   (pylibheif.gain_map.GainMapMetadata.hdr_capacity_min)" href="#pylibheif.gain_map.GainMapMetadata.hdr_capacity_min">hdr_capacity_min</a></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Minimum HDR capacity required to start applying gain map (usually 1.0).</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><a class="autorefs autorefs-internal" title="hdr_capacity_max
+
+
+  
+      class-attribute
+   (pylibheif.gain_map.GainMapMetadata.hdr_capacity_max)" href="#pylibheif.gain_map.GainMapMetadata.hdr_capacity_max">hdr_capacity_max</a></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>HDR capacity at which maximum gain is applied (e.g. 4.0 for 2 stops).</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><a class="autorefs autorefs-internal" title="base_rendition_is_hdr
+
+
+  
+      class-attribute
+   (pylibheif.gain_map.GainMapMetadata.base_rendition_is_hdr)" href="#pylibheif.gain_map.GainMapMetadata.base_rendition_is_hdr">base_rendition_is_hdr</a></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>True if the base image is HDR and gain map maps down to SDR;
+                   False if base image is SDR and gain map maps up to HDR (standard).</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><a class="autorefs autorefs-internal" title="standard
+
+
+  
+      class-attribute
+   (pylibheif.gain_map.GainMapMetadata.standard)" href="#pylibheif.gain_map.GainMapMetadata.standard">standard</a></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Metadata standard format ("iso_21496_1", "apple", or "dual").</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="pylibheif.gain_map.GainMapMetadata.__annotations__" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">__annotations__</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
+  </span>
+
+<a href="#pylibheif.gain_map.GainMapMetadata.__annotations__" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="vm">__annotations__</span> <span class="o">=</span> <span class="p">{</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="s2">&quot;gain_map_min&quot;</span><span class="p">:</span> <span class="s2">&quot;Tuple[float, float, float]&quot;</span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="s2">&quot;gain_map_max&quot;</span><span class="p">:</span> <span class="s2">&quot;Tuple[float, float, float]&quot;</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="s2">&quot;gamma&quot;</span><span class="p">:</span> <span class="s2">&quot;Tuple[float, float, float]&quot;</span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="s2">&quot;offset_sdr&quot;</span><span class="p">:</span> <span class="s2">&quot;Tuple[float, float, float]&quot;</span><span class="p">,</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="s2">&quot;offset_hdr&quot;</span><span class="p">:</span> <span class="s2">&quot;Tuple[float, float, float]&quot;</span><span class="p">,</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="s2">&quot;hdr_capacity_min&quot;</span><span class="p">:</span> <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="s2">&quot;hdr_capacity_max&quot;</span><span class="p">:</span> <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="s2">&quot;base_rendition_is_hdr&quot;</span><span class="p">:</span> <span class="s2">&quot;bool&quot;</span><span class="p">,</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="s2">&quot;standard&quot;</span><span class="p">:</span> <span class="s2">&quot;str&quot;</span><span class="p">,</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="p">}</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>dict() -&gt; new empty dictionary
+dict(mapping) -&gt; new dictionary initialized from a mapping object's
+    (key, value) pairs
+dict(iterable) -&gt; new dictionary initialized as if via:
+    d = {}
+    for k, v in iterable:
+        d[k] = v
+dict(**kwargs) -&gt; new dictionary initialized with the name=value pairs
+    in the keyword argument list.  For example:  dict(one=1, two=2)</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="pylibheif.gain_map.GainMapMetadata.__dataclass_fields__" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">__dataclass_fields__</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
+  </span>
+
+<a href="#pylibheif.gain_map.GainMapMetadata.__dataclass_fields__" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">__dataclass_fields__</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;gain_map_min&#39;</span><span class="p">:</span> <span class="n">Field</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s1">&#39;gain_map_min&#39;</span><span class="p">,</span><span class="nb">type</span><span class="o">=</span><span class="s1">&#39;Tuple[float, float, float]&#39;</span><span class="p">,</span><span class="n">default</span><span class="o">=&lt;</span><span class="n">dataclasses</span><span class="o">.</span><span class="n">_MISSING_TYPE</span> <span class="nb">object</span> <span class="n">at</span> <span class="mh">0x10143dfa0</span><span class="o">&gt;</span><span class="p">,</span><span class="n">default_factory</span><span class="o">=&lt;</span><span class="n">function</span> <span class="n">GainMapMetadata</span><span class="o">.&lt;</span><span class="k">lambda</span><span class="o">&gt;</span> <span class="n">at</span> <span class="mh">0x1070d5b20</span><span class="o">&gt;</span><span class="p">,</span><span class="n">init</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span><span class="nb">repr</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span><span class="nb">hash</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">compare</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span><span class="n">metadata</span><span class="o">=</span><span class="n">mappingproxy</span><span class="p">({}),</span><span class="n">kw_only</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span><span class="n">_field_type</span><span class="o">=</span><span class="n">_FIELD</span><span class="p">),</span> <span class="s1">&#39;gain_map_max&#39;</span><span class="p">:</span> <span class="n">Field</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s1">&#39;gain_map_max&#39;</span><span class="p">,</span><span class="nb">type</span><span class="o">=</span><span class="s1">&#39;Tuple[float, float, float]&#39;</span><span class="p">,</span><span class="n">default</span><span class="o">=&lt;</span><span class="n">dataclasses</span><span class="o">.</span><span class="n">_MISSING_TYPE</span> <span class="nb">object</span> <span class="n">at</span> <span class="mh">0x10143dfa0</span><span class="o">&gt;</span><span class="p">,</span><span class="n">default_factory</span><span class="o">=&lt;</span><span class="n">function</span> <span class="n">GainMapMetadata</span><span class="o">.&lt;</span><span class="k">lambda</span><span class="o">&gt;</span> <span class="n">at</span> <span class="mh">0x107be1b20</span><span class="o">&gt;</span><span class="p">,</span><span class="n">init</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span><span class="nb">repr</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span><span class="nb">hash</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">compare</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span><span class="n">metadata</span><span class="o">=</span><span class="n">mappingproxy</span><span class="p">({}),</span><span class="n">kw_only</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span><span class="n">_field_type</span><span class="o">=</span><span class="n">_FIELD</span><span class="p">),</span> <span class="s1">&#39;gamma&#39;</span><span class="p">:</span> <span class="n">Field</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s1">&#39;gamma&#39;</span><span class="p">,</span><span class="nb">type</span><span class="o">=</span><span class="s1">&#39;Tuple[float, float, float]&#39;</span><span class="p">,</span><span class="n">default</span><span class="o">=&lt;</span><span class="n">dataclasses</span><span class="o">.</span><span class="n">_MISSING_TYPE</span> <span class="nb">object</span> <span class="n">at</span> <span class="mh">0x10143dfa0</span><span class="o">&gt;</span><span class="p">,</span><span class="n">default_factory</span><span class="o">=&lt;</span><span class="n">function</span> <span class="n">GainMapMetadata</span><span class="o">.&lt;</span><span class="k">lambda</span><span class="o">&gt;</span> <span class="n">at</span> <span class="mh">0x107be1bc0</span><span class="o">&gt;</span><span class="p">,</span><span class="n">init</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span><span class="nb">repr</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span><span class="nb">hash</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">compare</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span><span class="n">metadata</span><span class="o">=</span><span class="n">mappingproxy</span><span class="p">({}),</span><span class="n">kw_only</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span><span class="n">_field_type</span><span class="o">=</span><span class="n">_FIELD</span><span class="p">),</span> <span class="s1">&#39;offset_sdr&#39;</span><span class="p">:</span> <span class="n">Field</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s1">&#39;offset_sdr&#39;</span><span class="p">,</span><span class="nb">type</span><span class="o">=</span><span class="s1">&#39;Tuple[float, float, float]&#39;</span><span class="p">,</span><span class="n">default</span><span class="o">=&lt;</span><span class="n">dataclasses</span><span class="o">.</span><span class="n">_MISSING_TYPE</span> <span class="nb">object</span> <span class="n">at</span> <span class="mh">0x10143dfa0</span><span class="o">&gt;</span><span class="p">,</span><span class="n">default_factory</span><span class="o">=&lt;</span><span class="n">function</span> <span class="n">GainMapMetadata</span><span class="o">.&lt;</span><span class="k">lambda</span><span class="o">&gt;</span> <span class="n">at</span> <span class="mh">0x107be1c60</span><span class="o">&gt;</span><span class="p">,</span><span class="n">init</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span><span class="nb">repr</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span><span class="nb">hash</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">compare</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span><span class="n">metadata</span><span class="o">=</span><span class="n">mappingproxy</span><span class="p">({}),</span><span class="n">kw_only</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span><span class="n">_field_type</span><span class="o">=</span><span class="n">_FIELD</span><span class="p">),</span> <span class="s1">&#39;offset_hdr&#39;</span><span class="p">:</span> <span class="n">Field</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s1">&#39;offset_hdr&#39;</span><span class="p">,</span><span class="nb">type</span><span class="o">=</span><span class="s1">&#39;Tuple[float, float, float]&#39;</span><span class="p">,</span><span class="n">default</span><span class="o">=&lt;</span><span class="n">dataclasses</span><span class="o">.</span><span class="n">_MISSING_TYPE</span> <span class="nb">object</span> <span class="n">at</span> <span class="mh">0x10143dfa0</span><span class="o">&gt;</span><span class="p">,</span><span class="n">default_factory</span><span class="o">=&lt;</span><span class="n">function</span> <span class="n">GainMapMetadata</span><span class="o">.&lt;</span><span class="k">lambda</span><span class="o">&gt;</span> <span class="n">at</span> <span class="mh">0x107be1d00</span><span class="o">&gt;</span><span class="p">,</span><span class="n">init</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span><span class="nb">repr</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span><span class="nb">hash</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">compare</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span><span class="n">metadata</span><span class="o">=</span><span class="n">mappingproxy</span><span class="p">({}),</span><span class="n">kw_only</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span><span class="n">_field_type</span><span class="o">=</span><span class="n">_FIELD</span><span class="p">),</span> <span class="s1">&#39;hdr_capacity_min&#39;</span><span class="p">:</span> <span class="n">Field</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s1">&#39;hdr_capacity_min&#39;</span><span class="p">,</span><span class="nb">type</span><span class="o">=</span><span class="s1">&#39;float&#39;</span><span class="p">,</span><span class="n">default</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span><span class="n">default_factory</span><span class="o">=&lt;</span><span class="n">dataclasses</span><span class="o">.</span><span class="n">_MISSING_TYPE</span> <span class="nb">object</span> <span class="n">at</span> <span class="mh">0x10143dfa0</span><span class="o">&gt;</span><span class="p">,</span><span class="n">init</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span><span class="nb">repr</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span><span class="nb">hash</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">compare</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span><span class="n">metadata</span><span class="o">=</span><span class="n">mappingproxy</span><span class="p">({}),</span><span class="n">kw_only</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span><span class="n">_field_type</span><span class="o">=</span><span class="n">_FIELD</span><span class="p">),</span> <span class="s1">&#39;hdr_capacity_max&#39;</span><span class="p">:</span> <span class="n">Field</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s1">&#39;hdr_capacity_max&#39;</span><span class="p">,</span><span class="nb">type</span><span class="o">=</span><span class="s1">&#39;float&#39;</span><span class="p">,</span><span class="n">default</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span><span class="n">default_factory</span><span class="o">=&lt;</span><span class="n">dataclasses</span><span class="o">.</span><span class="n">_MISSING_TYPE</span> <span class="nb">object</span> <span class="n">at</span> <span class="mh">0x10143dfa0</span><span class="o">&gt;</span><span class="p">,</span><span class="n">init</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span><span class="nb">repr</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span><span class="nb">hash</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">compare</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span><span class="n">metadata</span><span class="o">=</span><span class="n">mappingproxy</span><span class="p">({}),</span><span class="n">kw_only</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span><span class="n">_field_type</span><span class="o">=</span><span class="n">_FIELD</span><span class="p">),</span> <span class="s1">&#39;base_rendition_is_hdr&#39;</span><span class="p">:</span> <span class="n">Field</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s1">&#39;base_rendition_is_hdr&#39;</span><span class="p">,</span><span class="nb">type</span><span class="o">=</span><span class="s1">&#39;bool&#39;</span><span class="p">,</span><span class="n">default</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span><span class="n">default_factory</span><span class="o">=&lt;</span><span class="n">dataclasses</span><span class="o">.</span><span class="n">_MISSING_TYPE</span> <span class="nb">object</span> <span class="n">at</span> <span class="mh">0x10143dfa0</span><span class="o">&gt;</span><span class="p">,</span><span class="n">init</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span><span class="nb">repr</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span><span class="nb">hash</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">compare</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span><span class="n">metadata</span><span class="o">=</span><span class="n">mappingproxy</span><span class="p">({}),</span><span class="n">kw_only</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span><span class="n">_field_type</span><span class="o">=</span><span class="n">_FIELD</span><span class="p">),</span> <span class="s1">&#39;standard&#39;</span><span class="p">:</span> <span class="n">Field</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s1">&#39;standard&#39;</span><span class="p">,</span><span class="nb">type</span><span class="o">=</span><span class="s1">&#39;str&#39;</span><span class="p">,</span><span class="n">default</span><span class="o">=</span><span class="s1">&#39;dual&#39;</span><span class="p">,</span><span class="n">default_factory</span><span class="o">=&lt;</span><span class="n">dataclasses</span><span class="o">.</span><span class="n">_MISSING_TYPE</span> <span class="nb">object</span> <span class="n">at</span> <span class="mh">0x10143dfa0</span><span class="o">&gt;</span><span class="p">,</span><span class="n">init</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span><span class="nb">repr</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span><span class="nb">hash</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">compare</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span><span class="n">metadata</span><span class="o">=</span><span class="n">mappingproxy</span><span class="p">({}),</span><span class="n">kw_only</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span><span class="n">_field_type</span><span class="o">=</span><span class="n">_FIELD</span><span class="p">)}</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>dict() -&gt; new empty dictionary
+dict(mapping) -&gt; new dictionary initialized from a mapping object's
+    (key, value) pairs
+dict(iterable) -&gt; new dictionary initialized as if via:
+    d = {}
+    for k, v in iterable:
+        d[k] = v
+dict(**kwargs) -&gt; new dictionary initialized with the name=value pairs
+    in the keyword argument list.  For example:  dict(one=1, two=2)</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="pylibheif.gain_map.GainMapMetadata.__doc__" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">__doc__</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
+  </span>
+
+<a href="#pylibheif.gain_map.GainMapMetadata.__doc__" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="vm">__doc__</span> <span class="o">=</span> <span class="s1">&#39;Gain Map metadata according to ISO 21496-1 &amp; Apple HDRGainMap standards.</span><span class="se">\n\n</span><span class="s1">    Attributes:</span><span class="se">\n</span><span class="s1">        gain_map_min: Minimum boost in log2 scale (stops), per channel (R, G, B).</span><span class="se">\n</span><span class="s1">        gain_map_max: Maximum boost in log2 scale (stops), per channel (R, G, B).</span><span class="se">\n</span><span class="s1">                      For example, 2.0 corresponds to 4x (2^2) maximum brightness boost.</span><span class="se">\n</span><span class="s1">        gamma: Exponent applied to the normalized gain map value, per channel (R, G, B).</span><span class="se">\n</span><span class="s1">        offset_sdr: SDR offset to avoid division by zero and handle dark levels, per channel.</span><span class="se">\n</span><span class="s1">        offset_hdr: HDR offset to avoid negative values and handle dark levels, per channel.</span><span class="se">\n</span><span class="s1">        hdr_capacity_min: Minimum HDR capacity required to start applying gain map (usually 1.0).</span><span class="se">\n</span><span class="s1">        hdr_capacity_max: HDR capacity at which maximum gain is applied (e.g. 4.0 for 2 stops).</span><span class="se">\n</span><span class="s1">        base_rendition_is_hdr: True if the base image is HDR and gain map maps down to SDR;</span><span class="se">\n</span><span class="s1">                               False if base image is SDR and gain map maps up to HDR (standard).</span><span class="se">\n</span><span class="s1">        standard: Metadata standard format (&quot;iso_21496_1&quot;, &quot;apple&quot;, or &quot;dual&quot;).</span><span class="se">\n</span><span class="s1">    &#39;</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>str(object='') -&gt; str
+str(bytes_or_buffer[, encoding[, errors]]) -&gt; str</p>
+<p>Create a new string object from the given object. If encoding or
+errors is specified, then the object must expose a data buffer
+that will be decoded using the given encoding and error handler.
+Otherwise, returns the result of object.<strong>str</strong>() (if defined)
+or repr(object).
+encoding defaults to sys.getdefaultencoding().
+errors defaults to 'strict'.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="pylibheif.gain_map.GainMapMetadata.__match_args__" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">__match_args__</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
+  </span>
+
+<a href="#pylibheif.gain_map.GainMapMetadata.__match_args__" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">__match_args__</span> <span class="o">=</span> <span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="s2">&quot;gain_map_min&quot;</span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="s2">&quot;gain_map_max&quot;</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="s2">&quot;gamma&quot;</span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="s2">&quot;offset_sdr&quot;</span><span class="p">,</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="s2">&quot;offset_hdr&quot;</span><span class="p">,</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="s2">&quot;hdr_capacity_min&quot;</span><span class="p">,</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="s2">&quot;hdr_capacity_max&quot;</span><span class="p">,</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="s2">&quot;base_rendition_is_hdr&quot;</span><span class="p">,</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="s2">&quot;standard&quot;</span><span class="p">,</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Built-in immutable sequence.</p>
+<p>If no argument is given, the constructor returns an empty tuple.
+If iterable is specified the tuple is initialized from iterable's items.</p>
+<p>If the argument is a tuple, the return value is the same object.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="pylibheif.gain_map.GainMapMetadata.__module__" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">__module__</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
+  </span>
+
+<a href="#pylibheif.gain_map.GainMapMetadata.__module__" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="vm">__module__</span> <span class="o">=</span> <span class="s1">&#39;pylibheif.gain_map&#39;</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>str(object='') -&gt; str
+str(bytes_or_buffer[, encoding[, errors]]) -&gt; str</p>
+<p>Create a new string object from the given object. If encoding or
+errors is specified, then the object must expose a data buffer
+that will be decoded using the given encoding and error handler.
+Otherwise, returns the result of object.<strong>str</strong>() (if defined)
+or repr(object).
+encoding defaults to sys.getdefaultencoding().
+errors defaults to 'strict'.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="pylibheif.gain_map.GainMapMetadata.__weakref__" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">__weakref__</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#pylibheif.gain_map.GainMapMetadata.__weakref__" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="vm">__weakref__</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>list of weak references to the object</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="pylibheif.gain_map.GainMapMetadata.base_rendition_is_hdr" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">base_rendition_is_hdr</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
+  </span>
+
+<a href="#pylibheif.gain_map.GainMapMetadata.base_rendition_is_hdr" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">base_rendition_is_hdr</span> <span class="o">=</span> <span class="kc">False</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>bool(x) -&gt; bool</p>
+<p>Returns True when the argument x is true, False otherwise.
+The builtins True and False are the only two instances of the class bool.
+The class bool is a subclass of the class int, and cannot be subclassed.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="pylibheif.gain_map.GainMapMetadata.format_type" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">format_type</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#pylibheif.gain_map.GainMapMetadata.format_type" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">format_type</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Format identifier: 'Apple' or 'ISO'.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="pylibheif.gain_map.GainMapMetadata.hdr_capacity_max" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">hdr_capacity_max</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
+  </span>
+
+<a href="#pylibheif.gain_map.GainMapMetadata.hdr_capacity_max" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">hdr_capacity_max</span> <span class="o">=</span> <span class="mf">2.0</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Convert a string or number to a floating-point number, if possible.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="pylibheif.gain_map.GainMapMetadata.hdr_capacity_min" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">hdr_capacity_min</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
+  </span>
+
+<a href="#pylibheif.gain_map.GainMapMetadata.hdr_capacity_min" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">hdr_capacity_min</span> <span class="o">=</span> <span class="mf">0.0</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Convert a string or number to a floating-point number, if possible.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="pylibheif.gain_map.GainMapMetadata.is_monochrome" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">is_monochrome</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#pylibheif.gain_map.GainMapMetadata.is_monochrome" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">is_monochrome</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>True if all parameters are identical across R, G, B channels.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="pylibheif.gain_map.GainMapMetadata.max_content_boost" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">max_content_boost</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#pylibheif.gain_map.GainMapMetadata.max_content_boost" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">max_content_boost</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Maximum luminance boost factor (linear scale).</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="pylibheif.gain_map.GainMapMetadata.standard" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">standard</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
+  </span>
+
+<a href="#pylibheif.gain_map.GainMapMetadata.standard" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">standard</span> <span class="o">=</span> <span class="s1">&#39;dual&#39;</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>str(object='') -&gt; str
+str(bytes_or_buffer[, encoding[, errors]]) -&gt; str</p>
+<p>Create a new string object from the given object. If encoding or
+errors is specified, then the object must expose a data buffer
+that will be decoded using the given encoding and error handler.
+Otherwise, returns the result of object.<strong>str</strong>() (if defined)
+or repr(object).
+encoding defaults to sys.getdefaultencoding().
+errors defaults to 'strict'.</p>
+
+    </div>
+
+</div>
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="pylibheif.gain_map.GainMapMetadata.from_scalar" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">from_scalar</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-classmethod"><code>classmethod</code></small>
+  </span>
+
+<a href="#pylibheif.gain_map.GainMapMetadata.from_scalar" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">from_scalar</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">max_boost_stops</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">2.0</span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">min_boost_stops</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">gamma</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">offset</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.015625</span><span class="p">,</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">hdr_capacity_max</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">standard</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;dual&quot;</span><span class="p">,</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GainMapMetadata</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Convenience constructor from single scalar values.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="pylibheif.gain_map.GainMapMetadata.from_xmp" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">from_xmp</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-classmethod"><code>classmethod</code></small>
+  </span>
+
+<a href="#pylibheif.gain_map.GainMapMetadata.from_xmp" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">from_xmp</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">xmp_data</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">bytes</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">GainMapMetadata</span><span class="p">]</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Parse Gain Map metadata from XMP bytes or XML string.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="pylibheif.gain_map.GainMapMetadata.to_dict" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">to_dict</span>
+
+
+<a href="#pylibheif.gain_map.GainMapMetadata.to_dict" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">to_dict</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Convert to dictionary representation.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="pylibheif.gain_map.GainMapMetadata.to_xmp" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">to_xmp</span>
+
+
+<a href="#pylibheif.gain_map.GainMapMetadata.to_xmp" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">to_xmp</span><span class="p">(</span><span class="n">format_type</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Serialize metadata into XMP bytes.</p>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div><hr />
+<h2 id="color-management-functions">Color Management Functions<a class="headerlink" href="#color-management-functions" title="Permanent link">&para;</a></h2>
+
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="pylibheif.color.transform_colorspace" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">pylibheif.color.transform_colorspace</span>
+
+
+<a href="#pylibheif.color.transform_colorspace" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">transform_colorspace</span><span class="p">(</span><span class="n">image</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">src_profile</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">bytes</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="n">dst_profile</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">bytes</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;sRGB&#39;</span><span class="p">,</span> <span class="n">intent</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">RenderingIntent</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">RenderingIntent</span><span class="o">.</span><span class="n">PERCEPTUAL</span><span class="p">:</span> <span class="mi">0</span><span class="o">&gt;</span><span class="p">,</span> <span class="n">bpc</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">as_pillow</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Transform image pixels from src_profile to dst_profile with ICC accuracy.</p>
+<p>Features:
+- Decouples and perfectly preserves Alpha transparency (RGBA -&gt; RGB -&gt; RGBA).
+- Preserves high bit-depth (10-bit / 12-bit / 16-bit).
+- Caches transform pipeline for high throughput.
+- Pure NumPy Bradford chromatic adaptation fallback if Pillow/ImageCms is absent.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>image</code>
+            </td>
+            <td>
+                  <code><span title="typing.Union">Union</span>[<span title="numpy.ndarray">ndarray</span>, <span title="typing.Any">Any</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Numpy array (H, W, 3) or (H, W, 4) or PIL Image.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>src_profile</code>
+            </td>
+            <td>
+                  <code><span title="typing.Union">Union</span>[<span title="bytes">bytes</span>, <span title="str">str</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Source ICC bytes or standard name ("Display P3", "Adobe RGB", etc.).</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>dst_profile</code>
+            </td>
+            <td>
+                  <code><span title="typing.Union">Union</span>[<span title="bytes">bytes</span>, <span title="str">str</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Destination ICC bytes or standard name ("sRGB", "Display P3", etc.).</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;sRGB&#39;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>intent</code>
+            </td>
+            <td>
+                  <code><span title="typing.Union">Union</span>[<span title="pylibheif.color.RenderingIntent">RenderingIntent</span>, <span title="int">int</span>, <span title="str">str</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>ICC rendering intent (PERCEPTUAL, RELATIVE_COLORIMETRIC, etc.).</p>
+              </div>
+            </td>
+            <td>
+                  <code>&lt;RenderingIntent.PERCEPTUAL: 0&gt;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>bpc</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Enable Black Point Compensation.</p>
+              </div>
+            </td>
+            <td>
+                  <code>True</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>as_pillow</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Return a PIL Image instead of a NumPy array.</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="typing.Union">Union</span>[<span title="numpy.ndarray">ndarray</span>, <span title="typing.Any">Any</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Transformed image in destination color space.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="pylibheif.color.nclx_to_icc_profile" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">pylibheif.color.nclx_to_icc_profile</span>
+
+
+<a href="#pylibheif.color.nclx_to_icc_profile" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">nclx_to_icc_profile</span><span class="p">(</span><span class="n">nclx</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Map NCLX/CICP parameters from HEIF/AVIF container to standard ICC profile bytes.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>nclx</code>
+            </td>
+            <td>
+                  <code><span title="typing.Any">Any</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>HeifColorProfileNclx instance or object with color_primaries attribute.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="bytes">bytes</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Canonical ICC profile bytes (Display P3, Rec.2020, or sRGB).</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="pylibheif.color.get_profile_info" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">pylibheif.color.get_profile_info</span>
+
+
+<a href="#pylibheif.color.get_profile_info" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">get_profile_info</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">profile</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">bytes</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Inspect and extract human-readable metadata from an ICC profile.</p>
+
+
+    </div>
+
+</div><hr />
+<h2 id="hdr-reconstruction-functions">HDR Reconstruction Functions<a class="headerlink" href="#hdr-reconstruction-functions" title="Permanent link">&para;</a></h2>
+
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="pylibheif.gain_map.reconstruct_hdr" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">pylibheif.gain_map.reconstruct_hdr</span>
+
+
+<a href="#pylibheif.gain_map.reconstruct_hdr" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">reconstruct_hdr</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">sdr_image</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">gain_map</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">metadata</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">GainMapMetadata</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">target_headroom</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">output_format</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;linear&quot;</span><span class="p">,</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">dtype</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="n">float32</span><span class="p">,</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">display_boost</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Reconstruct an HDR image from an SDR base image, Gain Map, and ISO 21496-1 metadata.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>sdr_image</code>
+            </td>
+            <td>
+                  <code><span title="typing.Any">Any</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>8-bit SDR image (numpy array shape (H, W, 3) or (H, W, 4), or PIL.Image).</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>gain_map</code>
+            </td>
+            <td>
+                  <code><span title="typing.Any">Any</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Gain Map image (1-channel monochrome or 3-channel RGB).</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>metadata</code>
+            </td>
+            <td>
+                  <code><span title="typing.Optional">Optional</span>[<a class="autorefs autorefs-internal" title="pylibheif.gain_map.GainMapMetadata" href="#pylibheif.gain_map.GainMapMetadata">GainMapMetadata</a>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>GainMapMetadata instance. If None, default 4x boost (2.0 stops) is used.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>target_headroom</code>
+            </td>
+            <td>
+                  <code><span title="typing.Optional">Optional</span>[<span title="float">float</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Desired display headroom multiplier (e.g. 2.0 or 4.0).
+             If None, uses metadata.hdr_capacity_max (full HDR capability).</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>output_format</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Output image format:
+- "linear" / "linear_float32" / "linear_float16": Normalized linear RGB light.
+- "pq" / "pq_uint16": Rec.2100 PQ ST 2084 integer format (uint16 array 0..65535).
+- "srgb_clip" / "srgb_uint8" / "srgb": Tonemapped back to standard 8-bit sRGB (uint8 array 0..255).</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;linear&#39;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>dtype</code>
+            </td>
+            <td>
+                  <code><span title="typing.Any">Any</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Numerical data type for linear computations (np.float32 or np.float16).</p>
+              </div>
+            </td>
+            <td>
+                  <code>float32</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>display_boost</code>
+            </td>
+            <td>
+                  <code><span title="typing.Optional">Optional</span>[<span title="float">float</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Alias for target_headroom.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Reconstructed HDR numpy array in the requested output_format.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="pylibheif.gain_map.parse_gain_map_metadata" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">pylibheif.gain_map.parse_gain_map_metadata</span>
+
+
+<a href="#pylibheif.gain_map.parse_gain_map_metadata" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">parse_gain_map_metadata</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">xmp_data</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">bytes</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">GainMapMetadata</span><span class="p">]</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Parse Gain Map metadata from XMP bytes or XML string.</p>
+<p>Supports:
+- ISO 21496-1 (urn:iso:std:iso:ts:21496-1 or http://iso.org/gainmap/1.0/)
+- Apple HDRGainMap (http://ns.apple.com/HDRGainMap/1.0/)
+- Adobe Ultra HDR (http://ns.adobe.com/hdr-gain-map/1.0/)</p>
+
+
+    </div>
+
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.tabs.link"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
