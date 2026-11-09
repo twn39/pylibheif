@@ -275,11 +275,81 @@ class TestEncoding:
         out_rgba = np.asarray(plane_rgba)
         np.testing.assert_array_equal(out_rgba, arr_rgba)
 
-        # Test errors
+        # Create dummy Monochrome 2D array (H, W)
+        arr_mono = np.zeros((80, 80), dtype=np.uint8)
+        arr_mono[20:60, 20:60] = 180
+        img_mono = pylibheif.HeifImage.from_numpy(arr_mono)
+        assert img_mono.width == 80
+        assert img_mono.height == 80
+        layout_mono = pylibheif.HeifImageLayout.from_image(img_mono)
+        assert layout_mono.colorspace == pylibheif.HeifColorspace.Monochrome
+        assert layout_mono.chroma == pylibheif.HeifChroma.Monochrome
+        plane_mono = img_mono.get_plane(pylibheif.HeifChannel.Y, False)
+        out_mono = np.asarray(plane_mono)
+        np.testing.assert_array_equal(out_mono, arr_mono)
+
+        # Create dummy Monochrome 3D array (H, W, 1)
+        arr_mono_3d = np.ones((40, 60, 1), dtype=np.uint8) * 120
+        img_mono_3d = pylibheif.HeifImage.from_numpy(arr_mono_3d)
+        assert img_mono_3d.width == 60
+        assert img_mono_3d.height == 40
+        layout_mono_3d = pylibheif.HeifImageLayout.from_image(img_mono_3d)
+        assert layout_mono_3d.colorspace == pylibheif.HeifColorspace.Monochrome
+        assert layout_mono_3d.chroma == pylibheif.HeifChroma.Monochrome
+        plane_mono_3d = img_mono_3d.get_plane(pylibheif.HeifChannel.Y, False)
+        out_mono_3d = np.asarray(plane_mono_3d)
+        np.testing.assert_array_equal(out_mono_3d, arr_mono_3d[:, :, 0])
+
+        # Create 16-bit 2D array (H, W)
+        arr_mono_16 = np.full((50, 50), 800, dtype=np.uint16)
+        img_mono_16 = pylibheif.HeifImage.from_numpy(arr_mono_16, bit_depth=10)
+        assert img_mono_16.width == 50
+        assert img_mono_16.height == 50
+        layout_mono_16 = pylibheif.HeifImageLayout.from_image(img_mono_16)
+        assert layout_mono_16.colorspace == pylibheif.HeifColorspace.Monochrome
+        assert layout_mono_16.chroma == pylibheif.HeifChroma.Monochrome
+        plane_mono_16 = img_mono_16.get_plane(pylibheif.HeifChannel.Y, False)
+        out_mono_16 = np.asarray(plane_mono_16)
+        np.testing.assert_array_equal(out_mono_16, arr_mono_16)
+
+        # Test errors (1D or invalid shapes)
         with pytest.raises(TypeError):
             pylibheif.HeifImage.from_numpy([1, 2, 3])  # type: ignore
-        with pytest.raises((ValueError, TypeError)):
-            pylibheif.HeifImage.from_numpy(np.zeros((100, 100), dtype=np.uint8))
+        with pytest.raises(ValueError):
+            pylibheif.HeifImage.from_numpy(np.zeros((100,), dtype=np.uint8))
+        with pytest.raises(ValueError):
+            pylibheif.HeifImage.from_numpy(np.zeros((10, 10, 5), dtype=np.uint8))
+
+    def test_encode_decode_monochrome(self):
+        """Test encoding and decoding a pure monochrome 2D image."""
+        import pylibheif
+        import numpy as np
+
+        arr = np.linspace(0, 255, 64 * 64, dtype=np.uint8).reshape((64, 64))
+        img = pylibheif.HeifImage.from_numpy(arr)
+
+        ctx = pylibheif.HeifContext()
+        encoder = pylibheif.HeifEncoder(pylibheif.HeifCompressionFormat.HEVC)
+        encoder.set_lossy_quality(90)
+        encoder.encode_image(ctx, img)
+
+        data = ctx.write_to_bytes()
+        assert len(data) > 0
+
+        # Decode back
+        ctx_read = pylibheif.HeifContext()
+        ctx_read.read_from_memory(data)
+        handle = ctx_read.get_primary_image_handle()
+        assert handle.width == 64
+        assert handle.height == 64
+
+        decoded = handle.decode(pylibheif.HeifColorspace.Monochrome, pylibheif.HeifChroma.Monochrome)
+        plane = decoded.get_plane(pylibheif.HeifChannel.Y, False)
+        out_arr = np.asarray(plane)
+        assert out_arr.shape == (64, 64)
+        # PSNR or close match for lossy compression
+        mae = np.mean(np.abs(out_arr.astype(float) - arr.astype(float)))
+        assert mae < 10.0
 
     def create_test_image(self, width=100, height=100):
         """创建测试图像"""

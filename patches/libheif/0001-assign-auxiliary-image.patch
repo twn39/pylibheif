@@ -45,7 +45,7 @@ index ad239e63..cd312b11 100644
  
  // DEPRECATED (because typo in function name). Use heif_image_handle_release_auxiliary_type() instead.
 diff --git a/libheif/context.cc b/libheif/context.cc
-index f433606a..86106c94 100644
+index 04e6566b..df19b486 100644
 --- a/libheif/context.cc
 +++ b/libheif/context.cc
 @@ -1831,6 +1831,28 @@ Error HeifContext::assign_thumbnail(const std::shared_ptr<ImageItem>& master_ima

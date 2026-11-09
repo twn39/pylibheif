@@ -16,45 +16,66 @@ namespace nb = nanobind;
 
 namespace pylibheif {
 
-HeifImage from_numpy_rgb_impl(nb::ndarray<uint8_t, nb::ndim<3>> arr) {
-    if (arr.ndim() != 3) {
-        throw std::invalid_argument("Array must be 3-dimensional (H, W, C)");
-    }
-    int height = static_cast<int>(arr.shape(0));
-    int width = static_cast<int>(arr.shape(1));
-    int channels = static_cast<int>(arr.shape(2));
+HeifImage from_numpy_rgb_impl(nb::ndarray<uint8_t, nb::ro> arr) {
+    int height = 0;
+    int width = 0;
+    int channels = 1;
+    int64_t stride_y = 0;
+    int64_t stride_x = 0;
+    int64_t stride_c = 0;
+    bool is_monochrome = false;
 
-    if (channels != 3 && channels != 4) {
-        throw std::invalid_argument("Array must have 3 (RGB) or 4 (RGBA) channels");
+    if (arr.ndim() == 2) {
+        height = static_cast<int>(arr.shape(0));
+        width = static_cast<int>(arr.shape(1));
+        channels = 1;
+        stride_y = arr.stride(0);
+        stride_x = arr.stride(1);
+        stride_c = 0;
+        is_monochrome = true;
+    } else if (arr.ndim() == 3) {
+        height = static_cast<int>(arr.shape(0));
+        width = static_cast<int>(arr.shape(1));
+        channels = static_cast<int>(arr.shape(2));
+        stride_y = arr.stride(0);
+        stride_x = arr.stride(1);
+        stride_c = arr.stride(2);
+        if (channels == 1) {
+            is_monochrome = true;
+        } else if (channels != 3 && channels != 4) {
+            throw std::invalid_argument("Array must have 1 (Monochrome), 3 (RGB), or 4 (RGBA) channels");
+        }
+    } else {
+        throw std::invalid_argument("Array must be 2-dimensional (H, W) or 3-dimensional (H, W, C)");
     }
 
-    heif_chroma chroma =
-        (channels == 4) ? heif_chroma_interleaved_RGBA : heif_chroma_interleaved_RGB;
+    heif_colorspace colorspace = is_monochrome ? heif_colorspace_monochrome : heif_colorspace_RGB;
+    heif_chroma chroma = is_monochrome ? heif_chroma_monochrome
+                         : (channels == 4) ? heif_chroma_interleaved_RGBA
+                                           : heif_chroma_interleaved_RGB;
+    heif_channel channel = is_monochrome ? heif_channel_Y : heif_channel_interleaved;
 
     heif_image* img_ptr = nullptr;
-    check_error(heif_image_create(width, height, heif_colorspace_RGB, chroma, &img_ptr));
+    check_error(heif_image_create(width, height, colorspace, chroma, &img_ptr));
     HeifImage img(img_ptr);
 
-    check_error(heif_image_add_plane(img_ptr, heif_channel_interleaved, width, height, 8));
+    check_error(heif_image_add_plane(img_ptr, channel, width, height, 8));
 
     int stride = 0;
-    uint8_t* dst = heif_image_get_plane(img_ptr, heif_channel_interleaved, &stride);
+    uint8_t* dst = heif_image_get_plane(img_ptr, channel, &stride);
     if (!dst) {
         throw std::runtime_error("Failed to get writable image plane");
     }
 
     const uint8_t* src = arr.data();
     const size_t row_bytes = static_cast<size_t>(width) * channels;
-    int64_t stride_y = arr.stride(0);
-    int64_t stride_x = arr.stride(1);
-    int64_t stride_c = arr.stride(2);
 
     {
         nb::gil_scoped_release release;
-        if (stride_x == channels && stride_c == 1) {
+        if (channels == 1 || (stride_x == channels && stride_c == 1)) {
             if (stride == static_cast<int>(row_bytes) &&
                 stride_y == static_cast<int64_t>(row_bytes)) {
-                // Contiguous copy
+                // Contiguous copy in a single memcpy
                 std::memcpy(dst, src, static_cast<size_t>(height) * row_bytes);
             } else {
                 // Copy row by row
@@ -81,33 +102,57 @@ HeifImage from_numpy_rgb_impl(nb::ndarray<uint8_t, nb::ndim<3>> arr) {
     return img;
 }
 
-HeifImage from_numpy_rgb_16_impl(nb::ndarray<uint16_t, nb::ndim<3>> arr, int bit_depth) {
-    if (arr.ndim() != 3) {
-        throw std::invalid_argument("Array must be 3-dimensional (H, W, C)");
-    }
-    int height = static_cast<int>(arr.shape(0));
-    int width = static_cast<int>(arr.shape(1));
-    int channels = static_cast<int>(arr.shape(2));
-
-    if (channels != 3 && channels != 4) {
-        throw std::invalid_argument("Array must have 3 (RGB) or 4 (RGBA) channels");
-    }
-
+HeifImage from_numpy_rgb_16_impl(nb::ndarray<uint16_t, nb::ro> arr, int bit_depth) {
     if (bit_depth < 9 || bit_depth > 16) {
         throw std::invalid_argument("Bit depth must be between 9 and 16");
     }
 
-    heif_chroma chroma =
-        (channels == 4) ? heif_chroma_interleaved_RRGGBBAA_LE : heif_chroma_interleaved_RRGGBB_LE;
+    int height = 0;
+    int width = 0;
+    int channels = 1;
+    int64_t stride_y = 0;
+    int64_t stride_x = 0;
+    int64_t stride_c = 0;
+    bool is_monochrome = false;
+
+    if (arr.ndim() == 2) {
+        height = static_cast<int>(arr.shape(0));
+        width = static_cast<int>(arr.shape(1));
+        channels = 1;
+        stride_y = arr.stride(0);
+        stride_x = arr.stride(1);
+        stride_c = 0;
+        is_monochrome = true;
+    } else if (arr.ndim() == 3) {
+        height = static_cast<int>(arr.shape(0));
+        width = static_cast<int>(arr.shape(1));
+        channels = static_cast<int>(arr.shape(2));
+        stride_y = arr.stride(0);
+        stride_x = arr.stride(1);
+        stride_c = arr.stride(2);
+        if (channels == 1) {
+            is_monochrome = true;
+        } else if (channels != 3 && channels != 4) {
+            throw std::invalid_argument("Array must have 1 (Monochrome), 3 (RGB), or 4 (RGBA) channels");
+        }
+    } else {
+        throw std::invalid_argument("Array must be 2-dimensional (H, W) or 3-dimensional (H, W, C)");
+    }
+
+    heif_colorspace colorspace = is_monochrome ? heif_colorspace_monochrome : heif_colorspace_RGB;
+    heif_chroma chroma = is_monochrome ? heif_chroma_monochrome
+                         : (channels == 4) ? heif_chroma_interleaved_RRGGBBAA_LE
+                                           : heif_chroma_interleaved_RRGGBB_LE;
+    heif_channel channel = is_monochrome ? heif_channel_Y : heif_channel_interleaved;
 
     heif_image* img_ptr = nullptr;
-    check_error(heif_image_create(width, height, heif_colorspace_RGB, chroma, &img_ptr));
+    check_error(heif_image_create(width, height, colorspace, chroma, &img_ptr));
     HeifImage img(img_ptr);
 
-    check_error(heif_image_add_plane(img_ptr, heif_channel_interleaved, width, height, bit_depth));
+    check_error(heif_image_add_plane(img_ptr, channel, width, height, bit_depth));
 
     int stride = 0;
-    uint8_t* dst_bytes = heif_image_get_plane(img_ptr, heif_channel_interleaved, &stride);
+    uint8_t* dst_bytes = heif_image_get_plane(img_ptr, channel, &stride);
     if (!dst_bytes) {
         throw std::runtime_error("Failed to get writable image plane");
     }
@@ -117,16 +162,13 @@ HeifImage from_numpy_rgb_16_impl(nb::ndarray<uint16_t, nb::ndim<3>> arr, int bit
 
     const uint16_t* src = arr.data();
     const size_t row_elements = static_cast<size_t>(width) * channels;
-    int64_t stride_y = arr.stride(0);
-    int64_t stride_x = arr.stride(1);
-    int64_t stride_c = arr.stride(2);
 
     {
         nb::gil_scoped_release release;
-        if (stride_x == channels && stride_c == 1) {
+        if (channels == 1 || (stride_x == channels && stride_c == 1)) {
             if (stride_elements == static_cast<int>(row_elements) &&
                 stride_y == static_cast<int64_t>(row_elements)) {
-                // Contiguous copy
+                // Contiguous copy in a single memcpy
                 std::memcpy(dst, src,
                             static_cast<size_t>(height) * row_elements * sizeof(uint16_t));
             } else {

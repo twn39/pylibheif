@@ -104,7 +104,10 @@ def to_pillow(
     else:
         raise TypeError(f"Expected HeifImage or HeifImageHandle, got {type(source)}")
 
-    plane = heif_image.get_plane(HeifChannel.Interleaved, writeable=False)
+    try:
+        plane = heif_image.get_plane(HeifChannel.Interleaved, writeable=False)
+    except Exception:
+        plane = heif_image.get_plane(HeifChannel.Y, writeable=False)
     arr = np.asarray(plane)
 
     # Handle high bit-depth (10-bit / 12-bit / 16-bit)
@@ -189,14 +192,19 @@ def from_pillow(
     if pil_image.mode in ("RGBA", "LA") or "transparency" in pil_image.info:
         im = pil_image.convert("RGBA")
         chroma = HeifChroma.InterleavedRGBA
-    elif pil_image.mode in ("RGB", "L"):
+        colorspace = HeifColorspace.RGB
+    elif pil_image.mode == "L":
         im = pil_image
-        if im.mode == "L":
-            im = im.convert("RGB")
+        chroma = HeifChroma.Monochrome
+        colorspace = HeifColorspace.Monochrome
+    elif pil_image.mode == "RGB":
+        im = pil_image
         chroma = HeifChroma.InterleavedRGB
+        colorspace = HeifColorspace.RGB
     else:
         im = pil_image.convert("RGB")
         chroma = HeifChroma.InterleavedRGB
+        colorspace = HeifColorspace.RGB
 
     # Fast direct buffer path when bit_depth == 8 and mode is standard 8-bit RGB/RGBA
     # Avoid im.tobytes() which allocates and copies memory for the entire image.
@@ -206,12 +214,12 @@ def from_pillow(
             arr,
             im.width,
             im.height,
-            HeifColorspace.RGB,
+            colorspace,
             chroma,
             bit_depth=8,
         )
     else:
-        # High bit-depth or non-standard format
+        # High bit-depth, monochrome L, or non-standard format
         if arr.dtype == np.uint16:
             heif_image = HeifImage.from_numpy(arr, bit_depth=bit_depth)
         else:

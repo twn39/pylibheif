@@ -1,5 +1,5 @@
 diff --git a/libheif/plugins/encoder_kvazaar.cc b/libheif/plugins/encoder_kvazaar.cc
-index 7affa6d2..8c711ec8 100644
+index dcad1eb8..e0f48639 100644
 --- a/libheif/plugins/encoder_kvazaar.cc
 +++ b/libheif/plugins/encoder_kvazaar.cc
 @@ -338,7 +338,13 @@ static void kvazaar_query_input_colorspace(heif_colorspace* colorspace, heif_chr

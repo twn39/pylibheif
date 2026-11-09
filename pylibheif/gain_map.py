@@ -944,7 +944,7 @@ def reconstruct_hdr(
         sdr_linear = _SRGB_TO_LINEAR_LUT_256[sdr_raw]
     else:
         sdr_f = sdr_raw.astype(np.float32)
-        if sdr_f.max() > 1.0:
+        if bool(np.max(sdr_f) > 1.0):
             sdr_f *= 1.0 / 255.0
         sdr_linear = srgb_to_linear(sdr_f)
 
@@ -953,7 +953,7 @@ def reconstruct_hdr(
         gm_norm = gm_raw.astype(np.float32) * (1.0 / 255.0)
     else:
         gm_norm = np.clip(gm_raw.astype(np.float32), 0.0, 1.0)
-        if gm_norm.max() > 1.0:
+        if bool(np.max(gm_norm) > 1.0):
             gm_norm *= 1.0 / 255.0
 
     # Check if monochrome: keep single-channel (66% less compute and memory)
@@ -1168,7 +1168,7 @@ class GainMap:
         decoded = self._aux_handle.decode(colorspace, chroma)
         plane = decoded.get_plane(channel)
         arr = np.asarray(plane).astype(np.float32)
-        if arr.max() > 1.0:
+        if bool(np.max(arr) > 1.0):
             arr /= 255.0
         return arr
 

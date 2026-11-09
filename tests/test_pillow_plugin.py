@@ -61,8 +61,9 @@ def test_from_pillow_grayscale_l():
     assert heif_img.width == 40
     assert heif_img.height == 40
     back = to_pillow(heif_img)
-    # Converted back through RGB
-    assert back.getpixel((5, 5)) == (180, 180, 180)
+    # Native grayscale L mode preserved
+    assert back.mode == "L"
+    assert back.getpixel((5, 5)) == 180
 
 
 def test_convenience_methods_on_heif_types():

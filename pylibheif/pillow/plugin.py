@@ -665,20 +665,7 @@ def _save(
             else:
                 depth_heif, _ = from_pillow(depth_input)
         elif isinstance(depth_input, np.ndarray):
-            if depth_input.ndim == 2:
-                h_d, w_d = depth_input.shape
-                depth_heif = HeifImage(
-                    w_d,
-                    h_d,
-                    HeifColorspace.Monochrome,
-                    HeifChroma.Monochrome,
-                )
-                b_depth = 16 if depth_input.dtype == np.uint16 else 8
-                depth_heif.add_plane(HeifChannel.Y, w_d, h_d, b_depth)
-                p = depth_heif.get_plane(HeifChannel.Y)
-                np.asarray(p)[:] = depth_input
-            else:
-                depth_heif = HeifImage.from_numpy(depth_input)
+            depth_heif = HeifImage.from_numpy(depth_input)
         elif hasattr(depth_input, "decode_image"):
             depth_heif = depth_input.decode_image()
         elif isinstance(depth_input, HeifImage):
@@ -774,9 +761,10 @@ def _save_heifs(
 
 def register_heif_opener() -> None:
     """Register pylibheif as the handler for HEIF / AVIF images in Pillow."""
-    Image.register_open(HeifImageFile.format, HeifImageFile, _accept)
-    handlers = {
-        HeifImageFile.format: _save_heif,
+    fmt_id: str = str(HeifImageFile.format or "HEIF")
+    Image.register_open(fmt_id, HeifImageFile, _accept)
+    handlers: dict[str, Any] = {
+        fmt_id: _save_heif,
         "AVIF": _save_avif,
         "HEIC": _save_heic,
         "HEIFS": _save_heifs,
@@ -790,12 +778,12 @@ def register_heif_opener() -> None:
             Image.SAVE_ALL[fmt] = handler
 
     Image.register_extensions(
-        HeifImageFile.format,
+        fmt_id,
         [".heic", ".heif", ".hif", ".heics", ".heifs", ".avif", ".avis"],
     )
-    Image.register_mime(HeifImageFile.format, "image/heic")
-    Image.register_mime(HeifImageFile.format, "image/heif")
-    Image.register_mime(HeifImageFile.format, "image/avif")
+    Image.register_mime(fmt_id, "image/heic")
+    Image.register_mime(fmt_id, "image/heif")
+    Image.register_mime(fmt_id, "image/avif")
 
 
 def unregister_heif_opener() -> None:

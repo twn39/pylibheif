@@ -97,9 +97,9 @@ def test_from_numpy_invalid_dtypes():
 
 def test_high_bit_depth_planes():
     """Test 6: 10-bit / 12-bit image planes return uint16 numpy arrays"""
-    # 10-bit RGB
+    # 10-bit RGB (requires InterleavedRRGGBB_LE for >8-bit interleaved)
     img = pylibheif.HeifImage(
-        10, 10, pylibheif.HeifColorspace.RGB, pylibheif.HeifChroma.InterleavedRGB
+        10, 10, pylibheif.HeifColorspace.RGB, pylibheif.HeifChroma.InterleavedRRGGBB_LE
     )
     img.add_plane(pylibheif.HeifChannel.Interleaved, 10, 10, 10)
 

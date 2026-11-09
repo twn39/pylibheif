@@ -400,7 +400,7 @@ def _numpy_color_transform_fallback(
     Supports Display P3 <-> sRGB bidirectional matrix mapping with sRGB EOTF.
     """
     arr = np.asarray(image).astype(np.float32)
-    max_val = 65535.0 if arr.dtype == np.uint16 or arr.max() > 255.0 else 255.0
+    max_val = 65535.0 if arr.dtype == np.uint16 or bool(np.max(arr) > 255.0) else 255.0
     arr_norm = arr / max_val
 
     alpha = None
