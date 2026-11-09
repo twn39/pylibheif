@@ -55,7 +55,7 @@ from ._pylibheif import (
     set_default_num_threads,
 )
 
-__version__ = "1.25.0"
+__version__ = "1.25.1"
 
 # Concurrency & thread budgeting
 from ._concurrency import (
