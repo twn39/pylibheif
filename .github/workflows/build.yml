@@ -81,8 +81,8 @@ jobs:
         if: runner.os == 'Windows'
         shell: bash
         run: |
-          uv venv
-          uv pip install meson ninja
+          uv tool install ninja
+          uv tool install meson
           for i in 1 2 3; do
             echo "Installing vcpkg dependencies (attempt $i/3)..."
             if vcpkg install x265 libde265 aom dav1d openjpeg libjpeg-turbo --triplet x64-windows-static-md --overlay-triplets=triplets; then
